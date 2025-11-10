@@ -43,6 +43,11 @@ cd /path/to/gameTracker
 php -S localhost:8000 router.php
 ```
 
+**Note**: If you need to upload images larger than 2MB, use the included `php.ini` file:
+```bash
+php -c php.ini -S localhost:8000 router.php
+```
+
 Then open your browser to `http://localhost:8000`
 
 ### Access from iPhone (Recommended: ngrok)
