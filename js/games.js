@@ -1512,6 +1512,7 @@ function setupEditFormUrlInputs() {
 function setupImageSplitTool() {
     let currentSplitImage = null;
     let currentSplitContext = null; // 'add' or 'edit'
+    let currentSplitImageUrl = null; // Store the image URL for source detection
     
     // Setup split buttons
     const addSplitBtn = document.getElementById('addFrontCoverSplitBtn');
@@ -1563,6 +1564,10 @@ function setupImageSplitTool() {
             fullSizeUrl = imageUrl.replace('_thumb', '');
         }
         
+        // Detect image source to determine split percentage
+        const isRedditImage = fullSizeUrl.includes('i.redd.it') || fullSizeUrl.includes('preview.redd.it');
+        const splitPercentage = isRedditImage ? 0.50 : 0.53; // Reddit: 50%, Covers Project: 53%
+        
         // Check if URL is external (needs proxy)
         const isExternalUrl = fullSizeUrl.startsWith('http://') || fullSizeUrl.startsWith('https://');
         const proxyUrl = isExternalUrl ? `api/image-proxy.php?url=${encodeURIComponent(fullSizeUrl)}` : fullSizeUrl;
@@ -1580,8 +1585,8 @@ function setupImageSplitTool() {
                 const imgWidth = img.width;
                 const imgHeight = img.height;
                 
-                // Vertical split at 53%
-                const splitX = Math.floor(imgWidth * 0.53);
+                // Vertical split at detected percentage
+                const splitX = Math.floor(imgWidth * splitPercentage);
                 
                 // Front cover (right side) - Full resolution
                 frontCanvas.width = imgWidth - splitX;
@@ -1624,6 +1629,7 @@ function setupImageSplitTool() {
     
     function openSplitModal(imageUrl, context) {
         currentSplitContext = context;
+        currentSplitImageUrl = imageUrl; // Store for auto-split detection
         const modal = document.getElementById('imageSplitModal');
         const previewImg = document.getElementById('splitImagePreview');
         const splitLine = document.getElementById('splitLine');
@@ -1643,12 +1649,38 @@ function setupImageSplitTool() {
         const isExternalUrl = fullSizeUrl.startsWith('http://') || fullSizeUrl.startsWith('https://');
         const proxyUrl = isExternalUrl ? `api/image-proxy.php?url=${encodeURIComponent(fullSizeUrl)}` : fullSizeUrl;
         
+        // Detect image source and set appropriate defaults
+        const isRedditImage = fullSizeUrl.includes('i.redd.it') || fullSizeUrl.includes('preview.redd.it');
+        const isCoversProject = fullSizeUrl.includes('thecoverproject.net');
+        
         // Load the image
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = function() {
             previewImg.src = proxyUrl;
             currentSplitImage = img;
+            
+            // Auto-configure based on image source
+            if (isRedditImage) {
+                // Reddit images are typically side-by-side (vertical split) at 50%
+                const verticalRadio = document.querySelector('input[name="splitDirection"][value="vertical"]');
+                if (verticalRadio) {
+                    verticalRadio.checked = true;
+                    verticalRadio.dispatchEvent(new Event('change'));
+                }
+                slider.value = 50;
+                positionValue.textContent = '50%';
+            } else if (isCoversProject) {
+                // The Covers Project uses 53% vertical split
+                const verticalRadio = document.querySelector('input[name="splitDirection"][value="vertical"]');
+                if (verticalRadio) {
+                    verticalRadio.checked = true;
+                    verticalRadio.dispatchEvent(new Event('change'));
+                }
+                slider.value = 53;
+                positionValue.textContent = '53%';
+            }
+            
             updateSplitPreview();
             showModal('imageSplitModal');
         };
@@ -1824,6 +1856,15 @@ function setupImageSplitTool() {
     const autoSplitBtn = document.getElementById('autoSplitBtn');
     if (autoSplitBtn) {
         autoSplitBtn.addEventListener('click', function() {
+            // Detect image source to determine split percentage
+            let splitPercentage = 53; // Default for The Covers Project
+            if (currentSplitImageUrl) {
+                const isRedditImage = currentSplitImageUrl.includes('i.redd.it') || currentSplitImageUrl.includes('preview.redd.it');
+                if (isRedditImage) {
+                    splitPercentage = 50; // Reddit images use 50%
+                }
+            }
+            
             // Set to vertical split
             const verticalRadio = document.querySelector('input[name="splitDirection"][value="vertical"]');
             if (verticalRadio) {
@@ -1831,13 +1872,13 @@ function setupImageSplitTool() {
                 verticalRadio.dispatchEvent(new Event('change'));
             }
             
-            // Set position to 53%
+            // Set position based on detected source
             const slider = document.getElementById('splitPositionSlider');
             const positionValue = document.getElementById('splitPositionValue');
             if (slider) {
-                slider.value = 53;
+                slider.value = splitPercentage;
                 if (positionValue) {
-                    positionValue.textContent = '53%';
+                    positionValue.textContent = splitPercentage + '%';
                 }
                 slider.dispatchEvent(new Event('input'));
             }
@@ -2177,22 +2218,53 @@ function updateFilters() {
     const platforms = [...new Set(allGames.map(g => g.platform).filter(Boolean))].sort();
     const genres = [...new Set(allGames.map(g => g.genre).filter(Boolean))].sort();
     
+    // Get saved filter state before updating
+    const saved = localStorage.getItem('gameFilters');
+    let savedPlatform = '';
+    let savedGenre = '';
+    if (saved) {
+        try {
+            const filterState = JSON.parse(saved);
+            savedPlatform = filterState.platform || '';
+            savedGenre = filterState.genre || '';
+        } catch (e) {
+            // Ignore parse errors
+        }
+    }
+    
     // Update platform filter
     const platformFilter = document.getElementById('platformFilter');
     if (platformFilter) {
-        const currentValue = platformFilter.value;
+        const currentValue = savedPlatform || platformFilter.value;
         platformFilter.innerHTML = '<option value="">All Platforms</option>' +
             platforms.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
-        platformFilter.value = currentValue;
+        // Restore saved value if it exists in the options
+        if (currentValue && platformFilter.querySelector(`option[value="${escapeHtml(currentValue)}"]`)) {
+            platformFilter.value = currentValue;
+        }
     }
     
     // Update genre filter
     const genreFilter = document.getElementById('genreFilter');
     if (genreFilter) {
-        const currentValue = genreFilter.value;
+        const currentValue = savedGenre || genreFilter.value;
         genreFilter.innerHTML = '<option value="">All Genres</option>' +
             genres.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
-        genreFilter.value = currentValue;
+        // Restore saved value if it exists in the options
+        if (currentValue && genreFilter.querySelector(`option[value="${escapeHtml(currentValue)}"]`)) {
+            genreFilter.value = currentValue;
+        }
+    }
+    
+    // Restore all filter state after dropdowns are updated
+    if (typeof restoreFilterState === 'function') {
+        setTimeout(() => {
+            restoreFilterState();
+            // Apply filters after restoring state
+            if (typeof applyFilters === 'function') {
+                applyFilters();
+            }
+        }, 50);
     }
 }
 
