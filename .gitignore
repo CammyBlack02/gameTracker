@@ -1,6 +1,8 @@
 # Database
 database/*.db
 database/*.db-journal
+*.db
+*.db-journal
 
 # Uploads
 uploads/*
