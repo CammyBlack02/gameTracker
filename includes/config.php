@@ -126,6 +126,22 @@ function initializeDatabase($pdo) {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )");
     
+    // Game completions table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS game_completions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER,
+        title TEXT NOT NULL,
+        platform TEXT,
+        time_taken TEXT,
+        date_started DATE,
+        date_completed DATE,
+        completion_year INTEGER,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL
+    )");
+    
     // Create default admin user if no users exist
     $stmt = $pdo->query("SELECT COUNT(*) as count FROM users");
     $result = $stmt->fetch();
