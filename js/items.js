@@ -14,10 +14,38 @@ document.addEventListener('DOMContentLoaded', function() {
         listBtn.addEventListener('click', function() {
             currentItemView = 'list';
             listBtn.classList.add('active');
-            gridBtn.classList.remove('active');
-            const container = document.getElementById('consolesContainer') || document.getElementById('accessoriesContainer');
-            if (container && currentItems.length > 0) {
-                displayItems(currentItems, container);
+            if (gridBtn) gridBtn.classList.remove('active');
+            
+            // Find the active container based on visible tab
+            let container = null;
+            const consolesTab = document.getElementById('consolesTab');
+            const accessoriesTab = document.getElementById('accessoriesTab');
+            
+            if (consolesTab && (consolesTab.classList.contains('active') || window.getComputedStyle(consolesTab).display !== 'none')) {
+                container = document.getElementById('consolesContainer');
+            } else if (accessoriesTab && (accessoriesTab.classList.contains('active') || window.getComputedStyle(accessoriesTab).display !== 'none')) {
+                container = document.getElementById('accessoriesContainer');
+            } else {
+                // Fallback: try both
+                container = document.getElementById('consolesContainer') || document.getElementById('accessoriesContainer');
+            }
+            
+            if (container) {
+                // If we have items in memory, use them; otherwise reload
+                if (currentItems.length > 0) {
+                    displayItems(currentItems, container);
+                } else {
+                    // Reload items for the current tab
+                    const activeTab = document.querySelector('.tab-button.active');
+                    if (activeTab) {
+                        const tabName = activeTab.dataset.tab;
+                        if (tabName === 'consoles') {
+                            loadItems('Systems');
+                        } else if (tabName === 'accessories') {
+                            loadItems('Controllers,Game Accessories,Toys To Life');
+                        }
+                    }
+                }
             }
         });
     }
@@ -26,10 +54,38 @@ document.addEventListener('DOMContentLoaded', function() {
         gridBtn.addEventListener('click', function() {
             currentItemView = 'grid';
             gridBtn.classList.add('active');
-            listBtn.classList.remove('active');
-            const container = document.getElementById('consolesContainer') || document.getElementById('accessoriesContainer');
-            if (container && currentItems.length > 0) {
-                displayItems(currentItems, container);
+            if (listBtn) listBtn.classList.remove('active');
+            
+            // Find the active container based on visible tab
+            let container = null;
+            const consolesTab = document.getElementById('consolesTab');
+            const accessoriesTab = document.getElementById('accessoriesTab');
+            
+            if (consolesTab && (consolesTab.classList.contains('active') || window.getComputedStyle(consolesTab).display !== 'none')) {
+                container = document.getElementById('consolesContainer');
+            } else if (accessoriesTab && (accessoriesTab.classList.contains('active') || window.getComputedStyle(accessoriesTab).display !== 'none')) {
+                container = document.getElementById('accessoriesContainer');
+            } else {
+                // Fallback: try both
+                container = document.getElementById('consolesContainer') || document.getElementById('accessoriesContainer');
+            }
+            
+            if (container) {
+                // If we have items in memory, use them; otherwise reload
+                if (currentItems.length > 0) {
+                    displayItems(currentItems, container);
+                } else {
+                    // Reload items for the current tab
+                    const activeTab = document.querySelector('.tab-button.active');
+                    if (activeTab) {
+                        const tabName = activeTab.dataset.tab;
+                        if (tabName === 'consoles') {
+                            loadItems('Systems');
+                        } else if (tabName === 'accessories') {
+                            loadItems('Controllers,Game Accessories,Toys To Life');
+                        }
+                    }
+                }
             }
         });
     }
@@ -102,6 +158,7 @@ window.loadItems = async function loadItems(category = '') {
             if (items.length === 0) {
                 container.innerHTML = '<div class="error">No items found in this category</div>';
             } else {
+                // Use the current view setting (grid or list)
                 displayItems(items, container);
             }
         } else {

@@ -319,6 +319,138 @@
             }
         }
         
+        // Setup image uploads for items
+        document.querySelectorAll('.upload-image-btn[data-target^="editItem"]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetId = this.dataset.target;
+                console.log('Upload button clicked, target:', targetId);
+                const fileInput = document.getElementById(targetId);
+                if (fileInput) {
+                    fileInput.click();
+                } else {
+                    console.error('File input not found:', targetId);
+                }
+            });
+        });
+        
+        // Handle front image upload
+        const frontImageInput = document.getElementById('editItemFrontImage');
+        if (frontImageInput) {
+            frontImageInput.addEventListener('change', async function() {
+                console.log('Front image file selected:', this.files);
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
+                    
+                    // Check file size (5MB limit - matches php.ini)
+                    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+                    if (file.size > maxSize) {
+                        showNotification('File is too large. Maximum size is 5MB. Please compress or resize the image.', 'error');
+                        this.value = ''; // Clear the input
+                        return;
+                    }
+                    
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    formData.append('type', 'cover');
+                    
+                    try {
+                        console.log('Sending upload request...');
+                        const response = await fetch('api/upload.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        console.log('Upload response status:', response.status);
+                        const data = await response.json();
+                        console.log('Upload response data:', data);
+                        
+                        if (data.success) {
+                            // Update the preview
+                            document.getElementById('itemFrontImagePreview').innerHTML = 
+                                `<img src="uploads/covers/${data.image_path}" alt="Front Image" style="max-width: 200px;">`;
+                            
+                            // Store the image path for form submission
+                            if (!window.currentItem) window.currentItem = {};
+                            window.currentItem.front_image = data.image_path;
+                            console.log('Image path stored:', data.image_path);
+                            
+                            showNotification('Front image uploaded successfully', 'success');
+                        } else {
+                            console.error('Upload failed:', data.message);
+                            showNotification(data.message || 'Failed to upload image', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error uploading image:', error);
+                        showNotification('Error uploading image: ' + error.message, 'error');
+                    }
+                } else {
+                    console.error('No file selected');
+                }
+            });
+        } else {
+            console.error('Front image input not found!');
+        }
+        
+        // Handle back image upload
+        const backImageInput = document.getElementById('editItemBackImage');
+        if (backImageInput) {
+            backImageInput.addEventListener('change', async function() {
+                console.log('Back image file selected:', this.files);
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
+                    
+                    // Check file size (5MB limit - matches php.ini)
+                    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+                    if (file.size > maxSize) {
+                        showNotification('File is too large. Maximum size is 5MB. Please compress or resize the image.', 'error');
+                        this.value = ''; // Clear the input
+                        return;
+                    }
+                    
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    formData.append('type', 'cover');
+                    
+                    try {
+                        console.log('Sending upload request...');
+                        const response = await fetch('api/upload.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        console.log('Upload response status:', response.status);
+                        const data = await response.json();
+                        console.log('Upload response data:', data);
+                        
+                        if (data.success) {
+                            // Update the preview
+                            document.getElementById('itemBackImagePreview').innerHTML = 
+                                `<img src="uploads/covers/${data.image_path}" alt="Back Image" style="max-width: 200px;">`;
+                            
+                            // Store the image path for form submission
+                            if (!window.currentItem) window.currentItem = {};
+                            window.currentItem.back_image = data.image_path;
+                            console.log('Image path stored:', data.image_path);
+                            
+                            showNotification('Back image uploaded successfully', 'success');
+                        } else {
+                            console.error('Upload failed:', data.message);
+                            showNotification(data.message || 'Failed to upload image', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error uploading image:', error);
+                        showNotification('Error uploading image: ' + error.message, 'error');
+                    }
+                } else {
+                    console.error('No file selected');
+                }
+            });
+        } else {
+            console.error('Back image input not found!');
+        }
+        
         // Setup form submission
         document.getElementById('editItemForm')?.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -333,9 +465,13 @@
                 notes: document.getElementById('editItemNotes').value || null,
                 price_paid: document.getElementById('editItemPricePaid').value || null,
                 pricecharting_price: document.getElementById('editItemPricechartingPrice').value || null,
-                front_image: window.currentItem.front_image || null,
-                back_image: window.currentItem.back_image || null
+                front_image: window.currentItem?.front_image || null,
+                back_image: window.currentItem?.back_image || null
             };
+            
+            console.log('Submitting form with data:', formData);
+            console.log('Current item front_image:', window.currentItem?.front_image);
+            console.log('Current item back_image:', window.currentItem?.back_image);
             
             try {
                 const response = await fetch('api/items.php?action=update', {
@@ -346,13 +482,16 @@
                     body: JSON.stringify(formData)
                 });
                 
+                console.log('Update response status:', response.status);
                 const data = await response.json();
+                console.log('Update response data:', data);
                 
                 if (data.success) {
                     showNotification('Item updated successfully', 'success');
                     hideModal('editItemModal');
                     loadItemDetail();
                 } else {
+                    console.error('Update failed:', data.message);
                     showNotification(data.message || 'Failed to update item', 'error');
                 }
             } catch (error) {
