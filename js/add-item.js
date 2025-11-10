@@ -265,6 +265,10 @@ async function performAutoSplitForItem(imageUrl) {
         fullSizeUrl = imageUrl.replace('_thumb', '');
     }
     
+    // Detect image source to determine split percentage
+    const isRedditImage = fullSizeUrl.includes('i.redd.it') || fullSizeUrl.includes('preview.redd.it');
+    const splitPercentage = isRedditImage ? 0.50 : 0.53; // Reddit: 50%, Covers Project: 53%
+    
     // Check if URL is external (needs proxy)
     const isExternalUrl = fullSizeUrl.startsWith('http://') || fullSizeUrl.startsWith('https://');
     const proxyUrl = isExternalUrl ? `api/image-proxy.php?url=${encodeURIComponent(fullSizeUrl)}` : fullSizeUrl;
@@ -282,8 +286,8 @@ async function performAutoSplitForItem(imageUrl) {
             const imgWidth = img.width;
             const imgHeight = img.height;
             
-            // Vertical split at 53%
-            const splitX = Math.floor(imgWidth * 0.53);
+            // Vertical split at detected percentage
+            const splitX = Math.floor(imgWidth * splitPercentage);
             
             // Front cover (right side) - Full resolution
             frontCanvas.width = imgWidth - splitX;

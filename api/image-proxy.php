@@ -22,30 +22,8 @@ if (!filter_var($url, FILTER_VALIDATE_URL)) {
     exit;
 }
 
-// Only allow certain domains for security
-$allowedDomains = [
-    'thecoverproject.net',
-    'coverproject.sfo2.cdn.digitaloceanspaces.com',
-    'thegamesdb.net',
-    'images.igdb.com'
-];
-
-$parsedUrl = parse_url($url);
-$host = isset($parsedUrl['host']) ? $parsedUrl['host'] : '';
-
-$isAllowed = false;
-foreach ($allowedDomains as $domain) {
-    if (strpos($host, $domain) !== false) {
-        $isAllowed = true;
-        break;
-    }
-}
-
-if (!$isAllowed) {
-    http_response_code(403);
-    echo 'Domain not allowed';
-    exit;
-}
+// Allow any domain - user is responsible for appropriate usage
+// Note: This proxy bypasses CORS restrictions for image loading
 
 // Fetch the image
 $ch = curl_init($url);

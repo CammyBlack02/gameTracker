@@ -38,7 +38,14 @@ try {
     // Initialize database tables
     initializeDatabase($pdo);
 } catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
+    // Check if we're in an API context (output buffering active and JSON header expected)
+    if (ob_get_level() > 0 && (php_sapi_name() === 'cli-server' || strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false)) {
+        // In API context, throw exception instead of die()
+        throw new Exception("Database connection failed: " . $e->getMessage());
+    } else {
+        // In regular page context, use die()
+        die("Database connection failed: " . $e->getMessage());
+    }
 }
 
 /**

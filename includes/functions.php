@@ -158,9 +158,23 @@ function generateUniqueFilename($originalName, $directory) {
  * Send JSON response
  */
 function sendJsonResponse($data, $statusCode = 200) {
+    // Clean output buffer if active (but don't end all buffers, just clean current level)
+    if (ob_get_level() > 0) {
+        ob_clean();
+    }
+    
     http_response_code($statusCode);
     header('Content-Type: application/json');
-    echo json_encode($data);
+    
+    // Use JSON encoding with error handling
+    $json = json_encode($data, JSON_UNESCAPED_SLASHES);
+    if ($json === false) {
+        error_log('JSON encode error: ' . json_last_error_msg());
+        // Fallback: try encoding without problematic data
+        $json = json_encode(['success' => false, 'message' => 'Failed to encode response data: ' . json_last_error_msg()], JSON_UNESCAPED_SLASHES);
+    }
+    
+    echo $json;
     exit;
 }
 
