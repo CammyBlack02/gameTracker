@@ -1,0 +1,29 @@
+# Database
+database/*.db
+database/*.db-journal
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# Certificates (if using HTTPS)
+certs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+/tmp/gametracker-*.log
+
+# Temporary files
+*.tmp
+*.temp
