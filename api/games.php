@@ -3,62 +3,116 @@
  * Games CRUD API endpoints
  */
 
-require_once __DIR__ . '/../includes/config.php';
+// Suppress error display and enable output buffering
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ob_start();
+
+// Load functions first so sendJsonResponse is available
 require_once __DIR__ . '/../includes/functions.php';
-require_once __DIR__ . '/../includes/auth-check.php';
 
-header('Content-Type: application/json');
+try {
+    // Check if database exists first
+    $dbPath = __DIR__ . '/../database/games.db';
+    if (!file_exists($dbPath)) {
+        sendJsonResponse(['success' => false, 'message' => 'Database not found'], 500);
+    }
+    
+    require_once __DIR__ . '/../includes/config.php';
+    
+    // Check if $pdo is available
+    if (!isset($pdo)) {
+        sendJsonResponse(['success' => false, 'message' => 'Database connection failed'], 500);
+    }
+    
+    // Manual authentication check for API (return JSON instead of redirect)
+    if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
+        sendJsonResponse(['success' => false, 'message' => 'Authentication required'], 401);
+    }
+    
+    header('Content-Type: application/json');
+} catch (Throwable $e) {
+    ob_clean();
+    error_log('Games API Error: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
+    sendJsonResponse(['success' => false, 'message' => 'Server error occurred: ' . $e->getMessage()], 500);
+}
 
-$action = $_GET['action'] ?? '';
-
-switch ($action) {
-    case 'list':
-        listGames();
-        break;
+try {
+    $action = $_GET['action'] ?? '';
     
-    case 'get':
-        getGame();
-        break;
-    
-    case 'create':
-        createGame();
-        break;
-    
-    case 'update':
-        updateGame();
-        break;
-    
-    case 'delete':
-        deleteGame();
-        break;
-    
-    default:
-        sendJsonResponse(['success' => false, 'message' => 'Invalid action'], 400);
+    switch ($action) {
+        case 'list':
+            listGames();
+            break;
+        
+        case 'get':
+            getGame();
+            break;
+        
+        case 'create':
+            createGame();
+            break;
+        
+        case 'update':
+            updateGame();
+            break;
+        
+        case 'delete':
+            deleteGame();
+            break;
+        
+        default:
+            sendJsonResponse(['success' => false, 'message' => 'Invalid action'], 400);
+    }
+} catch (Throwable $e) {
+    error_log('Games API Error in action handler: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
+    sendJsonResponse(['success' => false, 'message' => 'Server error occurred'], 500);
 }
 
 function listGames() {
     global $pdo;
     
-    $stmt = $pdo->query("
-        SELECT g.*, 
-               COUNT(gi.id) as extra_image_count
-        FROM games g
-        LEFT JOIN game_images gi ON g.id = gi.game_id
-        GROUP BY g.id
-        ORDER BY g.created_at DESC
-    ");
-    
-    $games = $stmt->fetchAll();
-    
-    // Convert boolean values
-    foreach ($games as &$game) {
-        $game['played'] = (bool)$game['played'];
-        $game['is_physical'] = (bool)$game['is_physical'];
-        $game['star_rating'] = $game['star_rating'] !== null ? (int)$game['star_rating'] : null;
-        $game['metacritic_rating'] = $game['metacritic_rating'] !== null ? (int)$game['metacritic_rating'] : null;
+    try {
+        if (!isset($pdo)) {
+            sendJsonResponse(['success' => false, 'message' => 'Database connection not available'], 500);
+            return;
+        }
+        
+        $stmt = $pdo->query("
+            SELECT g.*, 
+                   COUNT(gi.id) as extra_image_count
+            FROM games g
+            LEFT JOIN game_images gi ON g.id = gi.game_id
+            GROUP BY g.id
+            ORDER BY g.created_at DESC
+        ");
+        
+        if ($stmt === false) {
+            sendJsonResponse(['success' => false, 'message' => 'Database query failed'], 500);
+            return;
+        }
+        
+        $games = $stmt->fetchAll();
+        
+        // Increase memory limit for large responses with base64 images
+        ini_set('memory_limit', '512M');
+        
+        // Convert boolean values
+        foreach ($games as &$game) {
+            $game['played'] = (bool)$game['played'];
+            $game['is_physical'] = (bool)$game['is_physical'];
+            $game['star_rating'] = $game['star_rating'] !== null ? (int)$game['star_rating'] : null;
+            $game['metacritic_rating'] = $game['metacritic_rating'] !== null ? (int)$game['metacritic_rating'] : null;
+        }
+        
+        sendJsonResponse(['success' => true, 'games' => $games]);
+    } catch (Throwable $e) {
+        error_log('listGames Error: ' . $e->getMessage());
+        error_log('Stack trace: ' . $e->getTraceAsString());
+        sendJsonResponse(['success' => false, 'message' => 'Failed to load games: ' . $e->getMessage()], 500);
     }
-    
-    sendJsonResponse(['success' => true, 'games' => $games]);
 }
 
 function getGame() {

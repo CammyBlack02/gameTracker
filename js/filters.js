@@ -19,24 +19,117 @@ function setupFilters() {
     const playedFilter = document.getElementById('playedFilter');
     const sortSelect = document.getElementById('sortSelect');
     
+    // Restore saved filter state
+    restoreFilterState();
+    
     // Add event listeners
     if (searchInput) {
-        searchInput.addEventListener('input', applyFilters);
+        searchInput.addEventListener('input', function() {
+            saveFilterState();
+            applyFilters();
+        });
     }
     if (platformFilter) {
-        platformFilter.addEventListener('change', applyFilters);
+        platformFilter.addEventListener('change', function() {
+            saveFilterState();
+            applyFilters();
+        });
     }
     if (genreFilter) {
-        genreFilter.addEventListener('change', applyFilters);
+        genreFilter.addEventListener('change', function() {
+            saveFilterState();
+            applyFilters();
+        });
     }
     if (typeFilter) {
-        typeFilter.addEventListener('change', applyFilters);
+        typeFilter.addEventListener('change', function() {
+            saveFilterState();
+            applyFilters();
+        });
     }
     if (playedFilter) {
-        playedFilter.addEventListener('change', applyFilters);
+        playedFilter.addEventListener('change', function() {
+            saveFilterState();
+            applyFilters();
+        });
     }
     if (sortSelect) {
-        sortSelect.addEventListener('change', applyFilters);
+        sortSelect.addEventListener('change', function() {
+            saveFilterState();
+            applyFilters();
+        });
+    }
+}
+
+/**
+ * Save current filter state to localStorage
+ */
+function saveFilterState() {
+    const filterState = {
+        search: document.getElementById('searchInput')?.value || '',
+        platform: document.getElementById('platformFilter')?.value || '',
+        genre: document.getElementById('genreFilter')?.value || '',
+        type: document.getElementById('typeFilter')?.value || '',
+        played: document.getElementById('playedFilter')?.value || '',
+        sort: document.getElementById('sortSelect')?.value || 'newest'
+    };
+    localStorage.setItem('gameFilters', JSON.stringify(filterState));
+}
+
+/**
+ * Restore filter state from localStorage
+ */
+function restoreFilterState() {
+    const saved = localStorage.getItem('gameFilters');
+    if (!saved) return;
+    
+    try {
+        const filterState = JSON.parse(saved);
+        
+        const searchInput = document.getElementById('searchInput');
+        const platformFilter = document.getElementById('platformFilter');
+        const genreFilter = document.getElementById('genreFilter');
+        const typeFilter = document.getElementById('typeFilter');
+        const playedFilter = document.getElementById('playedFilter');
+        const sortSelect = document.getElementById('sortSelect');
+        
+        if (searchInput && filterState.search) {
+            searchInput.value = filterState.search;
+        }
+        if (platformFilter && filterState.platform) {
+            // Wait a bit for options to be populated, then set value
+            setTimeout(() => {
+                // Try to set the value - it will only work if the option exists
+                const oldValue = platformFilter.value;
+                platformFilter.value = filterState.platform;
+                // If value didn't change, the option doesn't exist, so restore old value
+                if (platformFilter.value !== filterState.platform && oldValue) {
+                    platformFilter.value = oldValue;
+                }
+            }, 100);
+        }
+        if (genreFilter && filterState.genre) {
+            setTimeout(() => {
+                // Try to set the value - it will only work if the option exists
+                const oldValue = genreFilter.value;
+                genreFilter.value = filterState.genre;
+                // If value didn't change, the option doesn't exist, so restore old value
+                if (genreFilter.value !== filterState.genre && oldValue) {
+                    genreFilter.value = oldValue;
+                }
+            }, 100);
+        }
+        if (typeFilter && filterState.type) {
+            typeFilter.value = filterState.type;
+        }
+        if (playedFilter && filterState.played) {
+            playedFilter.value = filterState.played;
+        }
+        if (sortSelect && filterState.sort) {
+            sortSelect.value = filterState.sort;
+        }
+    } catch (e) {
+        console.error('Error restoring filter state:', e);
     }
 }
 
