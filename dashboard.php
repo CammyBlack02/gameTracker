@@ -15,6 +15,7 @@
                 <button id="darkModeToggle" class="btn btn-secondary" title="Toggle Dark Mode">🌙</button>
                 <a href="settings.php" class="btn btn-secondary">Settings</a>
                 <button id="addGameBtn" class="btn btn-primary">+ Add Game</button>
+                <button id="addItemBtn" class="btn btn-primary" style="display: none;">+ Add Item</button>
                 <button id="logoutBtn" class="btn btn-secondary">Logout</button>
             </div>
         </header>
@@ -233,6 +234,13 @@
                         <input type="file" id="addFrontCover" name="front_cover" accept="image/*">
                         <div id="addFrontCoverPreview" class="image-preview"></div>
                         <button type="button" class="btn btn-small upload-image-btn" data-target="addFrontCover">Upload</button>
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 12px; color: #666;">Or enter URL:</label>
+                            <input type="url" id="addFrontCoverUrl" placeholder="https://example.com/cover.jpg" style="width: 100%; margin-top: 5px; padding: 5px;">
+                            <button type="button" class="btn btn-small" id="addFrontCoverUrlBtn" style="margin-top: 5px;">Use URL</button>
+                            <button type="button" class="btn btn-small" id="addFrontCoverSplitBtn" style="margin-top: 5px; display: none;">Split Combined Cover</button>
+                            <button type="button" class="btn btn-small" id="addFrontCoverAutoSplitBtn" style="margin-top: 5px; display: none;">Auto Split (53%)</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -242,6 +250,11 @@
                         <input type="file" id="addBackCover" name="back_cover" accept="image/*">
                         <div id="addBackCoverPreview" class="image-preview"></div>
                         <button type="button" class="btn btn-small upload-image-btn" data-target="addBackCover">Upload</button>
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 12px; color: #666;">Or enter URL:</label>
+                            <input type="url" id="addBackCoverUrl" placeholder="https://example.com/cover.jpg" style="width: 100%; margin-top: 5px; padding: 5px;">
+                            <button type="button" class="btn btn-small" id="addBackCoverUrlBtn" style="margin-top: 5px;">Use URL</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -253,10 +266,152 @@
         </div>
     </div>
     
+    <!-- Add Item Modal -->
+    <div id="addItemModal" class="modal" style="display: none;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Add New Item</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="addItemForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="addItemTitle">Title *</label>
+                        <input type="text" id="addItemTitle" name="title" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="addItemPlatform">Platform</label>
+                        <input type="text" id="addItemPlatform" name="platform">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="addItemCategory">Category *</label>
+                        <select id="addItemCategory" name="category" required>
+                            <option value="">Select Category</option>
+                            <option value="Systems">Systems</option>
+                            <option value="Controllers">Controllers</option>
+                            <option value="Game Accessories">Game Accessories</option>
+                            <option value="Toys To Life">Toys To Life</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="addItemCondition">Condition</label>
+                        <input type="text" id="addItemCondition" name="condition" placeholder="e.g., New, Like New, Good">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="addItemPricePaid">Price I Paid</label>
+                        <input type="number" id="addItemPricePaid" name="price_paid" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="addItemPricechartingPrice">Pricecharting Price</label>
+                        <input type="number" id="addItemPricechartingPrice" name="pricecharting_price" step="0.01" min="0">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="addItemDescription">Description</label>
+                    <textarea id="addItemDescription" name="description" rows="4"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="addItemNotes">Notes</label>
+                    <textarea id="addItemNotes" name="notes" rows="4"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Front Image</label>
+                    <div class="image-upload-container">
+                        <input type="file" id="addItemFrontImage" name="front_image" accept="image/*">
+                        <div id="addItemFrontImagePreview" class="image-preview"></div>
+                        <button type="button" class="btn btn-small upload-image-btn" data-target="addItemFrontImage">Upload</button>
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 12px; color: #666;">Or enter URL:</label>
+                            <input type="url" id="addItemFrontImageUrl" placeholder="https://example.com/image.jpg" style="width: 100%; margin-top: 5px; padding: 5px;">
+                            <button type="button" class="btn btn-small" id="addItemFrontImageUrlBtn" style="margin-top: 5px;">Use URL</button>
+                            <button type="button" class="btn btn-small" id="addItemFrontImageSplitBtn" style="margin-top: 5px; display: none;">Split Combined Cover</button>
+                            <button type="button" class="btn btn-small" id="addItemFrontImageAutoSplitBtn" style="margin-top: 5px; display: none;">Auto Split (53%)</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Back Image</label>
+                    <div class="image-upload-container">
+                        <input type="file" id="addItemBackImage" name="back_image" accept="image/*">
+                        <div id="addItemBackImagePreview" class="image-preview"></div>
+                        <button type="button" class="btn btn-small upload-image-btn" data-target="addItemBackImage">Upload</button>
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 12px; color: #666;">Or enter URL:</label>
+                            <input type="url" id="addItemBackImageUrl" placeholder="https://example.com/image.jpg" style="width: 100%; margin-top: 5px; padding: 5px;">
+                            <button type="button" class="btn btn-small" id="addItemBackImageUrlBtn" style="margin-top: 5px;">Use URL</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Image Split Modal -->
+    <div id="imageSplitModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>Split Combined Cover Image</h2>
+                <button type="button" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Adjust the slider to set where to split the image into front and back covers.</p>
+                <div style="text-align: center; margin: 20px 0;">
+                    <div id="splitImageContainer" style="position: relative; display: inline-block; max-width: 100%;">
+                        <img id="splitImagePreview" src="" alt="Combined Cover" style="max-width: 100%; max-height: 500px; display: block;">
+                        <div id="splitLine" style="position: absolute; top: 0; bottom: 0; width: 2px; background: red; pointer-events: none; display: none;"></div>
+                    </div>
+                </div>
+                <div style="margin: 20px 0;">
+                    <label>Split Position: <span id="splitPositionValue">50%</span></label>
+                    <input type="range" id="splitPositionSlider" min="0" max="100" value="50" style="width: 100%;">
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <label style="flex: 1;">
+                            <input type="radio" name="splitDirection" value="horizontal" checked> Split Horizontally (Top/Bottom)
+                        </label>
+                        <label style="flex: 1;">
+                            <input type="radio" name="splitDirection" value="vertical"> Split Vertically (Left/Right)
+                        </label>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <div style="flex: 1;">
+                        <label>Front Cover Preview:</label>
+                        <canvas id="frontSplitPreview" style="max-width: 100%; border: 1px solid #ddd; display: block;"></canvas>
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Back Cover Preview:</label>
+                        <canvas id="backSplitPreview" style="max-width: 100%; border: 1px solid #ddd; display: block;"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelSplitBtn">Cancel</button>
+                <button type="button" class="btn btn-secondary" id="autoSplitBtn">Auto Split (53%)</button>
+                <button type="button" class="btn btn-primary" id="applySplitBtn">Apply Split</button>
+            </div>
+        </div>
+    </div>
+    
     <script src="js/main.js"></script>
     <script src="js/games.js"></script>
     <script src="js/filters.js"></script>
     <script src="js/items.js"></script>
+    <script src="js/add-item.js"></script>
     <script>
         // Tab switching
         document.querySelectorAll('.tab-button').forEach(button => {
@@ -288,6 +443,17 @@
                 }
                 if (itemsToolbar) {
                     itemsToolbar.style.display = (tabName === 'consoles' || tabName === 'accessories') ? 'block' : 'none';
+                }
+                
+                // Show/hide add buttons
+                const addGameBtn = document.getElementById('addGameBtn');
+                const addItemBtn = document.getElementById('addItemBtn');
+                
+                if (addGameBtn) {
+                    addGameBtn.style.display = tabName === 'games' ? 'inline-block' : 'none';
+                }
+                if (addItemBtn) {
+                    addItemBtn.style.display = (tabName === 'consoles' || tabName === 'accessories') ? 'inline-block' : 'none';
                 }
                 
                 // Load appropriate data (use setTimeout to ensure DOM is updated)

@@ -182,6 +182,19 @@ function displayItems(items, container) {
 }
 
 /**
+ * Get image URL - handles both external URLs and local paths
+ */
+function getItemImageUrl(imagePath) {
+    if (!imagePath) return null;
+    // Check if it's already a full URL
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+        return imagePath;
+    }
+    // Otherwise, it's a local file
+    return `uploads/covers/${imagePath}`;
+}
+
+/**
  * Display items in grid view
  */
 function displayGridView(items, container) {
@@ -192,7 +205,7 @@ function displayGridView(items, container) {
             console.error('Item missing ID:', item);
         }
         const image = item.front_image 
-            ? `<img src="uploads/covers/${item.front_image}" alt="${escapeHtml(item.title)}" class="game-cover">`
+            ? `<img src="${getItemImageUrl(item.front_image)}" alt="${escapeHtml(item.title)}" class="game-cover">`
             : '<div class="game-cover-placeholder">No Image</div>';
         
         return `
@@ -287,7 +300,7 @@ function displayListView(items, container) {
                     <tr data-id="${itemId}">
                         <td class="game-title-cell">
                             ${item.front_image 
-                                ? `<img src="uploads/covers/${item.front_image}" alt="${escapeHtml(item.title)}" class="list-cover-thumb">`
+                                ? `<img src="${getItemImageUrl(item.front_image)}" alt="${escapeHtml(item.title)}" class="list-cover-thumb">`
                                 : ''}
                             <span>${escapeHtml(item.title)}</span>
                         </td>
