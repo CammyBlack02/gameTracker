@@ -143,6 +143,13 @@
                         <input type="file" id="editFrontCover" name="front_cover" accept="image/*">
                         <div id="frontCoverPreview" class="image-preview"></div>
                         <button type="button" class="btn btn-small upload-image-btn" data-target="editFrontCover">Upload</button>
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 12px; color: #666;">Or enter URL:</label>
+                            <input type="url" id="editFrontCoverUrl" placeholder="https://example.com/cover.jpg" style="width: 100%; margin-top: 5px; padding: 5px;">
+                            <button type="button" class="btn btn-small" id="editFrontCoverUrlBtn" style="margin-top: 5px;">Use URL</button>
+                            <button type="button" class="btn btn-small" id="editFrontCoverSplitBtn" style="margin-top: 5px; display: none;">Split Combined Cover</button>
+                            <button type="button" class="btn btn-small" id="editFrontCoverAutoSplitBtn" style="margin-top: 5px; display: none;">Auto Split (53%)</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -152,6 +159,11 @@
                         <input type="file" id="editBackCover" name="back_cover" accept="image/*">
                         <div id="backCoverPreview" class="image-preview"></div>
                         <button type="button" class="btn btn-small upload-image-btn" data-target="editBackCover">Upload</button>
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 12px; color: #666;">Or enter URL:</label>
+                            <input type="url" id="editBackCoverUrl" placeholder="https://example.com/cover.jpg" style="width: 100%; margin-top: 5px; padding: 5px;">
+                            <button type="button" class="btn btn-small" id="editBackCoverUrlBtn" style="margin-top: 5px;">Use URL</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -167,6 +179,52 @@
                     <button type="submit" class="btn btn-primary">Save Changes</button>
                 </div>
             </form>
+        </div>
+    </div>
+    
+    <!-- Image Split Modal -->
+    <div id="imageSplitModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>Split Combined Cover Image</h2>
+                <button type="button" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Adjust the slider to set where to split the image into front and back covers.</p>
+                <div style="text-align: center; margin: 20px 0;">
+                    <div id="splitImageContainer" style="position: relative; display: inline-block; max-width: 100%;">
+                        <img id="splitImagePreview" src="" alt="Combined Cover" style="max-width: 100%; max-height: 500px; display: block;">
+                        <div id="splitLine" style="position: absolute; top: 0; bottom: 0; width: 2px; background: red; pointer-events: none; display: none;"></div>
+                    </div>
+                </div>
+                <div style="margin: 20px 0;">
+                    <label>Split Position: <span id="splitPositionValue">50%</span></label>
+                    <input type="range" id="splitPositionSlider" min="0" max="100" value="50" style="width: 100%;">
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <label style="flex: 1;">
+                            <input type="radio" name="splitDirection" value="horizontal" checked> Split Horizontally (Top/Bottom)
+                        </label>
+                        <label style="flex: 1;">
+                            <input type="radio" name="splitDirection" value="vertical"> Split Vertically (Left/Right)
+                        </label>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <div style="flex: 1;">
+                        <label>Front Cover Preview:</label>
+                        <canvas id="frontSplitPreview" style="max-width: 100%; border: 1px solid #ddd; display: block;"></canvas>
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Back Cover Preview:</label>
+                        <canvas id="backSplitPreview" style="max-width: 100%; border: 1px solid #ddd; display: block;"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelSplitBtn">Cancel</button>
+                <button type="button" class="btn btn-secondary" id="autoSplitBtn">Auto Split (53%)</button>
+                <button type="button" class="btn btn-primary" id="applySplitBtn">Apply Split</button>
+            </div>
         </div>
     </div>
     

@@ -163,15 +163,28 @@
             }
         }
         
+        /**
+         * Get image URL - handles both external URLs and local paths
+         */
+        function getItemImageUrl(imagePath) {
+            if (!imagePath) return null;
+            // Check if it's already a full URL
+            if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+                return imagePath;
+            }
+            // Otherwise, it's a local file
+            return `uploads/covers/${imagePath}`;
+        }
+        
         function displayItemDetail(item) {
             const container = document.getElementById('itemDetailContainer');
             
             const frontImage = item.front_image 
-                ? `<img src="uploads/covers/${item.front_image}" alt="Front Image" class="cover-image">`
+                ? `<img src="${getItemImageUrl(item.front_image)}" alt="Front Image" class="cover-image">`
                 : '<div class="cover-placeholder">No Front Image</div>';
             
             const backImage = item.back_image 
-                ? `<img src="uploads/covers/${item.back_image}" alt="Back Image" class="cover-image">`
+                ? `<img src="${getItemImageUrl(item.back_image)}" alt="Back Image" class="cover-image">`
                 : '<div class="cover-placeholder">No Back Image</div>';
             
             const extraImages = item.extra_images && item.extra_images.length > 0
@@ -311,11 +324,11 @@
             
             if (item.front_image) {
                 document.getElementById('itemFrontImagePreview').innerHTML = 
-                    `<img src="uploads/covers/${item.front_image}" alt="Front Image" style="max-width: 200px;">`;
+                    `<img src="${getItemImageUrl(item.front_image)}" alt="Front Image" style="max-width: 200px;">`;
             }
             if (item.back_image) {
                 document.getElementById('itemBackImagePreview').innerHTML = 
-                    `<img src="uploads/covers/${item.back_image}" alt="Back Image" style="max-width: 200px;">`;
+                    `<img src="${getItemImageUrl(item.back_image)}" alt="Back Image" style="max-width: 200px;">`;
             }
         }
         

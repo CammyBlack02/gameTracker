@@ -72,6 +72,19 @@ function displayGames(games) {
 }
 
 /**
+ * Get image URL - handles both external URLs, data URLs, and local paths
+ */
+function getImageUrl(imagePath) {
+    if (!imagePath) return null;
+    // Check if it's already a full URL or data URL
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) {
+        return imagePath;
+    }
+    // Otherwise, it's a local file
+    return `uploads/covers/${imagePath}`;
+}
+
+/**
  * Display games in grid view
  */
 function displayGamesGridView(games, container) {
@@ -79,7 +92,7 @@ function displayGamesGridView(games, container) {
     container.className = 'games-container grid-view';
     const html = games.map(game => {
         const coverImage = game.front_cover_image 
-            ? `<img src="uploads/covers/${game.front_cover_image}" alt="${escapeHtml(game.title)}" class="game-cover">`
+            ? `<img src="${getImageUrl(game.front_cover_image)}" alt="${escapeHtml(game.title)}" class="game-cover">`
             : '<div class="game-cover-placeholder">No Cover</div>';
         
         return `
@@ -189,7 +202,7 @@ function displayGamesListView(games, container) {
                     <tr data-id="${game.id}" data-type="game">
                         <td class="game-title-cell">
                             ${game.front_cover_image 
-                                ? `<img src="uploads/covers/${game.front_cover_image}" alt="${escapeHtml(game.title)}" class="list-cover-thumb">`
+                                ? `<img src="${getImageUrl(game.front_cover_image)}" alt="${escapeHtml(game.title)}" class="list-cover-thumb">`
                                 : ''}
                             <span>${escapeHtml(game.title)}</span>
                         </td>
@@ -257,6 +270,13 @@ function setupAddGameForm() {
             if (form) form.reset();
             document.getElementById('addFrontCoverPreview').innerHTML = '';
             document.getElementById('addBackCoverPreview').innerHTML = '';
+            // Clear URL inputs
+            const frontUrlInput = document.getElementById('addFrontCoverUrl');
+            const backUrlInput = document.getElementById('addBackCoverUrl');
+            if (frontUrlInput) frontUrlInput.value = '';
+            if (backUrlInput) backUrlInput.value = '';
+            window.addGameFrontCover = null;
+            window.addGameBackCover = null;
             showModal('addGameModal');
         });
     }
@@ -275,6 +295,9 @@ function setupAddGameForm() {
     
     // Setup image uploads for add form
     setupAddFormImageUploads();
+    
+    // Setup URL inputs for add form
+    setupAddFormUrlInputs();
     
     if (form) {
         form.addEventListener('submit', async function(e) {
@@ -307,8 +330,21 @@ function setupAddGameForm() {
                 price_paid: pricePaid === 'N/A' ? null : (pricePaid || null),
                 pricecharting_price: pricechartingPrice === 'N/A' ? null : (pricechartingPrice || null),
                 is_physical: document.getElementById('addIsPhysical').checked ? 1 : 0,
-                front_cover_image: window.addGameFrontCover || null,
-                back_cover_image: window.addGameBackCover || null
+                // Get cover images - prefer URL if provided, otherwise use uploaded file
+                front_cover_image: (() => {
+                    const urlInput = document.getElementById('addFrontCoverUrl');
+                    if (urlInput && urlInput.value.trim()) {
+                        return urlInput.value.trim();
+                    }
+                    return window.addGameFrontCover || null;
+                })(),
+                back_cover_image: (() => {
+                    const urlInput = document.getElementById('addBackCoverUrl');
+                    if (urlInput && urlInput.value.trim()) {
+                        return urlInput.value.trim();
+                    }
+                    return window.addGameBackCover || null;
+                })()
             };
             
             try {
@@ -411,9 +447,13 @@ function setupCoverImageFetch() {
                 
                 if (data.success && data.image_url) {
                     console.log('Image URL found:', data.image_url);
-                    // Download and upload the image
-                    await downloadAndUploadCover(data.image_url, 'front');
-                    showNotification('Cover image fetched and uploaded!', 'success');
+                    // Store the URL directly instead of downloading
+                    const previewId = 'addFrontCoverPreview';
+                    document.getElementById(previewId).innerHTML = 
+                        `<img src="${data.image_url}" alt="Cover" style="max-width: 200px;">`;
+                    
+                    window.addGameFrontCover = data.image_url;
+                    showNotification('Cover image URL fetched!', 'success');
                 } else {
                     console.warn('No image URL in response:', data);
                     showNotification(data.message || 'Could not find cover image automatically. TheGamesDB API may be unavailable. Please upload manually.', 'error');
@@ -452,7 +492,7 @@ async function downloadAndUploadCover(imageUrl, type) {
         console.log('Download API response:', data);
         
         if (data.success && data.filename) {
-            console.log('Image downloaded successfully:', data.filename);
+            console.log('Image uploaded successfully:', data.filename);
             const previewId = type === 'front' ? 'addFrontCoverPreview' : 'addBackCoverPreview';
             document.getElementById(previewId).innerHTML = 
                 `<img src="uploads/covers/${data.filename}" alt="Cover" style="max-width: 200px;">`;
@@ -618,6 +658,110 @@ function setupMetadataFetching() {
 }
 
 /**
+ * Setup URL inputs for add form
+ */
+function setupAddFormUrlInputs() {
+    // Front cover URL
+    const frontUrlBtn = document.getElementById('addFrontCoverUrlBtn');
+    const frontUrlInput = document.getElementById('addFrontCoverUrl');
+    
+    if (frontUrlBtn && frontUrlInput) {
+        frontUrlBtn.addEventListener('click', function() {
+            const url = frontUrlInput.value.trim();
+            if (url) {
+                // Validate URL
+                try {
+                    new URL(url);
+                    // Show preview
+                    const preview = document.getElementById('addFrontCoverPreview');
+                    if (preview) {
+                        preview.innerHTML = `<img src="${url}" alt="Front Cover" style="max-width: 200px;" onerror="this.parentElement.innerHTML='<span style=\'color:red;\'>Invalid image URL</span>'">`;
+                    }
+                    // Store URL
+                    window.addGameFrontCover = url;
+                    
+                    // Show split buttons for external URLs (user can decide if they want to split)
+                    const splitBtn = document.getElementById('addFrontCoverSplitBtn');
+                    const autoSplitBtn = document.getElementById('addFrontCoverAutoSplitBtn');
+                    if (splitBtn) {
+                        splitBtn.style.display = 'inline-block';
+                        splitBtn.dataset.imageUrl = url;
+                    }
+                    if (autoSplitBtn) {
+                        autoSplitBtn.style.display = 'inline-block';
+                        autoSplitBtn.dataset.imageUrl = url;
+                    }
+                    
+                    // Optionally check aspect ratio to provide a hint
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = function() {
+                        const aspectRatio = this.width / this.height;
+                        // Combined covers are usually wider (aspect ratio > 1.3) or taller (aspect ratio < 0.7)
+                        // This is just for reference, button is already shown
+                        if (aspectRatio > 1.3 || aspectRatio < 0.7) {
+                            console.log('Image appears to be a combined cover (aspect ratio:', aspectRatio.toFixed(2), ')');
+                        }
+                    };
+                    img.onerror = function() {
+                        // If direct load fails, try with proxy (for CORS)
+                        const proxyUrl = `api/image-proxy.php?url=${encodeURIComponent(url)}`;
+                        img.src = proxyUrl;
+                    };
+                    img.src = url;
+                    
+                    showNotification('Front cover URL set!', 'success');
+                } catch (e) {
+                    showNotification('Invalid URL format', 'error');
+                }
+            }
+        });
+        
+        // Also allow Enter key
+        frontUrlInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                frontUrlBtn.click();
+            }
+        });
+    }
+    
+    // Back cover URL
+    const backUrlBtn = document.getElementById('addBackCoverUrlBtn');
+    const backUrlInput = document.getElementById('addBackCoverUrl');
+    
+    if (backUrlBtn && backUrlInput) {
+        backUrlBtn.addEventListener('click', function() {
+            const url = backUrlInput.value.trim();
+            if (url) {
+                // Validate URL
+                try {
+                    new URL(url);
+                    // Show preview
+                    const preview = document.getElementById('addBackCoverPreview');
+                    if (preview) {
+                        preview.innerHTML = `<img src="${url}" alt="Back Cover" style="max-width: 200px;" onerror="this.parentElement.innerHTML='<span style=\'color:red;\'>Invalid image URL</span>'">`;
+                    }
+                    // Store URL
+                    window.addGameBackCover = url;
+                    showNotification('Back cover URL set!', 'success');
+                } catch (e) {
+                    showNotification('Invalid URL format', 'error');
+                }
+            }
+        });
+        
+        // Also allow Enter key
+        backUrlInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                backUrlBtn.click();
+            }
+        });
+    }
+}
+
+/**
  * Setup image uploads for add form
  */
 function setupAddFormImageUploads() {
@@ -748,11 +892,11 @@ function displayGameDetail(game) {
     const container = document.getElementById('gameDetailContainer');
     
     const frontCover = game.front_cover_image 
-        ? `<img src="uploads/covers/${game.front_cover_image}" alt="Front Cover" class="cover-image">`
+        ? `<img src="${getImageUrl(game.front_cover_image)}" alt="Front Cover" class="cover-image">`
         : '<div class="cover-placeholder">No Front Cover</div>';
     
     const backCover = game.back_cover_image 
-        ? `<img src="uploads/covers/${game.back_cover_image}" alt="Back Cover" class="cover-image">`
+        ? `<img src="${getImageUrl(game.back_cover_image)}" alt="Back Cover" class="cover-image">`
         : '<div class="cover-placeholder">No Back Cover</div>';
     
     const extraImages = game.extra_images && game.extra_images.length > 0
@@ -1009,6 +1153,10 @@ function setupEditGameForm() {
     
     // Setup image uploads
     setupImageUploads();
+    setupEditFormUrlInputs();
+    
+    // Setup image split tool
+    setupImageSplitTool();
     
     // Setup price fetching
     setupPriceFetching();
@@ -1051,8 +1199,21 @@ function setupEditGameForm() {
                 price_paid: pricePaid || null,
                 pricecharting_price: pricechartingPrice || null,
                 is_physical: document.getElementById('editIsPhysical').checked ? 1 : 0,
-                front_cover_image: window.currentGame.front_cover_image || null,
-                back_cover_image: window.currentGame.back_cover_image || null
+                // Get cover images - prefer URL if provided, otherwise use uploaded file or existing
+                front_cover_image: (() => {
+                    const urlInput = document.getElementById('editFrontCoverUrl');
+                    if (urlInput && urlInput.value.trim()) {
+                        return urlInput.value.trim();
+                    }
+                    return window.currentGame.front_cover_image || null;
+                })(),
+                back_cover_image: (() => {
+                    const urlInput = document.getElementById('editBackCoverUrl');
+                    if (urlInput && urlInput.value.trim()) {
+                        return urlInput.value.trim();
+                    }
+                    return window.currentGame.back_cover_image || null;
+                })()
             };
             
             try {
@@ -1123,14 +1284,28 @@ function populateEditForm(game) {
         document.getElementById('editPricechartingPrice').disabled = false;
     }
     
-    // Display cover images
+    // Display cover images and populate URL fields if image is a URL
     if (game.front_cover_image) {
+        const frontUrlInput = document.getElementById('editFrontCoverUrl');
+        const isUrl = game.front_cover_image.startsWith('http://') || game.front_cover_image.startsWith('https://');
+        
+        if (isUrl && frontUrlInput) {
+            frontUrlInput.value = game.front_cover_image;
+        }
+        
         document.getElementById('frontCoverPreview').innerHTML = 
-            `<img src="uploads/covers/${game.front_cover_image}" alt="Front Cover" style="max-width: 200px;">`;
+            `<img src="${getImageUrl(game.front_cover_image)}" alt="Front Cover" style="max-width: 200px;">`;
     }
     if (game.back_cover_image) {
+        const backUrlInput = document.getElementById('editBackCoverUrl');
+        const isUrl = game.back_cover_image.startsWith('http://') || game.back_cover_image.startsWith('https://');
+        
+        if (isUrl && backUrlInput) {
+            backUrlInput.value = game.back_cover_image;
+        }
+        
         document.getElementById('backCoverPreview').innerHTML = 
-            `<img src="uploads/covers/${game.back_cover_image}" alt="Back Cover" style="max-width: 200px;">`;
+            `<img src="${getImageUrl(game.back_cover_image)}" alt="Back Cover" style="max-width: 200px;">`;
     }
     
     // Display extra images
@@ -1224,6 +1399,542 @@ function setupEditFormNACheckboxes() {
                 input.disabled = false;
             }
         });
+    }
+}
+
+/**
+ * Setup URL inputs for edit form
+ */
+function setupEditFormUrlInputs() {
+    // Front cover URL
+    const frontUrlBtn = document.getElementById('editFrontCoverUrlBtn');
+    const frontUrlInput = document.getElementById('editFrontCoverUrl');
+    
+    if (frontUrlBtn && frontUrlInput) {
+        frontUrlBtn.addEventListener('click', function() {
+            const url = frontUrlInput.value.trim();
+            if (url) {
+                // Validate URL
+                try {
+                    new URL(url);
+                    // Show preview
+                    const preview = document.getElementById('frontCoverPreview');
+                    if (preview) {
+                        preview.innerHTML = `<img src="${url}" alt="Front Cover" style="max-width: 200px;" onerror="this.parentElement.innerHTML='<span style=\'color:red;\'>Invalid image URL</span>'">`;
+                    }
+                    // Store URL
+                    window.currentGame.front_cover_image = url;
+                    
+                    // Show split buttons for external URLs (user can decide if they want to split)
+                    const splitBtn = document.getElementById('editFrontCoverSplitBtn');
+                    const autoSplitBtn = document.getElementById('editFrontCoverAutoSplitBtn');
+                    if (splitBtn) {
+                        splitBtn.style.display = 'inline-block';
+                        splitBtn.dataset.imageUrl = url;
+                    }
+                    if (autoSplitBtn) {
+                        autoSplitBtn.style.display = 'inline-block';
+                        autoSplitBtn.dataset.imageUrl = url;
+                    }
+                    
+                    // Optionally check aspect ratio to provide a hint
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = function() {
+                        const aspectRatio = this.width / this.height;
+                        // Combined covers are usually wider (aspect ratio > 1.3) or taller (aspect ratio < 0.7)
+                        // This is just for reference, button is already shown
+                        if (aspectRatio > 1.3 || aspectRatio < 0.7) {
+                            console.log('Image appears to be a combined cover (aspect ratio:', aspectRatio.toFixed(2), ')');
+                        }
+                    };
+                    img.onerror = function() {
+                        // If direct load fails, try with proxy (for CORS)
+                        const proxyUrl = `api/image-proxy.php?url=${encodeURIComponent(url)}`;
+                        img.src = proxyUrl;
+                    };
+                    img.src = url;
+                    
+                    showNotification('Front cover URL updated!', 'success');
+                } catch (e) {
+                    showNotification('Invalid URL format', 'error');
+                }
+            }
+        });
+        
+        // Also allow Enter key
+        frontUrlInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                frontUrlBtn.click();
+            }
+        });
+    }
+    
+    // Back cover URL
+    const backUrlBtn = document.getElementById('editBackCoverUrlBtn');
+    const backUrlInput = document.getElementById('editBackCoverUrl');
+    
+    if (backUrlBtn && backUrlInput) {
+        backUrlBtn.addEventListener('click', function() {
+            const url = backUrlInput.value.trim();
+            if (url) {
+                // Validate URL
+                try {
+                    new URL(url);
+                    // Show preview
+                    const preview = document.getElementById('backCoverPreview');
+                    if (preview) {
+                        preview.innerHTML = `<img src="${url}" alt="Back Cover" style="max-width: 200px;" onerror="this.parentElement.innerHTML='<span style=\'color:red;\'>Invalid image URL</span>'">`;
+                    }
+                    // Store URL
+                    window.currentGame.back_cover_image = url;
+                    showNotification('Back cover URL updated!', 'success');
+                } catch (e) {
+                    showNotification('Invalid URL format', 'error');
+                }
+            }
+        });
+        
+        // Also allow Enter key
+        backUrlInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                backUrlBtn.click();
+            }
+        });
+    }
+}
+
+/**
+ * Setup image split tool for combined front/back covers
+ */
+function setupImageSplitTool() {
+    let currentSplitImage = null;
+    let currentSplitContext = null; // 'add' or 'edit'
+    
+    // Setup split buttons
+    const addSplitBtn = document.getElementById('addFrontCoverSplitBtn');
+    const editSplitBtn = document.getElementById('editFrontCoverSplitBtn');
+    const addAutoSplitBtn = document.getElementById('addFrontCoverAutoSplitBtn');
+    const editAutoSplitBtn = document.getElementById('editFrontCoverAutoSplitBtn');
+    
+    if (addSplitBtn) {
+        addSplitBtn.addEventListener('click', function() {
+            const imageUrl = this.dataset.imageUrl;
+            if (imageUrl) {
+                openSplitModal(imageUrl, 'add');
+            }
+        });
+    }
+    
+    if (editSplitBtn) {
+        editSplitBtn.addEventListener('click', function() {
+            const imageUrl = this.dataset.imageUrl || window.currentGame?.front_cover_image;
+            if (imageUrl) {
+                openSplitModal(imageUrl, 'edit');
+            }
+        });
+    }
+    
+    // Setup auto split buttons
+    if (addAutoSplitBtn) {
+        addAutoSplitBtn.addEventListener('click', function() {
+            const imageUrl = this.dataset.imageUrl;
+            if (imageUrl) {
+                performAutoSplit(imageUrl, 'add');
+            }
+        });
+    }
+    
+    if (editAutoSplitBtn) {
+        editAutoSplitBtn.addEventListener('click', function() {
+            const imageUrl = this.dataset.imageUrl || window.currentGame?.front_cover_image;
+            if (imageUrl) {
+                performAutoSplit(imageUrl, 'edit');
+            }
+        });
+    }
+    
+    async function performAutoSplit(imageUrl, context) {
+        // Remove _thumb from URL to get full-size image
+        let fullSizeUrl = imageUrl;
+        if (imageUrl.includes('_thumb')) {
+            fullSizeUrl = imageUrl.replace('_thumb', '');
+        }
+        
+        // Check if URL is external (needs proxy)
+        const isExternalUrl = fullSizeUrl.startsWith('http://') || fullSizeUrl.startsWith('https://');
+        const proxyUrl = isExternalUrl ? `api/image-proxy.php?url=${encodeURIComponent(fullSizeUrl)}` : fullSizeUrl;
+        
+        // Load the image
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        
+        img.onload = async function() {
+            try {
+                // Create full resolution canvases
+                const frontCanvas = document.createElement('canvas');
+                const backCanvas = document.createElement('canvas');
+                
+                const imgWidth = img.width;
+                const imgHeight = img.height;
+                
+                // Vertical split at 53%
+                const splitX = Math.floor(imgWidth * 0.53);
+                
+                // Front cover (right side) - Full resolution
+                frontCanvas.width = imgWidth - splitX;
+                frontCanvas.height = imgHeight;
+                const frontCtx = frontCanvas.getContext('2d');
+                frontCtx.drawImage(img, splitX, 0, imgWidth - splitX, imgHeight, 0, 0, imgWidth - splitX, imgHeight);
+                
+                // Back cover (left side) - Full resolution
+                backCanvas.width = splitX;
+                backCanvas.height = imgHeight;
+                const backCtx = backCanvas.getContext('2d');
+                backCtx.drawImage(img, 0, 0, splitX, imgHeight, 0, 0, splitX, imgHeight);
+                
+                // Convert to data URLs
+                const frontDataUrl = frontCanvas.toDataURL('image/jpeg', 0.95);
+                const backDataUrl = backCanvas.toDataURL('image/jpeg', 0.95);
+                
+                // Store the split images
+                await uploadSplitImages(frontDataUrl, backDataUrl, context);
+                
+                showNotification('Cover images auto-split successfully!', 'success');
+            } catch (error) {
+                console.error('Error performing auto split:', error);
+                showNotification('Error performing auto split', 'error');
+            }
+        };
+        
+        img.onerror = function() {
+            // If full-size fails, try the original URL
+            if (fullSizeUrl !== imageUrl) {
+                const fallbackProxyUrl = isExternalUrl ? `api/image-proxy.php?url=${encodeURIComponent(imageUrl)}` : imageUrl;
+                img.src = fallbackProxyUrl;
+            } else {
+                showNotification('Failed to load image for auto split', 'error');
+            }
+        };
+        
+        img.src = proxyUrl;
+    }
+    
+    function openSplitModal(imageUrl, context) {
+        currentSplitContext = context;
+        const modal = document.getElementById('imageSplitModal');
+        const previewImg = document.getElementById('splitImagePreview');
+        const splitLine = document.getElementById('splitLine');
+        const slider = document.getElementById('splitPositionSlider');
+        const positionValue = document.getElementById('splitPositionValue');
+        const directionRadios = document.querySelectorAll('input[name="splitDirection"]');
+        
+        if (!modal || !previewImg) return;
+        
+        // Remove _thumb from URL to get full-size image (for The Covers Project)
+        let fullSizeUrl = imageUrl;
+        if (imageUrl.includes('_thumb')) {
+            fullSizeUrl = imageUrl.replace('_thumb', '');
+        }
+        
+        // Check if URL is external (needs proxy)
+        const isExternalUrl = fullSizeUrl.startsWith('http://') || fullSizeUrl.startsWith('https://');
+        const proxyUrl = isExternalUrl ? `api/image-proxy.php?url=${encodeURIComponent(fullSizeUrl)}` : fullSizeUrl;
+        
+        // Load the image
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() {
+            previewImg.src = proxyUrl;
+            currentSplitImage = img;
+            updateSplitPreview();
+            showModal('imageSplitModal');
+        };
+        img.onerror = function() {
+            // If full-size fails, try the original URL
+            if (fullSizeUrl !== imageUrl) {
+                const fallbackProxyUrl = isExternalUrl ? `api/image-proxy.php?url=${encodeURIComponent(imageUrl)}` : imageUrl;
+                img.src = fallbackProxyUrl;
+            } else {
+                showNotification('Failed to load image. Please try again.', 'error');
+            }
+        };
+        img.src = proxyUrl;
+        
+        // Update split line and preview on slider change
+        slider.addEventListener('input', function() {
+            const position = parseInt(this.value);
+            positionValue.textContent = position + '%';
+            updateSplitLine();
+            updateSplitPreview();
+        });
+        
+        // Update on direction change
+        directionRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                updateSplitLine();
+                updateSplitPreview();
+            });
+        });
+        
+        function updateSplitLine() {
+            if (!previewImg.complete) return;
+            
+            const direction = document.querySelector('input[name="splitDirection"]:checked')?.value || 'horizontal';
+            const position = parseInt(slider.value);
+            const rect = previewImg.getBoundingClientRect();
+            
+            splitLine.style.display = 'block';
+            
+            if (direction === 'vertical') {
+                // Vertical split (left/right)
+                const leftPercent = position;
+                splitLine.style.left = (leftPercent / 100 * rect.width) + 'px';
+                splitLine.style.top = '0';
+                splitLine.style.bottom = '0';
+                splitLine.style.width = '2px';
+                splitLine.style.height = '100%';
+            } else {
+                // Horizontal split (top/bottom)
+                const topPercent = position;
+                splitLine.style.top = (topPercent / 100 * rect.height) + 'px';
+                splitLine.style.left = '0';
+                splitLine.style.right = '0';
+                splitLine.style.width = '100%';
+                splitLine.style.height = '2px';
+            }
+        }
+        
+        function updateSplitPreview() {
+            if (!currentSplitImage || !previewImg.complete) return;
+            
+            const direction = document.querySelector('input[name="splitDirection"]:checked')?.value || 'horizontal';
+            const position = parseInt(slider.value) / 100;
+            
+            const frontCanvas = document.getElementById('frontSplitPreview');
+            const backCanvas = document.getElementById('backSplitPreview');
+            
+            if (!frontCanvas || !backCanvas) return;
+            
+            const imgWidth = currentSplitImage.width;
+            const imgHeight = currentSplitImage.height;
+            
+            // Store full resolution canvases separately for export
+            if (!window.splitFrontCanvas) {
+                window.splitFrontCanvas = document.createElement('canvas');
+            }
+            if (!window.splitBackCanvas) {
+                window.splitBackCanvas = document.createElement('canvas');
+            }
+            
+            if (direction === 'vertical') {
+                // Split left/right
+                const splitX = Math.floor(imgWidth * position);
+                
+                // Front cover (right side) - Full resolution
+                window.splitFrontCanvas.width = imgWidth - splitX;
+                window.splitFrontCanvas.height = imgHeight;
+                const frontCtxFull = window.splitFrontCanvas.getContext('2d');
+                frontCtxFull.drawImage(currentSplitImage, splitX, 0, imgWidth - splitX, imgHeight, 0, 0, imgWidth - splitX, imgHeight);
+                
+                // Back cover (left side) - Full resolution
+                window.splitBackCanvas.width = splitX;
+                window.splitBackCanvas.height = imgHeight;
+                const backCtxFull = window.splitBackCanvas.getContext('2d');
+                backCtxFull.drawImage(currentSplitImage, 0, 0, splitX, imgHeight, 0, 0, splitX, imgHeight);
+                
+                // Preview canvases (scaled for display)
+                const maxPreviewSize = 300;
+                const frontScale = Math.min(1, maxPreviewSize / (imgWidth - splitX));
+                const backScale = Math.min(1, maxPreviewSize / splitX);
+                
+                frontCanvas.width = (imgWidth - splitX) * frontScale;
+                frontCanvas.height = imgHeight * frontScale;
+                const frontCtx = frontCanvas.getContext('2d');
+                frontCtx.drawImage(window.splitFrontCanvas, 0, 0, frontCanvas.width, frontCanvas.height);
+                
+                backCanvas.width = splitX * backScale;
+                backCanvas.height = imgHeight * backScale;
+                const backCtx = backCanvas.getContext('2d');
+                backCtx.drawImage(window.splitBackCanvas, 0, 0, backCanvas.width, backCanvas.height);
+            } else {
+                // Split top/bottom
+                const splitY = Math.floor(imgHeight * position);
+                
+                // Front cover (bottom side) - Full resolution
+                window.splitFrontCanvas.width = imgWidth;
+                window.splitFrontCanvas.height = imgHeight - splitY;
+                const frontCtxFull = window.splitFrontCanvas.getContext('2d');
+                frontCtxFull.drawImage(currentSplitImage, 0, splitY, imgWidth, imgHeight - splitY, 0, 0, imgWidth, imgHeight - splitY);
+                
+                // Back cover (top side) - Full resolution
+                window.splitBackCanvas.width = imgWidth;
+                window.splitBackCanvas.height = splitY;
+                const backCtxFull = window.splitBackCanvas.getContext('2d');
+                backCtxFull.drawImage(currentSplitImage, 0, 0, imgWidth, splitY, 0, 0, imgWidth, splitY);
+                
+                // Preview canvases (scaled for display)
+                const maxPreviewSize = 300;
+                const frontScale = Math.min(1, maxPreviewSize / (imgHeight - splitY));
+                const backScale = Math.min(1, maxPreviewSize / splitY);
+                
+                frontCanvas.width = imgWidth * frontScale;
+                frontCanvas.height = (imgHeight - splitY) * frontScale;
+                const frontCtx = frontCanvas.getContext('2d');
+                frontCtx.drawImage(window.splitFrontCanvas, 0, 0, frontCanvas.width, frontCanvas.height);
+                
+                backCanvas.width = imgWidth * backScale;
+                backCanvas.height = splitY * backScale;
+                const backCtx = backCanvas.getContext('2d');
+                backCtx.drawImage(window.splitBackCanvas, 0, 0, backCanvas.width, backCanvas.height);
+            }
+        }
+        
+        // Wait for image to load before updating
+        previewImg.onload = function() {
+            updateSplitLine();
+            updateSplitPreview();
+        };
+    }
+    
+    // Apply split button
+    const applyBtn = document.getElementById('applySplitBtn');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function() {
+            // Use full resolution canvases if available, otherwise use preview canvases
+            const frontCanvas = window.splitFrontCanvas || document.getElementById('frontSplitPreview');
+            const backCanvas = window.splitBackCanvas || document.getElementById('backSplitPreview');
+            
+            if (!frontCanvas || !backCanvas) return;
+            
+            // Convert canvases to data URLs at high quality
+            const frontDataUrl = frontCanvas.toDataURL('image/jpeg', 0.95);
+            const backDataUrl = backCanvas.toDataURL('image/jpeg', 0.95);
+            
+            // Upload both images
+            uploadSplitImages(frontDataUrl, backDataUrl, currentSplitContext);
+            
+            hideModal('imageSplitModal');
+        });
+    }
+    
+    // Auto Split button
+    const autoSplitBtn = document.getElementById('autoSplitBtn');
+    if (autoSplitBtn) {
+        autoSplitBtn.addEventListener('click', function() {
+            // Set to vertical split
+            const verticalRadio = document.querySelector('input[name="splitDirection"][value="vertical"]');
+            if (verticalRadio) {
+                verticalRadio.checked = true;
+                verticalRadio.dispatchEvent(new Event('change'));
+            }
+            
+            // Set position to 53%
+            const slider = document.getElementById('splitPositionSlider');
+            const positionValue = document.getElementById('splitPositionValue');
+            if (slider) {
+                slider.value = 53;
+                if (positionValue) {
+                    positionValue.textContent = '53%';
+                }
+                slider.dispatchEvent(new Event('input'));
+            }
+            
+            // Automatically apply the split after a brief moment
+            setTimeout(function() {
+                const applyBtn = document.getElementById('applySplitBtn');
+                if (applyBtn) {
+                    applyBtn.click();
+                }
+            }, 100);
+        });
+    }
+    
+    // Cancel button
+    const cancelBtn = document.getElementById('cancelSplitBtn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            hideModal('imageSplitModal');
+        });
+    }
+    
+    // Close modal on X button
+    const closeBtn = document.querySelector('#imageSplitModal .modal-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            hideModal('imageSplitModal');
+        });
+    }
+    
+    async function uploadSplitImages(frontDataUrl, backDataUrl, context) {
+        try {
+            // Store data URLs directly (no local file storage)
+            // Data URLs are base64-encoded images that can be stored in the database
+            if (context === 'add') {
+                window.addGameFrontCover = frontDataUrl;
+                window.addGameBackCover = backDataUrl;
+                
+                // Update previews
+                document.getElementById('addFrontCoverPreview').innerHTML = 
+                    `<img src="${frontDataUrl}" alt="Front Cover" style="max-width: 200px;">`;
+                document.getElementById('addBackCoverPreview').innerHTML = 
+                    `<img src="${backDataUrl}" alt="Back Cover" style="max-width: 200px;">`;
+                
+                // Clear URL inputs
+                document.getElementById('addFrontCoverUrl').value = '';
+                document.getElementById('addBackCoverUrl').value = '';
+                document.getElementById('addFrontCoverSplitBtn').style.display = 'none';
+                document.getElementById('addFrontCoverAutoSplitBtn').style.display = 'none';
+            } else if (context === 'add-item') {
+                window.addItemFrontImage = frontDataUrl;
+                window.addItemBackImage = backDataUrl;
+                
+                // Update previews
+                document.getElementById('addItemFrontImagePreview').innerHTML = 
+                    `<img src="${frontDataUrl}" alt="Front Image" style="max-width: 200px;">`;
+                document.getElementById('addItemBackImagePreview').innerHTML = 
+                    `<img src="${backDataUrl}" alt="Back Image" style="max-width: 200px;">`;
+                
+                // Clear URL inputs
+                document.getElementById('addItemFrontImageUrl').value = '';
+                document.getElementById('addItemBackImageUrl').value = '';
+                document.getElementById('addItemFrontImageSplitBtn').style.display = 'none';
+                document.getElementById('addItemFrontImageAutoSplitBtn').style.display = 'none';
+            } else {
+                window.currentGame.front_cover_image = frontDataUrl;
+                window.currentGame.back_cover_image = backDataUrl;
+                
+                // Update previews
+                document.getElementById('frontCoverPreview').innerHTML = 
+                    `<img src="${frontDataUrl}" alt="Front Cover" style="max-width: 200px;">`;
+                document.getElementById('backCoverPreview').innerHTML = 
+                    `<img src="${backDataUrl}" alt="Back Cover" style="max-width: 200px;">`;
+                
+                // Clear URL inputs
+                document.getElementById('editFrontCoverUrl').value = '';
+                document.getElementById('editBackCoverUrl').value = '';
+                document.getElementById('editFrontCoverSplitBtn').style.display = 'none';
+            }
+            
+            showNotification('Cover images split successfully! (Stored as data URLs - no local files)', 'success');
+        } catch (error) {
+            console.error('Error processing split images:', error);
+            showNotification('Error processing split images', 'error');
+        }
+    }
+    
+    function dataURLtoBlob(dataURL) {
+        const arr = dataURL.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], { type: mime });
     }
 }
 
