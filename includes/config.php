@@ -1,0 +1,134 @@
+<?php
+/**
+ * Configuration file for Game Tracker
+ * Database connection and settings
+ */
+
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Database configuration
+define('DB_PATH', __DIR__ . '/../database/games.db');
+define('UPLOAD_DIR', __DIR__ . '/../uploads/');
+define('COVERS_DIR', UPLOAD_DIR . 'covers/');
+define('EXTRAS_DIR', UPLOAD_DIR . 'extras/');
+
+// Create directories if they don't exist
+if (!file_exists(__DIR__ . '/../database')) {
+    mkdir(__DIR__ . '/../database', 0755, true);
+}
+if (!file_exists(UPLOAD_DIR)) {
+    mkdir(UPLOAD_DIR, 0755, true);
+}
+if (!file_exists(COVERS_DIR)) {
+    mkdir(COVERS_DIR, 0755, true);
+}
+if (!file_exists(EXTRAS_DIR)) {
+    mkdir(EXTRAS_DIR, 0755, true);
+}
+
+// Database connection
+try {
+    $pdo = new PDO('sqlite:' . DB_PATH);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    
+    // Initialize database tables
+    initializeDatabase($pdo);
+} catch (PDOException $e) {
+    die("Database connection failed: " . $e->getMessage());
+}
+
+/**
+ * Initialize database tables if they don't exist
+ */
+function initializeDatabase($pdo) {
+    // Users table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+    
+    // Games table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS games (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        genre TEXT,
+        description TEXT,
+        series TEXT,
+        special_edition TEXT,
+        condition TEXT,
+        review TEXT,
+        star_rating INTEGER,
+        metacritic_rating INTEGER,
+        played INTEGER DEFAULT 0,
+        price_paid DECIMAL(10,2),
+        pricecharting_price DECIMAL(10,2),
+        is_physical INTEGER DEFAULT 1,
+        front_cover_image TEXT,
+        back_cover_image TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+    
+    // Game images table (for extra photos)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS game_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER NOT NULL,
+        image_path TEXT NOT NULL,
+        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+    )");
+    
+    // Consoles and accessories table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        platform TEXT,
+        category TEXT NOT NULL,
+        description TEXT,
+        condition TEXT,
+        price_paid DECIMAL(10,2),
+        pricecharting_price DECIMAL(10,2),
+        front_image TEXT,
+        back_image TEXT,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+    
+    // Item images table (for extra photos)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS item_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id INTEGER NOT NULL,
+        image_path TEXT NOT NULL,
+        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
+    )");
+    
+    // Settings table (for background image, etc.)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        setting_key TEXT UNIQUE NOT NULL,
+        setting_value TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+    
+    // Create default admin user if no users exist
+    $stmt = $pdo->query("SELECT COUNT(*) as count FROM users");
+    $result = $stmt->fetch();
+    
+    if ($result['count'] == 0) {
+        // Default username: admin, password: admin (change this after first login!)
+        $username = 'admin';
+        $password = password_hash('admin', PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
+        $stmt->execute([$username, $password]);
+    }
+}
+
