@@ -137,6 +137,21 @@
                     </div>
                 </div>
                 
+                <div class="form-group" id="editDigitalStoreGroup" style="display: none;">
+                    <label for="editDigitalStore">Digital Store (PC Only)</label>
+                    <select id="editDigitalStore" name="digital_store" class="form-input">
+                        <option value="">None</option>
+                        <option value="Steam">Steam</option>
+                        <option value="EA App">EA App</option>
+                        <option value="GOG">GOG</option>
+                        <option value="Epic Games">Epic Games</option>
+                        <option value="Battle.net">Battle.net</option>
+                        <option value="Ubisoft Connect">Ubisoft Connect</option>
+                        <option value="Microsoft Store">Microsoft Store</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                
                 <div class="form-group">
                     <label>Front Cover Image</label>
                     <div class="image-upload-container">
