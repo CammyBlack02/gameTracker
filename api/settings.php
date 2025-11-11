@@ -25,6 +25,10 @@ switch ($action) {
         removeBackgroundImage();
         break;
     
+    case 'set_steam':
+        setSteamCredentials();
+        break;
+    
     default:
         sendJsonResponse(['success' => false, 'message' => 'Invalid action'], 400);
 }
@@ -103,5 +107,43 @@ function removeBackgroundImage() {
     $stmt->execute();
     
     sendJsonResponse(['success' => true, 'message' => 'Background image removed']);
+}
+
+function setSteamCredentials() {
+    global $pdo;
+    
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
+    }
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    $apiKey = $data['steam_api_key'] ?? '';
+    $steamId = $data['steam_user_id'] ?? '';
+    
+    if (empty($apiKey) || empty($steamId)) {
+        sendJsonResponse(['success' => false, 'message' => 'Steam API key and Steam ID are required'], 400);
+    }
+    
+    // Save Steam API key
+    $stmt = $pdo->prepare("
+        INSERT INTO settings (setting_key, setting_value) 
+        VALUES ('steam_api_key', ?)
+        ON CONFLICT(setting_key) DO UPDATE SET setting_value = ?, updated_at = CURRENT_TIMESTAMP
+    ");
+    $stmt->execute([$apiKey, $apiKey]);
+    
+    // Save Steam User ID
+    $stmt = $pdo->prepare("
+        INSERT INTO settings (setting_key, setting_value) 
+        VALUES ('steam_user_id', ?)
+        ON CONFLICT(setting_key) DO UPDATE SET setting_value = ?, updated_at = CURRENT_TIMESTAMP
+    ");
+    $stmt->execute([$steamId, $steamId]);
+    
+    sendJsonResponse([
+        'success' => true,
+        'message' => 'Steam credentials saved successfully'
+    ]);
 }
 

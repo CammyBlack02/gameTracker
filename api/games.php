@@ -6,6 +6,8 @@
 // Suppress error display and enable output buffering
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
+ini_set('memory_limit', '1024M');
+ini_set('max_execution_time', '300');
 ob_start();
 
 // Load functions first so sendJsonResponse is available
@@ -74,6 +76,10 @@ try {
 function listGames() {
     global $pdo;
     
+    // Increase memory and execution time limits BEFORE loading data
+    ini_set('memory_limit', '1024M');
+    ini_set('max_execution_time', '300');
+    
     try {
         if (!isset($pdo)) {
             sendJsonResponse(['success' => false, 'message' => 'Database connection not available'], 500);
@@ -95,9 +101,6 @@ function listGames() {
         }
         
         $games = $stmt->fetchAll();
-        
-        // Increase memory limit for large responses with base64 images
-        ini_set('memory_limit', '512M');
         
         // Convert boolean values
         foreach ($games as &$game) {
@@ -164,10 +167,10 @@ function createGame() {
         INSERT INTO games (
             title, platform, genre, description, series, special_edition,
             condition, review, star_rating, metacritic_rating, played,
-            price_paid, pricecharting_price, is_physical,
+            price_paid, pricecharting_price, is_physical, digital_store,
             front_cover_image, back_cover_image, release_date
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
     ");
     
@@ -186,6 +189,7 @@ function createGame() {
         isset($data['price_paid']) ? (float)$data['price_paid'] : null,
         isset($data['pricecharting_price']) ? (float)$data['pricecharting_price'] : null,
         isset($data['is_physical']) ? (int)$data['is_physical'] : 1,
+        $data['digital_store'] ?? null,
         $data['front_cover_image'] ?? null,
         $data['back_cover_image'] ?? null,
         !empty($data['release_date']) ? $data['release_date'] : null
@@ -237,6 +241,7 @@ function updateGame() {
             price_paid = ?,
             pricecharting_price = ?,
             is_physical = ?,
+            digital_store = ?,
             front_cover_image = ?,
             back_cover_image = ?,
             release_date = ?,
@@ -259,6 +264,7 @@ function updateGame() {
         isset($data['price_paid']) ? (float)$data['price_paid'] : null,
         isset($data['pricecharting_price']) ? (float)$data['pricecharting_price'] : null,
         isset($data['is_physical']) ? (int)$data['is_physical'] : 1,
+        $data['digital_store'] ?? null,
         $data['front_cover_image'] ?? null,
         $data['back_cover_image'] ?? null,
         !empty($data['release_date']) ? $data['release_date'] : null,
