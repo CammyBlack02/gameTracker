@@ -115,12 +115,18 @@ function createItem() {
         sendJsonResponse(['success' => false, 'message' => 'Title and category are required'], 400);
     }
     
+    // Quantity only for accessories (not Systems/Console)
+    $quantity = 1;
+    if ($data['category'] !== 'Systems' && $data['category'] !== 'Console') {
+        $quantity = isset($data['quantity']) ? max(1, (int)$data['quantity']) : 1;
+    }
+    
     $stmt = $pdo->prepare("
         INSERT INTO items (
             title, platform, category, description, condition,
-            price_paid, pricecharting_price, notes, front_image, back_image
+            price_paid, pricecharting_price, notes, front_image, back_image, quantity
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
     ");
     
@@ -134,7 +140,8 @@ function createItem() {
         isset($data['pricecharting_price']) ? (float)$data['pricecharting_price'] : null,
         $data['notes'] ?? null,
         $data['front_image'] ?? null,
-        $data['back_image'] ?? null
+        $data['back_image'] ?? null,
+        $quantity
     ]);
     
     $itemId = $pdo->lastInsertId();
@@ -160,6 +167,12 @@ function updateItem() {
         sendJsonResponse(['success' => false, 'message' => 'Item ID is required'], 400);
     }
     
+    // Quantity only for accessories (not Systems/Console)
+    $quantity = 1;
+    if ($data['category'] !== 'Systems' && $data['category'] !== 'Console') {
+        $quantity = isset($data['quantity']) ? max(1, (int)$data['quantity']) : 1;
+    }
+    
     $stmt = $pdo->prepare("
         UPDATE items SET
             title = ?,
@@ -172,6 +185,7 @@ function updateItem() {
             notes = ?,
             front_image = ?,
             back_image = ?,
+            quantity = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
     ");
@@ -187,6 +201,7 @@ function updateItem() {
         $data['notes'] ?? null,
         $data['front_image'] ?? null,
         $data['back_image'] ?? null,
+        $quantity,
         $id
     ]);
     
