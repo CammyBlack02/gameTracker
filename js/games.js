@@ -277,8 +277,50 @@ function setupAddGameForm() {
             if (backUrlInput) backUrlInput.value = '';
             window.addGameFrontCover = null;
             window.addGameBackCover = null;
+            
+            // Update digital store visibility when opening modal
+            setTimeout(() => {
+                updateAddFormDigitalStoreVisibility();
+            }, 100);
+            
             showModal('addGameModal');
         });
+    }
+    
+    // Setup digital store field visibility for add form
+    function setupAddFormDigitalStore() {
+        const digitalStoreGroup = document.getElementById('addDigitalStoreGroup');
+        const platformInput = document.getElementById('addPlatform');
+        const isPhysicalCheckbox = document.getElementById('addIsPhysical');
+        
+        function updateVisibility() {
+            const platform = platformInput.value.trim();
+            const isPhysical = isPhysicalCheckbox.checked;
+            
+            if (digitalStoreGroup) {
+                if (platform === 'PC' && !isPhysical) {
+                    digitalStoreGroup.style.display = 'block';
+                } else {
+                    digitalStoreGroup.style.display = 'none';
+                    const digitalStoreSelect = document.getElementById('addDigitalStore');
+                    if (digitalStoreSelect) {
+                        digitalStoreSelect.value = '';
+                    }
+                }
+            }
+        }
+        
+        // Store function globally so it can be called when modal opens
+        window.updateAddFormDigitalStoreVisibility = updateVisibility;
+        
+        if (platformInput) {
+            platformInput.addEventListener('change', updateVisibility);
+            platformInput.addEventListener('input', updateVisibility);
+        }
+        
+        if (isPhysicalCheckbox) {
+            isPhysicalCheckbox.addEventListener('change', updateVisibility);
+        }
     }
     
     // Setup N/A checkboxes
@@ -298,6 +340,9 @@ function setupAddGameForm() {
     
     // Setup URL inputs for add form
     setupAddFormUrlInputs();
+    
+    // Setup digital store field visibility
+    setupAddFormDigitalStore();
     
     if (form) {
         form.addEventListener('submit', async function(e) {
@@ -330,6 +375,13 @@ function setupAddGameForm() {
                 price_paid: pricePaid === 'N/A' ? null : (pricePaid || null),
                 pricecharting_price: pricechartingPrice === 'N/A' ? null : (pricechartingPrice || null),
                 is_physical: document.getElementById('addIsPhysical').checked ? 1 : 0,
+                digital_store: (() => {
+                    const digitalStoreGroup = document.getElementById('addDigitalStoreGroup');
+                    if (digitalStoreGroup && digitalStoreGroup.style.display !== 'none') {
+                        return document.getElementById('addDigitalStore').value || null;
+                    }
+                    return null;
+                })(),
                 // Get cover images - prefer URL if provided, otherwise use uploaded file
                 front_cover_image: (() => {
                     const urlInput = document.getElementById('addFrontCoverUrl');
@@ -923,6 +975,7 @@ function displayGameDetail(game) {
                     <div class="game-meta">
                         <span class="platform-badge">${escapeHtml(game.platform)}</span>
                         ${game.is_physical ? '<span class="badge badge-physical">Physical</span>' : '<span class="badge badge-digital">Digital</span>'}
+                        ${game.digital_store && game.platform && game.platform.trim().toUpperCase() === 'PC' && !game.is_physical ? `<span class="badge badge-digital-store">${escapeHtml(game.digital_store)}</span>` : ''}
                         ${game.played ? '<span class="badge badge-played">Played</span>' : '<span class="badge badge-unplayed">Not Played</span>'}
                     </div>
                 </div>
@@ -951,6 +1004,11 @@ function displayGameDetail(game) {
                         ${game.condition && game.is_physical ? `
                         <dt>Condition:</dt>
                         <dd>${escapeHtml(game.condition)}</dd>
+                        ` : ''}
+                        
+                        ${game.digital_store && game.platform && game.platform.trim().toUpperCase() === 'PC' && !game.is_physical ? `
+                        <dt>Digital Store:</dt>
+                        <dd>${escapeHtml(game.digital_store)}</dd>
                         ` : ''}
                         
                         <dt>Star Rating:</dt>
@@ -1199,6 +1257,13 @@ function setupEditGameForm() {
                 price_paid: pricePaid || null,
                 pricecharting_price: pricechartingPrice || null,
                 is_physical: document.getElementById('editIsPhysical').checked ? 1 : 0,
+                digital_store: (() => {
+                    const digitalStoreGroup = document.getElementById('editDigitalStoreGroup');
+                    if (digitalStoreGroup && digitalStoreGroup.style.display !== 'none') {
+                        return document.getElementById('editDigitalStore').value || null;
+                    }
+                    return null;
+                })(),
                 // Get cover images - prefer URL if provided, otherwise use uploaded file or existing
                 front_cover_image: (() => {
                     const urlInput = document.getElementById('editFrontCoverUrl');
@@ -1260,6 +1325,52 @@ function populateEditForm(game) {
     document.getElementById('editMetacriticRating').value = game.metacritic_rating || '';
     document.getElementById('editPlayed').checked = game.played;
     document.getElementById('editIsPhysical').checked = game.is_physical;
+    
+    // Handle digital store field (show/hide based on platform and is_physical)
+    const digitalStoreGroup = document.getElementById('editDigitalStoreGroup');
+    const platform = (game.platform || '').trim().toUpperCase();
+    const isPhysical = game.is_physical;
+    
+    if (digitalStoreGroup) {
+        if (platform === 'PC' && !isPhysical) {
+            digitalStoreGroup.style.display = 'block';
+            const digitalStoreSelect = document.getElementById('editDigitalStore');
+            if (digitalStoreSelect) {
+                digitalStoreSelect.value = game.digital_store || '';
+            }
+        } else {
+            digitalStoreGroup.style.display = 'none';
+        }
+    }
+    
+    // Setup listener to show/hide digital store when platform or is_physical changes
+    const editPlatformInput = document.getElementById('editPlatform');
+    const editIsPhysicalCheckbox = document.getElementById('editIsPhysical');
+    
+    function updateDigitalStoreVisibility() {
+        const currentPlatform = editPlatformInput.value.trim().toUpperCase();
+        const currentIsPhysical = editIsPhysicalCheckbox.checked;
+        
+        if (digitalStoreGroup) {
+            if (currentPlatform === 'PC' && !currentIsPhysical) {
+                digitalStoreGroup.style.display = 'block';
+            } else {
+                digitalStoreGroup.style.display = 'none';
+                if (document.getElementById('editDigitalStore')) {
+                    document.getElementById('editDigitalStore').value = '';
+                }
+            }
+        }
+    }
+    
+    if (editPlatformInput) {
+        editPlatformInput.addEventListener('change', updateDigitalStoreVisibility);
+        editPlatformInput.addEventListener('input', updateDigitalStoreVisibility);
+    }
+    
+    if (editIsPhysicalCheckbox) {
+        editIsPhysicalCheckbox.addEventListener('change', updateDigitalStoreVisibility);
+    }
     
     // Handle prices with N/A option
     const pricePaid = game.price_paid;

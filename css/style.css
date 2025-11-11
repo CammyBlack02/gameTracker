@@ -58,6 +58,12 @@ body.dark-mode .badge-digital {
     color: #4ade80;
 }
 
+body.dark-mode .badge-digital-store {
+    background: rgba(251, 146, 60, 0.2);
+    color: #fb923c;
+    font-weight: 600;
+}
+
 body.dark-mode .badge-played {
     background: rgba(16, 185, 129, 0.2);
     color: #10b981;
@@ -606,6 +612,12 @@ body.dark-mode .tab-button.active {
 .badge-digital {
     background: #f3e5f5;
     color: #7b1fa2;
+}
+
+.badge-digital-store {
+    background: #fff3e0;
+    color: #e65100;
+    font-weight: 600;
 }
 
 .badge-played {

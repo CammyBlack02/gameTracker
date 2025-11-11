@@ -77,11 +77,19 @@ function initializeDatabase($pdo) {
         price_paid DECIMAL(10,2),
         pricecharting_price DECIMAL(10,2),
         is_physical INTEGER DEFAULT 1,
+        digital_store TEXT,
         front_cover_image TEXT,
         back_cover_image TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )");
+    
+    // Add digital_store column if it doesn't exist (for existing databases)
+    try {
+        $pdo->exec("ALTER TABLE games ADD COLUMN digital_store TEXT");
+    } catch (PDOException $e) {
+        // Column already exists, ignore error
+    }
     
     // Game images table (for extra photos)
     $pdo->exec("CREATE TABLE IF NOT EXISTS game_images (
