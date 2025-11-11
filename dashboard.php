@@ -24,7 +24,7 @@
         
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab-button active" data-tab="games">Games</button>
+            <button class="tab-button" data-tab="games">Games</button>
             <button class="tab-button" data-tab="consoles">Consoles</button>
             <button class="tab-button" data-tab="accessories">Accessories</button>
         </div>
@@ -96,7 +96,7 @@
         </div>
         
         <!-- Games Tab Content -->
-        <div id="gamesTab" class="tab-content active">
+        <div id="gamesTab" class="tab-content">
             <div id="gamesContainer" class="games-container list-view">
                 <div class="loading">Loading games...</div>
             </div>
@@ -315,6 +315,12 @@
                     </div>
                 </div>
                 
+                <div class="form-group" id="addItemQuantityGroup" style="display: none;">
+                    <label for="addItemQuantity">Quantity</label>
+                    <input type="number" id="addItemQuantity" name="quantity" min="1" value="1">
+                    <small style="color: var(--text-secondary);">How many of this accessory do you own?</small>
+                </div>
+                
                 <div class="form-group">
                     <label for="addItemDescription">Description</label>
                     <textarea id="addItemDescription" name="description" rows="4"></textarea>
@@ -416,56 +422,62 @@
     <script src="js/add-item.js"></script>
     <script>
         // Tab switching
-        document.querySelectorAll('.tab-button').forEach(button => {
-            button.addEventListener('click', function() {
-                const tabName = this.dataset.tab;
-                
-                // Update buttons
-                document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-                this.classList.add('active');
-                
-                // Update content
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    content.classList.remove('active');
-                    content.style.display = 'none';
-                });
-                
-                const targetTab = document.getElementById(tabName + 'Tab');
-                if (targetTab) {
-                    targetTab.classList.add('active');
-                    targetTab.style.display = 'block';
-                }
-                
-                // Show/hide toolbars
-                const gamesToolbar = document.getElementById('gamesToolbar');
-                const itemsToolbar = document.getElementById('itemsToolbar');
-                
-                if (gamesToolbar) {
-                    gamesToolbar.style.display = tabName === 'games' ? 'block' : 'none';
-                }
-                if (itemsToolbar) {
-                    itemsToolbar.style.display = (tabName === 'consoles' || tabName === 'accessories') ? 'block' : 'none';
-                }
-                
-                // Show/hide add buttons
-                const addGameBtn = document.getElementById('addGameBtn');
-                const addItemBtn = document.getElementById('addItemBtn');
-                
-                if (addGameBtn) {
-                    addGameBtn.style.display = tabName === 'games' ? 'inline-block' : 'none';
-                }
-                if (addItemBtn) {
-                    addItemBtn.style.display = (tabName === 'consoles' || tabName === 'accessories') ? 'inline-block' : 'none';
-                }
-                
-                // Load appropriate data (use setTimeout to ensure DOM is updated)
-                setTimeout(() => {
-                    if (tabName === 'games') {
-                        if (typeof loadGames === 'function') {
-                            loadGames();
-                        }
-                    } else if (tabName === 'consoles') {
-                        // Use window.loadItems if available, or try direct call
+        /**
+         * Switch to a specific tab
+         */
+        function switchToTab(tabName) {
+            // Update buttons
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            const activeButton = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
+            if (activeButton) {
+                activeButton.classList.add('active');
+            }
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+                content.style.display = 'none';
+            });
+            
+            const targetTab = document.getElementById(tabName + 'Tab');
+            if (targetTab) {
+                targetTab.classList.add('active');
+                targetTab.style.display = 'block';
+            }
+            
+            // Show/hide toolbars
+            const gamesToolbar = document.getElementById('gamesToolbar');
+            const itemsToolbar = document.getElementById('itemsToolbar');
+            
+            if (gamesToolbar) {
+                gamesToolbar.style.display = tabName === 'games' ? 'block' : 'none';
+            }
+            if (itemsToolbar) {
+                itemsToolbar.style.display = (tabName === 'consoles' || tabName === 'accessories') ? 'block' : 'none';
+            }
+            
+            // Show/hide add buttons
+            const addGameBtn = document.getElementById('addGameBtn');
+            const addItemBtn = document.getElementById('addItemBtn');
+            
+            if (addGameBtn) {
+                addGameBtn.style.display = tabName === 'games' ? 'inline-block' : 'none';
+            }
+            if (addItemBtn) {
+                addItemBtn.style.display = (tabName === 'consoles' || tabName === 'accessories') ? 'inline-block' : 'none';
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('activeTab', tabName);
+            
+            // Load appropriate data (use setTimeout to ensure DOM is updated)
+            setTimeout(() => {
+                if (tabName === 'games') {
+                    if (typeof loadGames === 'function') {
+                        loadGames();
+                    }
+                } else if (tabName === 'consoles') {
+                    // Use window.loadItems if available, or try direct call
                         const loadFn = window.loadItems || (typeof loadItems !== 'undefined' ? loadItems : null);
                         if (loadFn) {
                             loadFn('Systems');
@@ -481,8 +493,24 @@
                         }
                     }
                 }, 10);
+        }
+        
+        // Set up tab button click handlers
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const tabName = this.dataset.tab;
+                switchToTab(tabName);
             });
         });
+        
+        // Restore active tab from localStorage on page load
+        const savedTab = localStorage.getItem('activeTab');
+        if (savedTab && (savedTab === 'games' || savedTab === 'consoles' || savedTab === 'accessories')) {
+            switchToTab(savedTab);
+        } else {
+            // Default to games tab if no saved tab
+            switchToTab('games');
+        }
         
         // Load background image on page load
         async function loadBackgroundImage() {

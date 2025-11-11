@@ -9,7 +9,33 @@ window.addItemBackImage = null;
 document.addEventListener('DOMContentLoaded', function() {
     setupAddItemForm();
     setupAddItemImageHandlers();
+    setupQuantityField();
 });
+
+/**
+ * Setup quantity field visibility based on category
+ */
+function setupQuantityField() {
+    const categorySelect = document.getElementById('addItemCategory');
+    const quantityGroup = document.getElementById('addItemQuantityGroup');
+    
+    if (categorySelect && quantityGroup) {
+        categorySelect.addEventListener('change', function() {
+            const category = this.value;
+            // Show quantity only for accessories (not Systems/Console)
+            if (category && category !== 'Systems' && category !== 'Console') {
+                quantityGroup.style.display = 'block';
+            } else {
+                quantityGroup.style.display = 'none';
+                // Reset to 1 when hidden
+                const quantityInput = document.getElementById('addItemQuantity');
+                if (quantityInput) {
+                    quantityInput.value = 1;
+                }
+            }
+        });
+    }
+}
 
 /**
  * Setup add item form
@@ -28,10 +54,13 @@ function setupAddItemForm() {
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             
+            const category = document.getElementById('addItemCategory').value;
+            const quantityInput = document.getElementById('addItemQuantity');
+            
             const formData = {
                 title: document.getElementById('addItemTitle').value,
                 platform: document.getElementById('addItemPlatform').value || null,
-                category: document.getElementById('addItemCategory').value,
+                category: category,
                 condition: document.getElementById('addItemCondition').value || null,
                 description: document.getElementById('addItemDescription').value || null,
                 notes: document.getElementById('addItemNotes').value || null,
@@ -40,6 +69,11 @@ function setupAddItemForm() {
                 front_image: window.addItemFrontImage || null,
                 back_image: window.addItemBackImage || null
             };
+            
+            // Only include quantity for accessories (not Systems/Console)
+            if (category !== 'Systems' && category !== 'Console' && quantityInput) {
+                formData.quantity = parseInt(quantityInput.value) || 1;
+            }
             
             try {
                 const response = await fetch('api/items.php?action=create', {
@@ -239,8 +273,8 @@ function setupItemImageSplitTool() {
     if (addSplitBtn) {
         addSplitBtn.addEventListener('click', function() {
             const imageUrl = this.dataset.imageUrl;
-            if (imageUrl) {
-                openSplitModal(imageUrl, 'add-item');
+            if (imageUrl && window.openSplitModal) {
+                window.openSplitModal(imageUrl, 'add-item');
             }
         });
     }
@@ -305,23 +339,27 @@ async function performAutoSplitForItem(imageUrl) {
             const frontDataUrl = frontCanvas.toDataURL('image/jpeg', 0.95);
             const backDataUrl = backCanvas.toDataURL('image/jpeg', 0.95);
             
-            // Store the split images
-            window.addItemFrontImage = frontDataUrl;
-            window.addItemBackImage = backDataUrl;
-            
-            // Update previews
-            document.getElementById('addItemFrontImagePreview').innerHTML = 
-                `<img src="${frontDataUrl}" alt="Front Image" style="max-width: 200px;">`;
-            document.getElementById('addItemBackImagePreview').innerHTML = 
-                `<img src="${backDataUrl}" alt="Back Image" style="max-width: 200px;">`;
-            
-            // Clear URL inputs
-            document.getElementById('addItemFrontImageUrl').value = '';
-            document.getElementById('addItemBackImageUrl').value = '';
-            document.getElementById('addItemFrontImageSplitBtn').style.display = 'none';
-            document.getElementById('addItemFrontImageAutoSplitBtn').style.display = 'none';
-            
-            showNotification('Cover images auto-split successfully!', 'success');
+            // Store the split images using the shared function if available, otherwise directly
+            if (window.uploadSplitImages) {
+                await window.uploadSplitImages(frontDataUrl, backDataUrl, 'add-item');
+            } else {
+                window.addItemFrontImage = frontDataUrl;
+                window.addItemBackImage = backDataUrl;
+                
+                // Update previews
+                document.getElementById('addItemFrontImagePreview').innerHTML = 
+                    `<img src="${frontDataUrl}" alt="Front Image" style="max-width: 200px;">`;
+                document.getElementById('addItemBackImagePreview').innerHTML = 
+                    `<img src="${backDataUrl}" alt="Back Image" style="max-width: 200px;">`;
+                
+                // Clear URL inputs
+                document.getElementById('addItemFrontImageUrl').value = '';
+                document.getElementById('addItemBackImageUrl').value = '';
+                document.getElementById('addItemFrontImageSplitBtn').style.display = 'none';
+                document.getElementById('addItemFrontImageAutoSplitBtn').style.display = 'none';
+                
+                showNotification('Cover images auto-split successfully!', 'success');
+            }
         } catch (error) {
             console.error('Error performing auto split:', error);
             showNotification('Error performing auto split', 'error');

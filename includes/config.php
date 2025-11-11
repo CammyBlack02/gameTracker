@@ -105,9 +105,17 @@ function initializeDatabase($pdo) {
         front_image TEXT,
         back_image TEXT,
         notes TEXT,
+        quantity INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )");
+    
+    // Add quantity column if it doesn't exist (for existing databases)
+    try {
+        $pdo->exec("ALTER TABLE items ADD COLUMN quantity INTEGER DEFAULT 1");
+    } catch (PDOException $e) {
+        // Column already exists, ignore error
+    }
     
     // Item images table (for extra photos)
     $pdo->exec("CREATE TABLE IF NOT EXISTS item_images (

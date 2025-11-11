@@ -1943,6 +1943,36 @@ function setupImageSplitTool() {
                 document.getElementById('addItemBackImageUrl').value = '';
                 document.getElementById('addItemFrontImageSplitBtn').style.display = 'none';
                 document.getElementById('addItemFrontImageAutoSplitBtn').style.display = 'none';
+            } else if (context === 'edit-item-front' || context === 'edit-item-back') {
+                // Handle item editing - when splitting, update both front and back images
+                if (window.currentItem) {
+                    window.currentItem.front_image = frontDataUrl;
+                    window.currentItem.back_image = backDataUrl;
+                }
+                
+                // Update front image preview and URL
+                const frontPreview = document.getElementById('itemFrontImagePreview');
+                if (frontPreview) {
+                    frontPreview.innerHTML = `<img src="${frontDataUrl}" alt="Front Image" style="max-width: 200px;">`;
+                }
+                const frontUrlInput = document.getElementById('editItemFrontImageUrl');
+                if (frontUrlInput) {
+                    frontUrlInput.value = frontDataUrl;
+                }
+                document.getElementById('editItemFrontImageSplitBtn').style.display = 'none';
+                document.getElementById('editItemFrontImageAutoSplitBtn').style.display = 'none';
+                
+                // Update back image preview and URL
+                const backPreview = document.getElementById('itemBackImagePreview');
+                if (backPreview) {
+                    backPreview.innerHTML = `<img src="${backDataUrl}" alt="Back Image" style="max-width: 200px;">`;
+                }
+                const backUrlInput = document.getElementById('editItemBackImageUrl');
+                if (backUrlInput) {
+                    backUrlInput.value = backDataUrl;
+                }
+                document.getElementById('editItemBackImageSplitBtn').style.display = 'none';
+                document.getElementById('editItemBackImageAutoSplitBtn').style.display = 'none';
             } else {
                 window.currentGame.front_cover_image = frontDataUrl;
                 window.currentGame.back_cover_image = backDataUrl;

@@ -212,7 +212,7 @@ function displayGridView(items, container) {
             <div class="game-card" data-id="${itemId}" data-type="item" data-item-index="${index}">
                 ${image}
                 <div class="game-card-info">
-                    <h3 class="game-title">${escapeHtml(item.title)}</h3>
+                    <h3 class="game-title">${escapeHtml(item.title)}${item.category !== 'Systems' && item.category !== 'Console' && item.quantity > 1 ? ` <span style="color: var(--text-secondary); font-size: 0.9em;">(×${item.quantity})</span>` : ''}</h3>
                     <p class="game-platform">${escapeHtml(item.platform || 'N/A')}</p>
                     <div class="game-badges">
                         <span class="badge badge-physical">${escapeHtml(item.category)}</span>
@@ -302,7 +302,7 @@ function displayListView(items, container) {
                             ${item.front_image 
                                 ? `<img src="${getItemImageUrl(item.front_image)}" alt="${escapeHtml(item.title)}" class="list-cover-thumb">`
                                 : ''}
-                            <span>${escapeHtml(item.title)}</span>
+                            <span>${escapeHtml(item.title)}${item.category !== 'Systems' && item.category !== 'Console' && item.quantity > 1 ? ` <span style="color: var(--text-secondary);">(×${item.quantity})</span>` : ''}</span>
                         </td>
                         <td>${escapeHtml(item.platform || 'N/A')}</td>
                         <td>${escapeHtml(item.category)}</td>

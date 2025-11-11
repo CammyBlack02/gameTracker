@@ -71,6 +71,12 @@
                     </div>
                 </div>
                 
+                <div class="form-group" id="editItemQuantityGroup" style="display: none;">
+                    <label for="editItemQuantity">Quantity</label>
+                    <input type="number" id="editItemQuantity" name="quantity" min="1" value="1">
+                    <small style="color: var(--text-secondary);">How many of this accessory do you own?</small>
+                </div>
+                
                 <div class="form-group">
                     <label for="editItemDescription">Description</label>
                     <textarea id="editItemDescription" name="description" rows="4"></textarea>
@@ -87,6 +93,13 @@
                         <input type="file" id="editItemFrontImage" name="front_image" accept="image/*">
                         <div id="itemFrontImagePreview" class="image-preview"></div>
                         <button type="button" class="btn btn-small upload-image-btn" data-target="editItemFrontImage">Upload</button>
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 12px; color: #666;">Or enter URL:</label>
+                            <input type="url" id="editItemFrontImageUrl" placeholder="https://example.com/image.jpg" style="width: 100%; margin-top: 5px; padding: 5px;">
+                            <button type="button" class="btn btn-small" id="editItemFrontImageUrlBtn" style="margin-top: 5px;">Use URL</button>
+                            <button type="button" class="btn btn-small" id="editItemFrontImageSplitBtn" style="margin-top: 5px; display: none;">Split Combined Cover</button>
+                            <button type="button" class="btn btn-small" id="editItemFrontImageAutoSplitBtn" style="margin-top: 5px; display: none;">Auto Split (53%)</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -96,6 +109,13 @@
                         <input type="file" id="editItemBackImage" name="back_image" accept="image/*">
                         <div id="itemBackImagePreview" class="image-preview"></div>
                         <button type="button" class="btn btn-small upload-image-btn" data-target="editItemBackImage">Upload</button>
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 12px; color: #666;">Or enter URL:</label>
+                            <input type="url" id="editItemBackImageUrl" placeholder="https://example.com/image.jpg" style="width: 100%; margin-top: 5px; padding: 5px;">
+                            <button type="button" class="btn btn-small" id="editItemBackImageUrlBtn" style="margin-top: 5px;">Use URL</button>
+                            <button type="button" class="btn btn-small" id="editItemBackImageSplitBtn" style="margin-top: 5px; display: none;">Split Combined Cover</button>
+                            <button type="button" class="btn btn-small" id="editItemBackImageAutoSplitBtn" style="margin-top: 5px; display: none;">Auto Split (53%)</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -207,7 +227,7 @@
                             </div>
                         </div>
                         <div class="game-info-header">
-                            <h1>${escapeHtml(item.title)}</h1>
+                            <h1>${escapeHtml(item.title)}${item.category !== 'Systems' && item.category !== 'Console' && item.quantity > 1 ? ` <span style="color: var(--text-secondary); font-size: 0.8em; font-weight: normal;">(×${item.quantity})</span>` : ''}</h1>
                             <div class="game-meta">
                                 ${item.platform ? `<span class="platform-badge">${escapeHtml(item.platform)}</span>` : ''}
                                 <span class="badge badge-physical">${escapeHtml(item.category)}</span>
@@ -230,6 +250,11 @@
                                 ${item.condition ? `
                                 <dt>Condition:</dt>
                                 <dd>${escapeHtml(item.condition)}</dd>
+                                ` : ''}
+                                
+                                ${item.category !== 'Systems' && item.category !== 'Console' && item.quantity ? `
+                                <dt>Quantity:</dt>
+                                <dd>${item.quantity}</dd>
                                 ` : ''}
                                 
                                 <dt>Price I Paid:</dt>
@@ -322,13 +347,67 @@
             document.getElementById('editItemPricePaid').value = item.price_paid || '';
             document.getElementById('editItemPricechartingPrice').value = item.pricecharting_price || '';
             
+            // Handle quantity field visibility
+            const quantityGroup = document.getElementById('editItemQuantityGroup');
+            const quantityInput = document.getElementById('editItemQuantity');
+            if (quantityGroup && quantityInput) {
+                const category = item.category || '';
+                if (category && category !== 'Systems' && category !== 'Console') {
+                    quantityGroup.style.display = 'block';
+                    quantityInput.value = item.quantity || 1;
+                } else {
+                    quantityGroup.style.display = 'none';
+                    quantityInput.value = 1;
+                }
+            }
+            
             if (item.front_image) {
+                const frontImageUrl = getItemImageUrl(item.front_image);
                 document.getElementById('itemFrontImagePreview').innerHTML = 
-                    `<img src="${getItemImageUrl(item.front_image)}" alt="Front Image" style="max-width: 200px;">`;
+                    `<img src="${frontImageUrl}" alt="Front Image" style="max-width: 200px;">`;
+                
+                // Populate URL field if it's a URL
+                const frontUrlInput = document.getElementById('editItemFrontImageUrl');
+                if (frontUrlInput && (item.front_image.startsWith('http://') || item.front_image.startsWith('https://') || item.front_image.startsWith('data:'))) {
+                    frontUrlInput.value = item.front_image;
+                    // Show split buttons if it's an external URL
+                    if (item.front_image.startsWith('http://') || item.front_image.startsWith('https://')) {
+                        const splitBtn = document.getElementById('editItemFrontImageSplitBtn');
+                        const autoSplitBtn = document.getElementById('editItemFrontImageAutoSplitBtn');
+                        if (splitBtn) {
+                            splitBtn.style.display = 'inline-block';
+                            splitBtn.dataset.imageUrl = item.front_image;
+                        }
+                        if (autoSplitBtn) {
+                            autoSplitBtn.style.display = 'inline-block';
+                            autoSplitBtn.dataset.imageUrl = item.front_image;
+                        }
+                    }
+                }
             }
             if (item.back_image) {
+                const backImageUrl = getItemImageUrl(item.back_image);
                 document.getElementById('itemBackImagePreview').innerHTML = 
-                    `<img src="${getItemImageUrl(item.back_image)}" alt="Back Image" style="max-width: 200px;">`;
+                    `<img src="${backImageUrl}" alt="Back Image" style="max-width: 200px;">`;
+                
+                // Populate URL field if it's a URL
+                const backUrlInput = document.getElementById('editItemBackImageUrl');
+                if (backUrlInput && (item.back_image.startsWith('http://') || item.back_image.startsWith('https://') || item.back_image.startsWith('data:'))) {
+                    backUrlInput.value = item.back_image;
+                    // Show split buttons if it's an external URL
+                    if (item.back_image.startsWith('http://') || item.back_image.startsWith('https://')) {
+                        const splitBtn = document.getElementById('editItemBackImageSplitBtn');
+                        const autoSplitBtn = document.getElementById('editItemBackImageAutoSplitBtn');
+                        if (splitBtn) {
+                            splitBtn.style.display = 'inline-block';
+                            splitBtn.dataset.imageUrl = item.back_image;
+                        }
+                        if (autoSplitBtn) {
+                            autoSplitBtn.style.display = 'inline-block';
+                            autoSplitBtn.dataset.imageUrl = item.back_image;
+                        }
+                    }
+                }
             }
         }
         
@@ -464,23 +543,63 @@
             console.error('Back image input not found!');
         }
         
+        // Setup category change listener for quantity field
+        const editCategorySelect = document.getElementById('editItemCategory');
+        const editQuantityGroup = document.getElementById('editItemQuantityGroup');
+        if (editCategorySelect && editQuantityGroup) {
+            editCategorySelect.addEventListener('change', function() {
+                const category = this.value;
+                const quantityInput = document.getElementById('editItemQuantity');
+                if (category && category !== 'Systems' && category !== 'Console') {
+                    editQuantityGroup.style.display = 'block';
+                } else {
+                    editQuantityGroup.style.display = 'none';
+                    if (quantityInput) {
+                        quantityInput.value = 1;
+                    }
+                }
+            });
+        }
+        
         // Setup form submission
         document.getElementById('editItemForm')?.addEventListener('submit', async function(e) {
             e.preventDefault();
+            
+            const category = document.getElementById('editItemCategory').value;
+            const quantityInput = document.getElementById('editItemQuantity');
+            
+            // Prioritize URL inputs over uploaded images
+            const frontUrlInput = document.getElementById('editItemFrontImageUrl');
+            const backUrlInput = document.getElementById('editItemBackImageUrl');
+            let frontImage = window.currentItem?.front_image || null;
+            let backImage = window.currentItem?.back_image || null;
+            
+            // Check if URL inputs have values
+            if (frontUrlInput && frontUrlInput.value.trim()) {
+                frontImage = frontUrlInput.value.trim();
+            }
+            if (backUrlInput && backUrlInput.value.trim()) {
+                backImage = backUrlInput.value.trim();
+            }
             
             const formData = {
                 id: window.currentItem.id,
                 title: document.getElementById('editItemTitle').value,
                 platform: document.getElementById('editItemPlatform').value || null,
-                category: document.getElementById('editItemCategory').value,
+                category: category,
                 condition: document.getElementById('editItemCondition').value || null,
                 description: document.getElementById('editItemDescription').value || null,
                 notes: document.getElementById('editItemNotes').value || null,
                 price_paid: document.getElementById('editItemPricePaid').value || null,
                 pricecharting_price: document.getElementById('editItemPricechartingPrice').value || null,
-                front_image: window.currentItem?.front_image || null,
-                back_image: window.currentItem?.back_image || null
+                front_image: frontImage,
+                back_image: backImage
             };
+            
+            // Only include quantity for accessories (not Systems/Console)
+            if (category !== 'Systems' && category !== 'Console' && quantityInput) {
+                formData.quantity = parseInt(quantityInput.value) || 1;
+            }
             
             console.log('Submitting form with data:', formData);
             console.log('Current item front_image:', window.currentItem?.front_image);
@@ -512,6 +631,195 @@
                 showNotification('Error updating item', 'error');
             }
         });
+        
+        /**
+         * Setup URL inputs for edit item form
+         */
+        function setupEditItemUrlInputs() {
+            // Front image URL
+            const frontUrlBtn = document.getElementById('editItemFrontImageUrlBtn');
+            const frontUrlInput = document.getElementById('editItemFrontImageUrl');
+            
+            if (frontUrlBtn && frontUrlInput) {
+                frontUrlBtn.addEventListener('click', function() {
+                    const url = frontUrlInput.value.trim();
+                    if (url) {
+                        try {
+                            new URL(url);
+                            const preview = document.getElementById('itemFrontImagePreview');
+                            if (preview) {
+                                preview.innerHTML = `<img src="${url}" alt="Front Image" style="max-width: 200px;" onerror="this.parentElement.innerHTML='<span style=\'color:red;\'>Invalid image URL</span>'">`;
+                            }
+                            if (window.currentItem) {
+                                window.currentItem.front_image = url;
+                            }
+                            
+                            // Show split buttons
+                            const splitBtn = document.getElementById('editItemFrontImageSplitBtn');
+                            const autoSplitBtn = document.getElementById('editItemFrontImageAutoSplitBtn');
+                            if (splitBtn) {
+                                splitBtn.style.display = 'inline-block';
+                                splitBtn.dataset.imageUrl = url;
+                            }
+                            if (autoSplitBtn) {
+                                autoSplitBtn.style.display = 'inline-block';
+                                autoSplitBtn.dataset.imageUrl = url;
+                            }
+                            
+                            showNotification('Front image URL set!', 'success');
+                        } catch (e) {
+                            showNotification('Invalid URL format', 'error');
+                        }
+                    }
+                });
+                
+                frontUrlInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        frontUrlBtn.click();
+                    }
+                });
+                
+                // Show split buttons when URL is entered
+                frontUrlInput.addEventListener('input', function() {
+                    const url = this.value.trim();
+                    const splitBtn = document.getElementById('editItemFrontImageSplitBtn');
+                    const autoSplitBtn = document.getElementById('editItemFrontImageAutoSplitBtn');
+                    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+                        if (splitBtn) {
+                            splitBtn.style.display = 'inline-block';
+                            splitBtn.dataset.imageUrl = url;
+                        }
+                        if (autoSplitBtn) {
+                            autoSplitBtn.style.display = 'inline-block';
+                            autoSplitBtn.dataset.imageUrl = url;
+                        }
+                    } else {
+                        if (splitBtn) splitBtn.style.display = 'none';
+                        if (autoSplitBtn) autoSplitBtn.style.display = 'none';
+                    }
+                });
+            }
+            
+            // Back image URL
+            const backUrlBtn = document.getElementById('editItemBackImageUrlBtn');
+            const backUrlInput = document.getElementById('editItemBackImageUrl');
+            
+            if (backUrlBtn && backUrlInput) {
+                backUrlBtn.addEventListener('click', function() {
+                    const url = backUrlInput.value.trim();
+                    if (url) {
+                        try {
+                            new URL(url);
+                            const preview = document.getElementById('itemBackImagePreview');
+                            if (preview) {
+                                preview.innerHTML = `<img src="${url}" alt="Back Image" style="max-width: 200px;" onerror="this.parentElement.innerHTML='<span style=\'color:red;\'>Invalid image URL</span>'">`;
+                            }
+                            if (window.currentItem) {
+                                window.currentItem.back_image = url;
+                            }
+                            
+                            // Show split buttons
+                            const splitBtn = document.getElementById('editItemBackImageSplitBtn');
+                            const autoSplitBtn = document.getElementById('editItemBackImageAutoSplitBtn');
+                            if (splitBtn) {
+                                splitBtn.style.display = 'inline-block';
+                                splitBtn.dataset.imageUrl = url;
+                            }
+                            if (autoSplitBtn) {
+                                autoSplitBtn.style.display = 'inline-block';
+                                autoSplitBtn.dataset.imageUrl = url;
+                            }
+                            
+                            showNotification('Back image URL set!', 'success');
+                        } catch (e) {
+                            showNotification('Invalid URL format', 'error');
+                        }
+                    }
+                });
+                
+                backUrlInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        backUrlBtn.click();
+                    }
+                });
+                
+                // Show split buttons when URL is entered
+                backUrlInput.addEventListener('input', function() {
+                    const url = this.value.trim();
+                    const splitBtn = document.getElementById('editItemBackImageSplitBtn');
+                    const autoSplitBtn = document.getElementById('editItemBackImageAutoSplitBtn');
+                    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+                        if (splitBtn) {
+                            splitBtn.style.display = 'inline-block';
+                            splitBtn.dataset.imageUrl = url;
+                        }
+                        if (autoSplitBtn) {
+                            autoSplitBtn.style.display = 'inline-block';
+                            autoSplitBtn.dataset.imageUrl = url;
+                        }
+                    } else {
+                        if (splitBtn) splitBtn.style.display = 'none';
+                        if (autoSplitBtn) autoSplitBtn.style.display = 'none';
+                    }
+                });
+            }
+            
+            // Setup split buttons for edit form
+            setupEditItemSplitButtons();
+        }
+        
+        /**
+         * Setup split buttons for edit item form
+         */
+        function setupEditItemSplitButtons() {
+            // Front image split buttons
+            const frontSplitBtn = document.getElementById('editItemFrontImageSplitBtn');
+            const frontAutoSplitBtn = document.getElementById('editItemFrontImageAutoSplitBtn');
+            
+            if (frontSplitBtn) {
+                frontSplitBtn.addEventListener('click', function() {
+                    const imageUrl = this.dataset.imageUrl || document.getElementById('editItemFrontImageUrl').value.trim();
+                    if (imageUrl && window.openSplitModal) {
+                        window.currentSplitImageSide = 'front';
+                        window.openSplitModal(imageUrl, 'edit-item-front');
+                    }
+                });
+            }
+            
+            if (frontAutoSplitBtn) {
+                frontAutoSplitBtn.addEventListener('click', function() {
+                    const imageUrl = this.dataset.imageUrl || document.getElementById('editItemFrontImageUrl').value.trim();
+                    if (imageUrl && window.performAutoSplit) {
+                        window.performAutoSplit(imageUrl, 'edit-item-front');
+                    }
+                });
+            }
+            
+            // Back image split buttons
+            const backSplitBtn = document.getElementById('editItemBackImageSplitBtn');
+            const backAutoSplitBtn = document.getElementById('editItemBackImageAutoSplitBtn');
+            
+            if (backSplitBtn) {
+                backSplitBtn.addEventListener('click', function() {
+                    const imageUrl = this.dataset.imageUrl || document.getElementById('editItemBackImageUrl').value.trim();
+                    if (imageUrl && window.openSplitModal) {
+                        window.currentSplitImageSide = 'back';
+                        window.openSplitModal(imageUrl, 'edit-item-back');
+                    }
+                });
+            }
+            
+            if (backAutoSplitBtn) {
+                backAutoSplitBtn.addEventListener('click', function() {
+                    const imageUrl = this.dataset.imageUrl || document.getElementById('editItemBackImageUrl').value.trim();
+                    if (imageUrl && window.performAutoSplit) {
+                        window.performAutoSplit(imageUrl, 'edit-item-back');
+                    }
+                });
+            }
+        }
         
         // Load item on page load
         loadItemDetail();
