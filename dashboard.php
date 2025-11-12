@@ -29,6 +29,32 @@
             <button class="tab-button" data-tab="accessories">Accessories</button>
         </div>
         
+        <!-- Hero Stats Section -->
+        <div id="heroStats" class="hero-stats" style="display: none;">
+            <div class="hero-stats-grid">
+                <div class="hero-stat-card">
+                    <div class="hero-stat-icon">🎮</div>
+                    <div class="hero-stat-value" data-target="0">0</div>
+                    <div class="hero-stat-label">Total Games</div>
+                </div>
+                <div class="hero-stat-card">
+                    <div class="hero-stat-icon">💰</div>
+                    <div class="hero-stat-value" data-target="0">$0</div>
+                    <div class="hero-stat-label">Collection Value</div>
+                </div>
+                <div class="hero-stat-card">
+                    <div class="hero-stat-icon">✅</div>
+                    <div class="hero-stat-value" data-target="0">0</div>
+                    <div class="hero-stat-label">Games Played</div>
+                </div>
+                <div class="hero-stat-card">
+                    <div class="hero-stat-icon">📦</div>
+                    <div class="hero-stat-value" data-target="0">0</div>
+                    <div class="hero-stat-label">Total Items</div>
+                </div>
+            </div>
+        </div>
+        
         <div class="toolbar" id="gamesToolbar">
             <div class="search-container">
                 <input type="text" id="searchInput" placeholder="Search games..." class="search-input">
