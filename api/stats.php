@@ -159,6 +159,44 @@ function getStats() {
         // Get top 5 accessories
         $topAccessories = getTopItems('top_accessories');
         
+        // Platform distribution for charts
+        $platformStmt = $pdo->prepare("
+            SELECT platform, COUNT(*) as count 
+            FROM games 
+            $gamesWhereClause
+            GROUP BY platform 
+            ORDER BY count DESC
+        ");
+        $platformStmt->execute($gamesParams);
+        $platformDistribution = $platformStmt->fetchAll();
+        
+        // Genre distribution for charts
+        $genreWhere = $gamesWhere;
+        $genreWhere[] = "genre IS NOT NULL";
+        $genreWhere[] = "genre != ''";
+        $genreWhereClause = "WHERE " . implode(" AND ", $genreWhere);
+        $genreStmt = $pdo->prepare("
+            SELECT genre, COUNT(*) as count 
+            FROM games 
+            $genreWhereClause
+            GROUP BY genre 
+            ORDER BY count DESC
+            LIMIT 10
+        ");
+        $genreStmt->execute($gamesParams);
+        $genreDistribution = $genreStmt->fetchAll();
+        
+        // Recent additions (last 10 games)
+        $recentStmt = $pdo->prepare("
+            SELECT id, title, platform, front_cover_image, created_at
+            FROM games 
+            $gamesWhereClause
+            ORDER BY created_at DESC
+            LIMIT 10
+        ");
+        $recentStmt->execute($gamesParams);
+        $recentAdditions = $recentStmt->fetchAll();
+        
         sendJsonResponse([
             'success' => true,
             'stats' => [
@@ -173,7 +211,10 @@ function getStats() {
                 'total_collection' => (int)$totalCollection,
                 'top_games' => $topGames,
                 'top_consoles' => $topConsoles,
-                'top_accessories' => $topAccessories
+                'top_accessories' => $topAccessories,
+                'platform_distribution' => $platformDistribution,
+                'genre_distribution' => $genreDistribution,
+                'recent_additions' => $recentAdditions
             ]
         ]);
     } catch (Throwable $e) {
