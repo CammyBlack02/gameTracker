@@ -198,6 +198,25 @@ function displayStats() {
             ` : ''}
         </div>
         
+        ${stats.platform_distribution && stats.platform_distribution.length > 0 ? `
+        <div class="chart-container">
+            <div class="chart-title">📊 Platform Distribution</div>
+            <div class="chart-wrapper">
+                <div id="platformChart" class="pie-chart"></div>
+            </div>
+            <div id="platformLegend" class="pie-legend"></div>
+        </div>
+        ` : ''}
+        
+        ${stats.genre_distribution && stats.genre_distribution.length > 0 ? `
+        <div class="chart-container">
+            <div class="chart-title">🎯 Top Genres</div>
+            <div class="chart-wrapper">
+                <div id="genreChart" class="bar-chart"></div>
+            </div>
+        </div>
+        ` : ''}
+        
         <div class="top-items-section">
             <div class="section-title">
                 <span>🏆</span>
@@ -205,7 +224,7 @@ function displayStats() {
                 <button class="btn btn-secondary" style="margin-left: auto; font-size: 14px;" onclick="openTopItemsModal('games')">Edit</button>
             </div>
             <div class="top-items-grid" id="topGamesGrid">
-                ${renderTopItems(stats.top_games || [], 'games')}
+                <!-- Top games will be rendered here -->
             </div>
         </div>
         
@@ -216,7 +235,7 @@ function displayStats() {
                 <button class="btn btn-secondary" style="margin-left: auto; font-size: 14px;" onclick="openTopItemsModal('consoles')">Edit</button>
             </div>
             <div class="top-items-grid" id="topConsolesGrid">
-                ${renderTopItems(stats.top_consoles || [], 'consoles')}
+                <!-- Top consoles will be rendered here -->
             </div>
         </div>
         
@@ -227,16 +246,35 @@ function displayStats() {
                 <button class="btn btn-secondary" style="margin-left: auto; font-size: 14px;" onclick="openTopItemsModal('accessories')">Edit</button>
             </div>
             <div class="top-items-grid" id="topAccessoriesGrid">
-                ${renderTopItems(stats.top_accessories || [], 'accessories')}
+                <!-- Top accessories will be rendered here -->
             </div>
         </div>
     `;
+    
+    // Render charts after HTML is set
+    setTimeout(() => {
+        if (stats.platform_distribution && stats.platform_distribution.length > 0) {
+            renderPlatformChart(stats.platform_distribution);
+        }
+        
+        if (stats.genre_distribution && stats.genre_distribution.length > 0) {
+            renderGenreChart(stats.genre_distribution);
+        }
+        
+        // Render top items
+        renderTopItems('topGamesGrid', stats.top_games || [], 'games');
+        renderTopItems('topConsolesGrid', stats.top_consoles || [], 'consoles');
+        renderTopItems('topAccessoriesGrid', stats.top_accessories || [], 'accessories');
+    }, 100);
 }
 
 /**
  * Render top items
  */
-function renderTopItems(items, type) {
+function renderTopItems(containerId, items, type) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
     const html = [];
     
     for (let i = 0; i < 5; i++) {
@@ -265,7 +303,7 @@ function renderTopItems(items, type) {
         }
     }
     
-    return html.join('');
+    container.innerHTML = html.join('');
 }
 
 /**
@@ -527,6 +565,99 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Render platform distribution pie chart
+ */
+function renderPlatformChart(data) {
+    const chartContainer = document.getElementById('platformChart');
+    const legendContainer = document.getElementById('platformLegend');
+    if (!chartContainer || !legendContainer) return;
+    
+    const total = data.reduce((sum, item) => sum + parseInt(item.count), 0);
+    const colors = [
+        '#4a90e2', '#6c5ce7', '#00b894', '#fdcb6e', '#e17055',
+        '#74b9ff', '#a29bfe', '#fd79a8', '#55efc4', '#ff7675'
+    ];
+    
+    let currentPercent = 0;
+    const segments = [];
+    
+    data.forEach((item, index) => {
+        const percentage = (parseInt(item.count) / total) * 100;
+        
+        if (percentage > 0) {
+            segments.push({
+                platform: item.platform,
+                count: item.count,
+                percentage: percentage.toFixed(1),
+                startPercent: currentPercent,
+                endPercent: currentPercent + percentage,
+                color: colors[index % colors.length]
+            });
+            
+            currentPercent += percentage;
+        }
+    });
+    
+    // Build conic-gradient for pie chart
+    const gradientParts = segments.map(segment => {
+        const startAngle = (segment.startPercent / 100) * 360;
+        const endAngle = (segment.endPercent / 100) * 360;
+        return `${segment.color} ${startAngle}deg ${endAngle}deg`;
+    }).join(', ');
+    
+    // Render pie chart using conic-gradient
+    chartContainer.innerHTML = `
+        <div style="
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            background: conic-gradient(${gradientParts});
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: fadeInUp 0.6s ease-out;
+        "></div>
+    `;
+    
+    // Render legend
+    legendContainer.innerHTML = segments.map(segment => `
+        <div class="pie-legend-item">
+            <div class="pie-legend-color" style="background: ${segment.color};"></div>
+            <span>${escapeHtml(segment.platform)} (${segment.count})</span>
+        </div>
+    `).join('');
+}
+
+/**
+ * Render genre distribution bar chart
+ */
+function renderGenreChart(data) {
+    const chartContainer = document.getElementById('genreChart');
+    if (!chartContainer) return;
+    
+    const maxValue = Math.max(...data.map(item => parseInt(item.count)));
+    const colors = [
+        '#4a90e2', '#6c5ce7', '#00b894', '#fdcb6e', '#e17055',
+        '#74b9ff', '#a29bfe', '#fd79a8', '#fdcb6e', '#55efc4'
+    ];
+    
+    chartContainer.innerHTML = data.map((item, index) => {
+        const height = (parseInt(item.count) / maxValue) * 100;
+        const color = colors[index % colors.length];
+        
+        return `
+            <div class="bar-item">
+                <div class="bar" style="
+                    height: ${height}%;
+                    background: linear-gradient(180deg, ${color} 0%, ${color}dd 100%);
+                ">
+                    <div class="bar-value">${item.count}</div>
+                </div>
+                <div class="bar-label">${escapeHtml(item.genre || 'Unknown')}</div>
+            </div>
+        `;
+    }).join('');
 }
 
 /**

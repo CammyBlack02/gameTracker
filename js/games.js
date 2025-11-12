@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', function() {
         loadGames();
         setupAddGameForm();
         setupViewToggle();
+        setupScrollToTop();
+        setupHeroStats();
     }
     
     // Load game detail if on detail page
@@ -19,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loadGameDetail();
         setupEditGameForm();
         setupDeleteGame();
+        setupScrollToTop();
     }
 });
 
@@ -26,6 +29,11 @@ document.addEventListener('DOMContentLoaded', function() {
  * Load all games
  */
 async function loadGames() {
+    const container = document.getElementById('gamesContainer');
+    if (container) {
+        showSkeletonLoading(container);
+    }
+    
     try {
         const response = await fetch('api/games.php?action=list');
         const data = await response.json();
@@ -36,11 +44,34 @@ async function loadGames() {
             updateFilters();
         } else {
             showNotification('Failed to load games', 'error');
+            if (container) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Failed to Load Games</h3><p>Please try refreshing the page</p></div>';
+            }
         }
     } catch (error) {
         console.error('Error loading games:', error);
         showNotification('Error loading games', 'error');
+        if (container) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error Loading Games</h3><p>Please check your connection and try again</p></div>';
+        }
     }
+}
+
+/**
+ * Show skeleton loading state
+ */
+function showSkeletonLoading(container) {
+    const skeletonCount = 12;
+    const skeletons = Array(skeletonCount).fill(0).map(() => `
+        <div class="skeleton-card">
+            <div class="skeleton skeleton-cover"></div>
+            <div class="skeleton skeleton-text" style="margin-top: 15px;"></div>
+            <div class="skeleton skeleton-text short"></div>
+        </div>
+    `).join('');
+    
+    container.className = 'games-container grid-view';
+    container.innerHTML = skeletons;
 }
 
 /**
@@ -57,7 +88,13 @@ function displayGames(games) {
     }
     
     if (games.length === 0) {
-        container.innerHTML = '<div class="empty-state">No games found. Add your first game!</div>';
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🎮</div>
+                <h3>No Games Found</h3>
+                <p>Try adjusting your filters or add your first game!</p>
+            </div>
+        `;
         return;
     }
     
@@ -100,7 +137,7 @@ function displayGamesGridView(games, container) {
                 ${coverImage}
                 <div class="game-card-info">
                     <h3 class="game-title">${escapeHtml(game.title)}</h3>
-                    <p class="game-platform">${escapeHtml(game.platform)}</p>
+                    <span class="platform-badge" data-platform="${escapeHtml(game.platform)}" style="display: inline-block; margin-bottom: 10px;">${escapeHtml(game.platform)}</span>
                     <div class="game-badges">
                         ${game.is_physical ? '<span class="badge badge-physical">Physical</span>' : '<span class="badge badge-digital">Digital</span>'}
                         ${game.played ? '<span class="badge badge-played">Played</span>' : ''}
@@ -2417,5 +2454,171 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Setup scroll to top button
+ */
+function setupScrollToTop() {
+    // Create button if it doesn't exist
+    let scrollBtn = document.getElementById('scrollToTop');
+    if (!scrollBtn) {
+        scrollBtn = document.createElement('button');
+        scrollBtn.id = 'scrollToTop';
+        scrollBtn.className = 'scroll-to-top';
+        scrollBtn.innerHTML = '↑';
+        scrollBtn.setAttribute('aria-label', 'Scroll to top');
+        document.body.appendChild(scrollBtn);
+    }
+    
+    // Show/hide button based on scroll position
+    window.addEventListener('scroll', () => {
+        if (window.pageYOffset > 300) {
+            scrollBtn.classList.add('show');
+        } else {
+            scrollBtn.classList.remove('show');
+        }
+    });
+    
+    // Scroll to top on click
+    scrollBtn.addEventListener('click', () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+}
+
+/**
+ * Setup hero stats with animated counters
+ */
+async function setupHeroStats() {
+    const heroStats = document.getElementById('heroStats');
+    if (!heroStats) return;
+    
+    // Wait for games to load first
+    if (allGames.length === 0) {
+        setTimeout(setupHeroStats, 500);
+        return;
+    }
+    
+    try {
+        // Fetch stats
+        const response = await fetch('api/stats.php?action=get');
+        const data = await response.json();
+        
+        if (data.success && data.stats) {
+            const stats = data.stats;
+            
+            // Calculate collection value (sum of all pricecharting prices or price_paid)
+            let collectionValue = 0;
+            if (allGames.length > 0) {
+                collectionValue = allGames.reduce((sum, game) => {
+                    const price = parseFloat(game.pricecharting_price || game.price_paid || 0);
+                    return sum + price;
+                }, 0);
+            }
+            
+            // Show hero stats
+            heroStats.style.display = 'block';
+            
+            // Animate counters
+            animateCounter('heroStats', 0, stats.total_games, 'games');
+            animateCounter('heroStats', 1, collectionValue, 'currency');
+            animateCounter('heroStats', 2, stats.games_played, 'games');
+            animateCounter('heroStats', 3, stats.total_collection, 'games');
+            
+            // Show recent additions
+            if (data.stats.recent_additions && data.stats.recent_additions.length > 0) {
+                renderRecentAdditions(data.stats.recent_additions);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading hero stats:', error);
+    }
+}
+
+/**
+ * Render recent additions carousel
+ */
+function renderRecentAdditions(recentGames) {
+    const carousel = document.getElementById('recentAdditionsCarousel');
+    if (!carousel) {
+        // Create recent additions section if it doesn't exist
+        const gamesContainer = document.getElementById('gamesContainer');
+        if (gamesContainer && recentGames.length > 0) {
+            const recentSection = document.createElement('div');
+            recentSection.className = 'recent-additions';
+            recentSection.innerHTML = `
+                <div class="recent-additions-header">
+                    <h3>🆕 Recent Additions</h3>
+                </div>
+                <div id="recentAdditionsCarousel" class="recent-additions-carousel"></div>
+            `;
+            gamesContainer.parentNode.insertBefore(recentSection, gamesContainer);
+        }
+    }
+    
+    const carouselEl = document.getElementById('recentAdditionsCarousel');
+    if (!carouselEl) return;
+    
+    carouselEl.innerHTML = recentGames.map(game => {
+        const coverUrl = game.front_cover_image 
+            ? (game.front_cover_image.startsWith('http') ? game.front_cover_image : `uploads/covers/${game.front_cover_image}`)
+            : '';
+        
+        return `
+            <div class="recent-game-card" onclick="window.location.href='game-detail.php?id=${game.id}'">
+                ${coverUrl ? `<img src="${coverUrl}" alt="${escapeHtml(game.title)}" class="recent-game-cover">` : '<div class="recent-game-cover" style="background: var(--background-color); display: flex; align-items: center; justify-content: center; color: var(--text-light);">No Cover</div>'}
+                <div class="recent-game-info">
+                    <div class="recent-game-title">${escapeHtml(game.title)}</div>
+                    <div class="recent-game-platform">${escapeHtml(game.platform)}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * Animate counter from start to end
+ */
+function animateCounter(containerId, index, endValue, type = 'number') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    const valueElement = container.querySelectorAll('.hero-stat-value')[index];
+    if (!valueElement) return;
+    
+    const duration = 2000; // 2 seconds
+    const startTime = performance.now();
+    const startValue = 0;
+    
+    function updateCounter(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Easing function (ease-out)
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const currentValue = startValue + (endValue - startValue) * easeOut;
+        
+        if (type === 'currency') {
+            valueElement.textContent = '$' + Math.round(currentValue).toLocaleString();
+        } else {
+            valueElement.textContent = Math.round(currentValue).toLocaleString();
+        }
+        
+        if (progress < 1) {
+            requestAnimationFrame(updateCounter);
+        } else {
+            // Ensure final value is exact
+            if (type === 'currency') {
+                valueElement.textContent = '$' + endValue.toLocaleString();
+            } else {
+                valueElement.textContent = endValue.toLocaleString();
+            }
+        }
+    }
+    
+    requestAnimationFrame(updateCounter);
 }
 
