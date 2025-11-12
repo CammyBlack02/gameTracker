@@ -1594,6 +1594,295 @@ body.dark-mode .hero-stats {
     color: var(--text-light);
 }
 
+/* Cover Flow View */
+.coverflow-view {
+    padding: 0;
+    overflow: hidden;
+}
+
+.coverflow-container {
+    position: relative;
+    width: 100%;
+    height: calc(100vh - 300px);
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.coverflow-wrapper {
+    position: relative;
+    width: 100%;
+    height: 70%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    perspective: 2000px;
+    perspective-origin: center center;
+}
+
+.coverflow-item {
+    position: absolute;
+    width: 280px;
+    height: 400px;
+    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease;
+    cursor: pointer;
+    opacity: 0.3;
+}
+
+.coverflow-item.center {
+    transform: translateX(0) translateZ(0) scale(1);
+    opacity: 1;
+    z-index: 5;
+    cursor: default;
+}
+
+.coverflow-item.left {
+    transform: translateX(-200px) translateZ(-150px) rotateY(45deg) scale(0.8);
+    opacity: 0.6;
+    z-index: 3;
+}
+
+.coverflow-item.right {
+    transform: translateX(200px) translateZ(-150px) rotateY(-45deg) scale(0.8);
+    opacity: 0.6;
+    z-index: 3;
+}
+
+.coverflow-item.far-left {
+    transform: translateX(-400px) translateZ(-300px) rotateY(60deg) scale(0.6);
+    opacity: 0.4;
+    z-index: 1;
+}
+
+.coverflow-item.far-right {
+    transform: translateX(400px) translateZ(-300px) rotateY(-60deg) scale(0.6);
+    opacity: 0.4;
+    z-index: 1;
+}
+
+.coverflow-cover-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+}
+
+.coverflow-cover-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.coverflow-cover-inner.flipped {
+    transform: rotateY(180deg);
+}
+
+.coverflow-cover-face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.coverflow-cover-front {
+    transform: rotateY(0deg);
+}
+
+.coverflow-cover-back {
+    transform: rotateY(180deg);
+}
+
+.coverflow-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.coverflow-cover-reflection {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        rgba(255, 255, 255, 0) 50%,
+        rgba(0, 0, 0, 0.1) 100%
+    );
+    pointer-events: none;
+    border-radius: 8px;
+}
+
+.coverflow-box-edge {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+}
+
+.coverflow-box-edge-top {
+    top: -3px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    transform: rotateX(90deg);
+    transform-origin: bottom center;
+}
+
+.coverflow-box-edge-right {
+    top: 0;
+    right: -3px;
+    bottom: 0;
+    width: 3px;
+    transform: rotateY(90deg);
+    transform-origin: left center;
+}
+
+.coverflow-box-edge-bottom {
+    bottom: -3px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    transform: rotateX(-90deg);
+    transform-origin: top center;
+}
+
+.coverflow-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 60px;
+    height: 60px;
+    background: var(--card-background);
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    font-size: 32px;
+    color: var(--text-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow);
+}
+
+.coverflow-nav-btn:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: var(--shadow-hover);
+}
+
+.coverflow-prev {
+    left: 20px;
+}
+
+.coverflow-next {
+    right: 20px;
+}
+
+.coverflow-info {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px 40px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    z-index: 10;
+    min-width: 300px;
+    max-width: 600px;
+}
+
+body.dark-mode .coverflow-info {
+    background: rgba(45, 45, 45, 0.95);
+}
+
+.coverflow-title {
+    font-size: 1.5em;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    color: var(--text-color);
+}
+
+.coverflow-platform {
+    font-size: 1em;
+    color: var(--text-light);
+    margin: 0 0 15px 0;
+}
+
+.coverflow-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.coverflow-rotate-btn,
+.coverflow-flip-btn {
+    padding: 10px 20px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 0.9em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.coverflow-rotate-btn:hover,
+.coverflow-flip-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.coverflow-rotate-btn.active {
+    background: var(--success-color);
+}
+
+.coverflow-rotate-btn.active:hover {
+    background: #218838;
+}
+
+.rotate-icon,
+.flip-icon {
+    font-size: 1.1em;
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+
+.coverflow-rotate-btn.active .rotate-icon {
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .app-header {
@@ -1657,6 +1946,60 @@ body.dark-mode .hero-stats {
     .toolbar {
         padding: 15px;
     }
+    
+    .coverflow-container {
+        height: calc(100vh - 250px);
+        min-height: 500px;
+    }
+    
+    .coverflow-item {
+        width: 200px;
+        height: 300px;
+    }
+    
+    .coverflow-item.left {
+        transform: translateX(-150px) translateZ(-100px) rotateY(45deg) scale(0.7);
+    }
+    
+    .coverflow-item.right {
+        transform: translateX(150px) translateZ(-100px) rotateY(-45deg) scale(0.7);
+    }
+    
+    .coverflow-item.far-left {
+        transform: translateX(-250px) translateZ(-200px) rotateY(60deg) scale(0.5);
+    }
+    
+    .coverflow-item.far-right {
+        transform: translateX(250px) translateZ(-200px) rotateY(-60deg) scale(0.5);
+    }
+    
+    .coverflow-nav-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+    }
+    
+    .coverflow-prev {
+        left: 10px;
+    }
+    
+    .coverflow-next {
+        right: 10px;
+    }
+    
+    .coverflow-info {
+        padding: 15px 25px;
+        min-width: 250px;
+        max-width: 90%;
+    }
+    
+    .coverflow-title {
+        font-size: 1.2em;
+    }
+    
+    .coverflow-platform {
+        font-size: 0.9em;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1683,6 +2026,64 @@ body.dark-mode .hero-stats {
     .list-cover-thumb {
         width: 40px;
         height: 55px;
+    }
+    
+    .coverflow-container {
+        height: calc(100vh - 200px);
+        min-height: 400px;
+        padding: 10px;
+    }
+    
+    .coverflow-item {
+        width: 160px;
+        height: 240px;
+    }
+    
+    .coverflow-item.left {
+        transform: translateX(-100px) translateZ(-80px) rotateY(45deg) scale(0.6);
+    }
+    
+    .coverflow-item.right {
+        transform: translateX(100px) translateZ(-80px) rotateY(-45deg) scale(0.6);
+    }
+    
+    .coverflow-item.far-left,
+    .coverflow-item.far-right {
+        display: none;
+    }
+    
+    .coverflow-nav-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+    }
+    
+    .coverflow-prev {
+        left: 5px;
+    }
+    
+    .coverflow-next {
+        right: 5px;
+    }
+    
+    .coverflow-info {
+        padding: 12px 20px;
+        min-width: 200px;
+        bottom: 10px;
+    }
+    
+    .coverflow-title {
+        font-size: 1em;
+    }
+    
+    .coverflow-platform {
+        font-size: 0.8em;
+    }
+    
+    .coverflow-rotate-btn,
+    .coverflow-flip-btn {
+        padding: 8px 16px;
+        font-size: 0.8em;
     }
 }
 

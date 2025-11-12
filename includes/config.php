@@ -31,9 +31,21 @@ if (!file_exists(EXTRAS_DIR)) {
 
 // Database connection
 try {
-    $pdo = new PDO('sqlite:' . DB_PATH);
+    // Add timeout and optimize for large databases
+    $pdo = new PDO('sqlite:' . DB_PATH, null, null, [
+        PDO::ATTR_TIMEOUT => 30,
+        PDO::ATTR_PERSISTENT => false
+    ]);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    
+    // Optimize SQLite for better performance with large databases
+    $pdo->exec('PRAGMA busy_timeout = 30000'); // Wait up to 30 seconds for locks
+    $pdo->exec('PRAGMA journal_mode = WAL'); // Write-Ahead Logging for better concurrency
+    $pdo->exec('PRAGMA synchronous = NORMAL'); // Balance between safety and performance
+    $pdo->exec('PRAGMA cache_size = -64000'); // 64MB cache
+    $pdo->exec('PRAGMA temp_store = MEMORY'); // Use memory for temp tables
+    $pdo->exec('PRAGMA mmap_size = 268435456'); // 256MB memory-mapped I/O
     
     // Initialize database tables
     initializeDatabase($pdo);

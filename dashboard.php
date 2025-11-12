@@ -102,6 +102,9 @@
                 <button id="gridViewBtn" class="view-btn" title="Grid View">
                     <span>⊞</span>
                 </button>
+                <button id="coverFlowViewBtn" class="view-btn" title="Cover Flow">
+                    <span>🎮</span>
+                </button>
             </div>
         </div>
         
