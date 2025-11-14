@@ -137,11 +137,13 @@ function restoreFilterState() {
  * Apply all filters and update display
  */
 function applyFilters() {
-    if (typeof allGames === 'undefined' || !allGames) {
+    if (typeof allGames === 'undefined' || !allGames || allGames.length === 0) {
+        console.log('applyFilters: No games to filter', { allGames: typeof allGames, length: allGames?.length });
         return;
     }
     
     let filtered = [...allGames];
+    console.log('applyFilters: Starting with', filtered.length, 'games');
     
     // Search filter
     const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';

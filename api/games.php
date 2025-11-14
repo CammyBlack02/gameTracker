@@ -6,9 +6,40 @@
 // Suppress error display and enable output buffering
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
-ini_set('memory_limit', '1024M');
-ini_set('max_execution_time', '300');
-ob_start();
+@ini_set('memory_limit', '1024M');
+@ini_set('max_execution_time', '300');
+
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Don't start output buffering here - we'll handle it per-endpoint
+// ob_start();
+
+// Register shutdown handler to catch fatal errors
+register_shutdown_function(function() {
+    // Don't interfere if we're streaming a response
+    if (defined('STREAMING_RESPONSE_ACTIVE')) {
+        return;
+    }
+    
+    $error = error_get_last();
+    if ($error !== NULL && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        // Only send error if no output has been sent yet
+        if (!headers_sent()) {
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false, 
+                'message' => 'Fatal error: ' . $error['message'] . ' in ' . $error['file'] . ' on line ' . $error['line']
+            ]);
+        }
+    }
+});
 
 // Load functions first so sendJsonResponse is available
 require_once __DIR__ . '/../includes/functions.php';
@@ -46,6 +77,7 @@ try {
     switch ($action) {
         case 'list':
             listGames();
+            // listGames() uses exit(), so this won't be reached
             break;
         
         case 'get':
@@ -82,39 +114,97 @@ function listGames() {
     
     try {
         if (!isset($pdo)) {
+            error_log('listGames: Database connection not available');
             sendJsonResponse(['success' => false, 'message' => 'Database connection not available'], 500);
             return;
         }
         
-        $stmt = $pdo->query("
-            SELECT g.*, 
+        // Get pagination parameters
+        $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+        $perPage = isset($_GET['per_page']) ? max(1, min(1000, (int)$_GET['per_page'])) : 500; // Max 1000 per page
+        $offset = ($page - 1) * $perPage;
+        
+        // Get total count
+        $countStmt = $pdo->query("SELECT COUNT(DISTINCT g.id) as total FROM games g");
+        $totalGames = (int)$countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $totalPages = $totalGames > 0 ? ceil($totalGames / $perPage) : 1;
+        
+        error_log("listGames: Page $page of $totalPages (showing $perPage games, offset $offset)");
+        
+        // Re-execute query with pagination
+        $stmt = $pdo->prepare("
+            SELECT g.id,
+                   g.title,
+                   g.platform,
+                   g.genre,
+                   g.series,
+                   g.special_edition,
+                   g.condition,
+                   g.star_rating,
+                   g.metacritic_rating,
+                   g.played,
+                   g.price_paid,
+                   g.pricecharting_price,
+                   g.is_physical,
+                   g.digital_store,
+                   g.front_cover_image,
+                   g.back_cover_image,
+                   g.created_at,
+                   g.updated_at,
                    COUNT(gi.id) as extra_image_count
             FROM games g
             LEFT JOIN game_images gi ON g.id = gi.game_id
             GROUP BY g.id
             ORDER BY g.created_at DESC
+            LIMIT ? OFFSET ?
         ");
         
-        if ($stmt === false) {
-            sendJsonResponse(['success' => false, 'message' => 'Database query failed'], 500);
-            return;
-        }
+        $stmt->execute([$perPage, $offset]);
         
-        $games = $stmt->fetchAll();
-        
-        // Convert boolean values
-        foreach ($games as &$game) {
+        // Collect games for this page
+        $games = [];
+        while ($game = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            // Convert boolean values
             $game['played'] = (bool)$game['played'];
             $game['is_physical'] = (bool)$game['is_physical'];
             $game['star_rating'] = $game['star_rating'] !== null ? (int)$game['star_rating'] : null;
             $game['metacritic_rating'] = $game['metacritic_rating'] !== null ? (int)$game['metacritic_rating'] : null;
+            if (empty($game['genre'])) $game['genre'] = null;
+            if (empty($game['series'])) $game['series'] = null;
+            if (empty($game['special_edition'])) $game['special_edition'] = null;
+            
+            $games[] = $game;
         }
         
-        sendJsonResponse(['success' => true, 'games' => $games]);
+        error_log("listGames: Loaded " . count($games) . " games for page $page");
+        
+        // Send response with pagination info
+        sendJsonResponse([
+            'success' => true, 
+            'games' => $games,
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $totalGames,
+                'total_pages' => $totalPages,
+                'has_more' => $page < $totalPages
+            ]
+        ]);
     } catch (Throwable $e) {
         error_log('listGames Error: ' . $e->getMessage());
         error_log('Stack trace: ' . $e->getTraceAsString());
-        sendJsonResponse(['success' => false, 'message' => 'Failed to load games: ' . $e->getMessage()], 500);
+        
+        // Clean any output and send error response
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Failed to load games: ' . $e->getMessage()], JSON_UNESCAPED_SLASHES);
+        }
+        exit;
     }
 }
 

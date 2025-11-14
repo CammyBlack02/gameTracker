@@ -12,6 +12,7 @@
         <header class="app-header">
             <h1>My Collection</h1>
             <div class="header-actions">
+                <button id="spinWheelBtn" class="btn btn-secondary" title="Spin the Wheel">🎰 Spin Wheel</button>
                 <button id="darkModeToggle" class="btn btn-secondary" title="Toggle Dark Mode">🌙</button>
                 <a href="stats.php" class="btn btn-secondary">Stats</a>
                 <a href="completions.php" class="btn btn-secondary">Completions</a>
@@ -459,11 +460,72 @@
         </div>
     </div>
     
+    <!-- Spin Wheel Modal -->
+    <div id="spinWheelModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>🎰 Spin the Wheel</h2>
+                <button type="button" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="spin-wheel-filters">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="wheelPlatformFilter">Platform</label>
+                            <select id="wheelPlatformFilter" class="filter-select">
+                                <option value="">All Platforms</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="wheelGenreFilter">Genre</label>
+                            <select id="wheelGenreFilter" class="filter-select">
+                                <option value="">All Genres</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="wheelPlayedFilter">Status</label>
+                            <select id="wheelPlayedFilter" class="filter-select">
+                                <option value="">All Games</option>
+                                <option value="0">Not Played</option>
+                                <option value="1">Played</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="wheelTypeFilter">Type</label>
+                            <select id="wheelTypeFilter" class="filter-select">
+                                <option value="">All Types</option>
+                                <option value="physical">Physical</option>
+                                <option value="digital">Digital</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="spin-wheel-container">
+                    <div id="wheelPointer" class="wheel-pointer"></div>
+                    <div id="spinWheel" class="spin-wheel">
+                        <canvas id="wheelCanvas" width="400" height="400"></canvas>
+                    </div>
+                </div>
+                <div id="wheelResult" class="wheel-result" style="display: none;">
+                    <h3>🎮 You should play:</h3>
+                    <div id="wheelResultContent"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary modal-cancel">Close</button>
+                <button type="button" class="btn btn-primary" id="spinWheelBtnAction">Spin!</button>
+            </div>
+        </div>
+    </div>
+    
     <script src="js/main.js"></script>
     <script src="js/games.js"></script>
     <script src="js/filters.js"></script>
     <script src="js/items.js"></script>
     <script src="js/add-item.js"></script>
+    <script src="js/spin-wheel.js"></script>
     <script>
         // Tab switching
         /**
