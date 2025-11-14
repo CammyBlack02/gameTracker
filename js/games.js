@@ -359,7 +359,7 @@ function displayGamesCoverFlow(games, container) {
         <div class="coverflow-container">
             <button class="coverflow-nav-btn coverflow-prev" id="coverFlowPrev" aria-label="Previous game">‹</button>
             <div class="coverflow-wrapper" id="coverFlowWrapper">
-                ${games.map((game, index) => createCoverFlowItem(game, index)).join('')}
+                <!-- Items will be rendered dynamically -->
             </div>
             <button class="coverflow-nav-btn coverflow-next" id="coverFlowNext" aria-label="Next game">›</button>
             <div class="coverflow-info" id="coverFlowInfo">
@@ -530,21 +530,79 @@ function updateCoverFlowDisplay() {
     
     if (!wrapper || !titleEl || !platformEl) return;
     
-    const items = wrapper.querySelectorAll('.coverflow-item');
     const centerIndex = coverFlowCurrentIndex;
+    const totalGames = coverFlowGames.length;
     
-    items.forEach((item, index) => {
-        const distance = Math.abs(index - centerIndex);
-        const isLeft = index < centerIndex;
-        const isRight = index > centerIndex;
-        const isCenter = index === centerIndex;
+    // Only render visible items (center ± 2 on each side, max 5 items)
+    const visibleRange = 2; // Show 2 items on each side of center
+    const visibleIndices = [];
+    
+    for (let i = -visibleRange; i <= visibleRange; i++) {
+        let index = centerIndex + i;
+        // Handle wrapping
+        if (index < 0) {
+            index = totalGames + index;
+        } else if (index >= totalGames) {
+            index = index - totalGames;
+        }
+        visibleIndices.push(index);
+    }
+    
+    // Get existing items
+    const existingItems = wrapper.querySelectorAll('.coverflow-item');
+    const existingIndices = new Set();
+    existingItems.forEach(item => {
+        const index = parseInt(item.dataset.index);
+        existingIndices.add(index);
+    });
+    
+    // Remove items that are no longer visible
+    existingItems.forEach(item => {
+        const index = parseInt(item.dataset.index);
+        if (!visibleIndices.includes(index)) {
+            item.remove();
+        }
+    });
+    
+    // Add new items that aren't already rendered
+    visibleIndices.forEach(index => {
+        if (!existingIndices.has(index)) {
+            const game = coverFlowGames[index];
+            if (game) {
+                const itemHtml = createCoverFlowItem(game, index);
+                wrapper.insertAdjacentHTML('beforeend', itemHtml);
+            }
+        }
+    });
+    
+    // Update positions and classes for all visible items
+    const items = wrapper.querySelectorAll('.coverflow-item');
+    items.forEach(item => {
+        const itemIndex = parseInt(item.dataset.index);
+        const isCenter = itemIndex === centerIndex;
+        
+        if (isCenter) {
+            item.classList.remove('left', 'right', 'far-left', 'far-right');
+            item.classList.add('center');
+            item.style.display = 'block';
+            return;
+        }
+        
+        // Calculate relative position (accounting for wrapping)
+        let relativePos = itemIndex - centerIndex;
+        if (relativePos > totalGames / 2) {
+            relativePos = relativePos - totalGames;
+        } else if (relativePos < -totalGames / 2) {
+            relativePos = relativePos + totalGames;
+        }
+        
+        const distance = Math.abs(relativePos);
+        const isLeft = relativePos < 0;
         
         // Remove all classes
         item.classList.remove('left', 'right', 'center', 'far-left', 'far-right');
         
-        if (isCenter) {
-            item.classList.add('center');
-        } else if (distance === 1) {
+        if (distance === 1) {
             item.classList.add(isLeft ? 'left' : 'right');
         } else if (distance === 2) {
             item.classList.add(isLeft ? 'far-left' : 'far-right');
