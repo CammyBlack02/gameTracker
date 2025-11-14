@@ -4,6 +4,7 @@
  */
 
 let allGames = [];
+window.allGames = []; // Expose to window for spin wheel
 let currentView = localStorage.getItem('gameView') || 'list';
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -25,35 +26,104 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Track if games are currently loading to prevent duplicate calls
+let isLoadingGames = false;
+
 /**
- * Load all games
+ * Load all games (with pagination)
  */
 async function loadGames() {
+    // Prevent duplicate calls
+    if (isLoadingGames) {
+        console.log('loadGames: Already loading, skipping duplicate call');
+        return;
+    }
+    
+    isLoadingGames = true;
     const container = document.getElementById('gamesContainer');
     if (container) {
         showSkeletonLoading(container);
     }
     
     try {
-        const response = await fetch('api/games.php?action=list');
-        const data = await response.json();
+        // Load all pages of games
+        allGames = [];
+        let page = 1;
+        let hasMore = true;
+        const perPage = 500; // Load 500 games per request
         
-        if (data.success) {
-            allGames = data.games;
-            displayGames(allGames);
-            updateFilters();
-        } else {
-            showNotification('Failed to load games', 'error');
-            if (container) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Failed to Load Games</h3><p>Please try refreshing the page</p></div>';
+        while (hasMore) {
+            const response = await fetch(`api/games.php?action=list&page=${page}&per_page=${perPage}`);
+            
+            // Read the response as text first
+            const text = await response.text();
+            
+            // Check if response is empty
+            if (!text || text.trim().length === 0) {
+                console.error('Empty response from server. Status:', response.status, response.statusText);
+                throw new Error(`Empty response from server (HTTP ${response.status}). Please check server logs.`);
+            }
+            
+            if (!response.ok) {
+                console.error('HTTP error response:', response.status, response.statusText);
+                console.error('Response body:', text);
+                throw new Error(`HTTP error! status: ${response.status} - ${text.substring(0, 200)}`);
+            }
+            
+            // Try to parse JSON
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (parseError) {
+                console.error('JSON parse error:', parseError);
+                console.error('Response text length:', text.length);
+                console.error('Response preview:', text.substring(0, 500));
+                console.error('Response status:', response.status);
+                throw new Error('Invalid JSON response from server. The response may have been truncated or contain errors.');
+            }
+            
+            if (data.success) {
+                // Add games from this page
+                if (data.games && data.games.length > 0) {
+                    allGames = allGames.concat(data.games);
+                    console.log(`Loaded page ${page}: ${data.games.length} games (total so far: ${allGames.length})`);
+                }
+                
+                // Check if there are more pages
+                if (data.pagination) {
+                    hasMore = data.pagination.has_more === true && page < data.pagination.total_pages;
+                    page++;
+                } else {
+                    hasMore = false;
+                }
+            } else {
+                throw new Error(data.message || 'Failed to load games');
             }
         }
+        
+        // Expose to window for spin wheel
+        window.allGames = allGames;
+        console.log('Loaded all games:', allGames.length);
+        
+        // Display all games first, then update filters (which may apply saved filters)
+        displayGames(allGames);
+        // Update filter dropdowns and restore saved filter state
+        updateFilters();
+        
     } catch (error) {
         console.error('Error loading games:', error);
-        showNotification('Error loading games', 'error');
-        if (container) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error Loading Games</h3><p>Please check your connection and try again</p></div>';
+        // Only show error if we don't already have games loaded
+        if (!allGames || allGames.length === 0) {
+            showNotification('Error loading games: ' + error.message, 'error');
+            if (container) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error Loading Games</h3><p>Please check your connection and try again</p></div>';
+            }
+        } else {
+            // If we already have games, just log the error but don't overwrite
+            console.warn('Error during reload, but games are already loaded. Keeping existing games.');
         }
+    } finally {
+        isLoadingGames = false;
     }
 }
 
@@ -125,15 +195,58 @@ function getImageUrl(imagePath) {
 }
 
 /**
+ * Determine case type (CD or DVD) based on platform
+ * CD cases: Only Super Nintendo, PlayStation (original), Game Boys, DS, 3DS, and N64
+ * DVD cases: All other platforms (PlayStation 2+, Xbox series, Wii, etc.)
+ */
+function getCaseType(platform) {
+    if (!platform) return 'dvd-case'; // Default to DVD
+    
+    const platformLower = platform.toLowerCase();
+    
+    // CD-sized cases (taller/narrower) - only these specific platforms
+    const cdPlatforms = [
+        'snes',                    // Super Nintendo
+        'super nintendo',          // Super Nintendo (full name)
+        'playstation',             // Original PlayStation (but not PS2, PS3, etc.)
+        'game boy',                // All Game Boy variants
+        'nintendo ds',             // Nintendo DS
+        'nintendo 3ds',            // Nintendo 3DS
+        'nintendo 64',             // Nintendo 64
+        'n64'                      // Nintendo 64 (abbreviation)
+    ];
+    
+    // Check if platform is CD-sized
+    for (const cdPlatform of cdPlatforms) {
+        // Special check for PlayStation - only original, not PS2, PS3, etc.
+        if (cdPlatform === 'playstation') {
+            // Only match if it's exactly "playstation" (no number after it)
+            if (platformLower === 'playstation' || 
+                (platformLower.startsWith('playstation') && 
+                 !platformLower.match(/playstation\s*[2-5]/))) {
+                return 'cd-case';
+            }
+        } else if (platformLower.includes(cdPlatform)) {
+            // For other platforms, check if the platform name contains the CD platform name
+            return 'cd-case';
+        }
+    }
+    
+    // Default to DVD case for all others
+    return 'dvd-case';
+}
+
+/**
  * Display games in grid view
  */
 function displayGamesGridView(games, container) {
     console.log('displayGridView called with container:', container, 'ID:', container?.id);
     container.className = 'games-container grid-view';
     const html = games.map(game => {
+        const caseType = getCaseType(game.platform);
         const coverImage = game.front_cover_image 
-            ? `<img src="${getImageUrl(game.front_cover_image)}" alt="${escapeHtml(game.title)}" class="game-cover">`
-            : '<div class="game-cover-placeholder">No Cover</div>';
+            ? `<img src="${getImageUrl(game.front_cover_image)}" alt="${escapeHtml(game.title)}" class="game-cover ${caseType}">`
+            : `<div class="game-cover-placeholder ${caseType}">No Cover</div>`;
         
         return `
             <div class="game-card" data-id="${game.id}" data-type="game">
@@ -272,9 +385,10 @@ function createCoverFlowItem(game, index) {
         ? getImageUrl(game.back_cover_image)
         : '';
     const placeholder = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBDb3ZlcjwvdGV4dD48L3N2Zz4=';
+    const caseType = getCaseType(game.platform);
     
     return `
-        <div class="coverflow-item" data-index="${index}" data-id="${game.id}">
+        <div class="coverflow-item ${caseType}" data-index="${index}" data-id="${game.id}">
             <div class="coverflow-cover-wrapper">
                 <div class="coverflow-cover-inner">
                     <div class="coverflow-cover-face coverflow-cover-front">
@@ -555,11 +669,13 @@ function displayGamesListView(games, container) {
                 </tr>
             </thead>
             <tbody>
-                ${games.map(game => `
+                ${games.map(game => {
+                    const caseType = getCaseType(game.platform);
+                    return `
                     <tr data-id="${game.id}" data-type="game">
                         <td class="game-title-cell">
                             ${game.front_cover_image 
-                                ? `<img src="${getImageUrl(game.front_cover_image)}" alt="${escapeHtml(game.title)}" class="list-cover-thumb">`
+                                ? `<img src="${getImageUrl(game.front_cover_image)}" alt="${escapeHtml(game.title)}" class="list-cover-thumb ${caseType}">`
                                 : ''}
                             <span>${escapeHtml(game.title)}</span>
                         </td>
@@ -574,7 +690,8 @@ function displayGamesListView(games, container) {
                             <a href="game-detail.php?id=${game.id}" class="btn btn-small" data-type="game">View</a>
                         </td>
                     </tr>
-                `).join('')}
+                    `;
+                }).join('')}
             </tbody>
         </table>
     `;
@@ -1320,13 +1437,14 @@ async function loadGameDetail() {
 function displayGameDetail(game) {
     const container = document.getElementById('gameDetailContainer');
     
+    const caseType = getCaseType(game.platform);
     const frontCover = game.front_cover_image 
-        ? `<img src="${getImageUrl(game.front_cover_image)}" alt="Front Cover" class="cover-image">`
-        : '<div class="cover-placeholder">No Front Cover</div>';
+        ? `<img src="${getImageUrl(game.front_cover_image)}" alt="Front Cover" class="cover-image ${caseType}">`
+        : `<div class="cover-placeholder ${caseType}">No Front Cover</div>`;
     
     const backCover = game.back_cover_image 
-        ? `<img src="${getImageUrl(game.back_cover_image)}" alt="Back Cover" class="cover-image">`
-        : '<div class="cover-placeholder">No Back Cover</div>';
+        ? `<img src="${getImageUrl(game.back_cover_image)}" alt="Back Cover" class="cover-image ${caseType}">`
+        : `<div class="cover-placeholder ${caseType}">No Back Cover</div>`;
     
     const extraImages = game.extra_images && game.extra_images.length > 0
         ? game.extra_images.map((img, index) => 
@@ -2868,56 +2986,12 @@ async function setupHeroStats() {
             animateCounter('heroStats', 2, stats.games_played, 'games');
             animateCounter('heroStats', 3, stats.total_collection, 'games');
             
-            // Show recent additions
-            if (data.stats.recent_additions && data.stats.recent_additions.length > 0) {
-                renderRecentAdditions(data.stats.recent_additions);
-            }
         }
     } catch (error) {
         console.error('Error loading hero stats:', error);
     }
 }
 
-/**
- * Render recent additions carousel
- */
-function renderRecentAdditions(recentGames) {
-    const carousel = document.getElementById('recentAdditionsCarousel');
-    if (!carousel) {
-        // Create recent additions section if it doesn't exist
-        const gamesContainer = document.getElementById('gamesContainer');
-        if (gamesContainer && recentGames.length > 0) {
-            const recentSection = document.createElement('div');
-            recentSection.className = 'recent-additions';
-            recentSection.innerHTML = `
-                <div class="recent-additions-header">
-                    <h3>🆕 Recent Additions</h3>
-                </div>
-                <div id="recentAdditionsCarousel" class="recent-additions-carousel"></div>
-            `;
-            gamesContainer.parentNode.insertBefore(recentSection, gamesContainer);
-        }
-    }
-    
-    const carouselEl = document.getElementById('recentAdditionsCarousel');
-    if (!carouselEl) return;
-    
-    carouselEl.innerHTML = recentGames.map(game => {
-        const coverUrl = game.front_cover_image 
-            ? (game.front_cover_image.startsWith('http') ? game.front_cover_image : `uploads/covers/${game.front_cover_image}`)
-            : '';
-        
-        return `
-            <div class="recent-game-card" onclick="window.location.href='game-detail.php?id=${game.id}'">
-                ${coverUrl ? `<img src="${coverUrl}" alt="${escapeHtml(game.title)}" class="recent-game-cover">` : '<div class="recent-game-cover" style="background: var(--background-color); display: flex; align-items: center; justify-content: center; color: var(--text-light);">No Cover</div>'}
-                <div class="recent-game-info">
-                    <div class="recent-game-title">${escapeHtml(game.title)}</div>
-                    <div class="recent-game-platform">${escapeHtml(game.platform)}</div>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
 
 /**
  * Animate counter from start to end
