@@ -40,17 +40,21 @@ function listItems() {
     global $pdo;
     
     $category = $_GET['category'] ?? '';
+    $currentUserId = $_SESSION['user_id'];
+    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $targetUserId = isset($_GET['user_id']) && $isAdmin ? (int)$_GET['user_id'] : $currentUserId;
     
     $sql = "
         SELECT i.*, 
                COUNT(ii.id) as extra_image_count
         FROM items i
         LEFT JOIN item_images ii ON i.id = ii.item_id
+        WHERE i.user_id = ?
     ";
     
-    $params = [];
+    $params = [$targetUserId];
     if (!empty($category)) {
-        $sql .= " WHERE i.category = ?";
+        $sql .= " AND i.category = ?";
         $params[] = $category;
     }
     
@@ -75,6 +79,8 @@ function getItem() {
     global $pdo;
     
     $id = $_GET['id'] ?? 0;
+    $currentUserId = $_SESSION['user_id'];
+    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Item ID is required'], 400);
@@ -86,6 +92,11 @@ function getItem() {
     
     if (!$item) {
         sendJsonResponse(['success' => false, 'message' => 'Item not found'], 404);
+    }
+    
+    // Verify ownership (unless admin)
+    if (!$isAdmin && $item['user_id'] != $currentUserId) {
+        sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
     }
     
     // Ensure id field exists (SQLite might return it as 'ID' in some cases)
@@ -121,16 +132,19 @@ function createItem() {
         $quantity = isset($data['quantity']) ? max(1, (int)$data['quantity']) : 1;
     }
     
+    $userId = $_SESSION['user_id'];
+    
     $stmt = $pdo->prepare("
         INSERT INTO items (
-            title, platform, category, description, `condition`,
+            user_id, title, platform, category, description, `condition`,
             price_paid, pricecharting_price, notes, front_image, back_image, quantity
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
     ");
     
     $stmt->execute([
+        $userId,
         $data['title'] ?? '',
         $data['platform'] ?? null,
         $data['category'] ?? '',
@@ -162,9 +176,25 @@ function updateItem() {
     
     $data = json_decode(file_get_contents('php://input'), true);
     $id = $data['id'] ?? 0;
+    $currentUserId = $_SESSION['user_id'];
+    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Item ID is required'], 400);
+    }
+    
+    // Verify ownership
+    $checkStmt = $pdo->prepare("SELECT user_id FROM items WHERE id = ?");
+    $checkStmt->execute([$id]);
+    $item = $checkStmt->fetch();
+    
+    if (!$item) {
+        sendJsonResponse(['success' => false, 'message' => 'Item not found'], 404);
+    }
+    
+    // Verify ownership (unless admin)
+    if (!$isAdmin && $item['user_id'] != $currentUserId) {
+        sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
     }
     
     // Quantity only for accessories (not Systems/Console)
@@ -220,9 +250,25 @@ function deleteItem() {
     
     $data = json_decode(file_get_contents('php://input'), true);
     $id = $data['id'] ?? 0;
+    $currentUserId = $_SESSION['user_id'];
+    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Item ID is required'], 400);
+    }
+    
+    // Verify ownership
+    $checkStmt = $pdo->prepare("SELECT user_id FROM items WHERE id = ?");
+    $checkStmt->execute([$id]);
+    $item = $checkStmt->fetch();
+    
+    if (!$item) {
+        sendJsonResponse(['success' => false, 'message' => 'Item not found'], 404);
+    }
+    
+    // Verify ownership (unless admin)
+    if (!$isAdmin && $item['user_id'] != $currentUserId) {
+        sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
     }
     
     $stmt = $pdo->prepare("DELETE FROM items WHERE id = ?");

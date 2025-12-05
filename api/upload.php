@@ -193,8 +193,24 @@ try {
     // If it's an extra image, save to database
     if ($type === 'extra' && $gameId) {
         global $pdo;
-        $stmt = $pdo->prepare("INSERT INTO game_images (game_id, image_path) VALUES (?, ?)");
-        $stmt->execute([$gameId, $filename]);
+        $userId = $_SESSION['user_id'];
+        
+        // Verify game ownership
+        $checkStmt = $pdo->prepare("SELECT user_id FROM games WHERE id = ?");
+        $checkStmt->execute([$gameId]);
+        $game = $checkStmt->fetch();
+        
+        if (!$game) {
+            sendJsonResponse(['success' => false, 'message' => 'Game not found'], 404);
+        }
+        
+        $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+        if (!$isAdmin && $game['user_id'] != $userId) {
+            sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
+        }
+        
+        $stmt = $pdo->prepare("INSERT INTO game_images (game_id, user_id, image_path) VALUES (?, ?, ?)");
+        $stmt->execute([$gameId, $userId, $filename]);
         $imageId = $pdo->lastInsertId();
         
         sendJsonResponse([

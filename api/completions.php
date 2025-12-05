@@ -76,9 +76,12 @@ function listCompletions() {
     try {
         $year = $_GET['year'] ?? null;
         $status = $_GET['status'] ?? 'all'; // 'all', 'completed', 'in_progress'
+        $currentUserId = $_SESSION['user_id'];
+        $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+        $targetUserId = isset($_GET['user_id']) && $isAdmin ? (int)$_GET['user_id'] : $currentUserId;
         
-        $where = [];
-        $params = [];
+        $where = ["c.user_id = ?"];
+        $params = [$targetUserId];
         
         if ($year) {
             $where[] = "completion_year = ?";
@@ -91,7 +94,7 @@ function listCompletions() {
             $where[] = "date_completed IS NULL";
         }
         
-        $whereClause = !empty($where) ? "WHERE " . implode(" AND ", $where) : "";
+        $whereClause = "WHERE " . implode(" AND ", $where);
         
         $sql = "
             SELECT c.*, 
@@ -121,6 +124,8 @@ function getCompletion() {
     global $pdo;
     
     $id = $_GET['id'] ?? 0;
+    $currentUserId = $_SESSION['user_id'];
+    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Completion ID is required'], 400);
@@ -140,6 +145,11 @@ function getCompletion() {
     
     if (!$completion) {
         sendJsonResponse(['success' => false, 'message' => 'Completion not found'], 404);
+    }
+    
+    // Verify ownership (unless admin)
+    if (!$isAdmin && $completion['user_id'] != $currentUserId) {
+        sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
     }
     
     sendJsonResponse(['success' => true, 'completion' => $completion]);
@@ -167,14 +177,17 @@ function createCompletion() {
         }
     }
     
+    $userId = $_SESSION['user_id'];
+    
     $stmt = $pdo->prepare("
         INSERT INTO game_completions (
-            game_id, title, platform, time_taken,
+            user_id, game_id, title, platform, time_taken,
             date_started, date_completed, completion_year, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     
     $stmt->execute([
+        $userId,
         $data['game_id'] ?? null,
         $data['title'] ?? '',
         $data['platform'] ?? null,
@@ -203,9 +216,25 @@ function updateCompletion() {
     
     $data = json_decode(file_get_contents('php://input'), true);
     $id = $data['id'] ?? 0;
+    $currentUserId = $_SESSION['user_id'];
+    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Completion ID is required'], 400);
+    }
+    
+    // Verify ownership
+    $checkStmt = $pdo->prepare("SELECT user_id FROM game_completions WHERE id = ?");
+    $checkStmt->execute([$id]);
+    $completion = $checkStmt->fetch();
+    
+    if (!$completion) {
+        sendJsonResponse(['success' => false, 'message' => 'Completion not found'], 404);
+    }
+    
+    // Verify ownership (unless admin)
+    if (!$isAdmin && $completion['user_id'] != $currentUserId) {
+        sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
     }
     
     // Extract year from completion date
@@ -253,9 +282,25 @@ function deleteCompletion() {
     global $pdo;
     
     $id = $_GET['id'] ?? 0;
+    $currentUserId = $_SESSION['user_id'];
+    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Completion ID is required'], 400);
+    }
+    
+    // Verify ownership
+    $checkStmt = $pdo->prepare("SELECT user_id FROM game_completions WHERE id = ?");
+    $checkStmt->execute([$id]);
+    $completion = $checkStmt->fetch();
+    
+    if (!$completion) {
+        sendJsonResponse(['success' => false, 'message' => 'Completion not found'], 404);
+    }
+    
+    // Verify ownership (unless admin)
+    if (!$isAdmin && $completion['user_id'] != $currentUserId) {
+        sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
     }
     
     $stmt = $pdo->prepare("DELETE FROM game_completions WHERE id = ?");

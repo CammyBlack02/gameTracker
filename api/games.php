@@ -119,12 +119,18 @@ function listGames() {
         $perPage = isset($_GET['per_page']) ? max(1, min(1000, (int)$_GET['per_page'])) : 500; // Max 1000 per page
         $offset = ($page - 1) * $perPage;
         
+        // Get user_id from session or optional parameter (for admin viewing other users)
+        $currentUserId = $_SESSION['user_id'];
+        $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+        $targetUserId = isset($_GET['user_id']) && $isAdmin ? (int)$_GET['user_id'] : $currentUserId;
+        
         // Get total count
-        $countStmt = $pdo->query("SELECT COUNT(DISTINCT g.id) as total FROM games g");
+        $countStmt = $pdo->prepare("SELECT COUNT(DISTINCT g.id) as total FROM games g WHERE g.user_id = ?");
+        $countStmt->execute([$targetUserId]);
         $totalGames = (int)$countStmt->fetch(PDO::FETCH_ASSOC)['total'];
         $totalPages = $totalGames > 0 ? ceil($totalGames / $perPage) : 1;
         
-        error_log("listGames: Page $page of $totalPages (showing $perPage games, offset $offset)");
+        error_log("listGames: Page $page of $totalPages (showing $perPage games, offset $offset) for user_id: $targetUserId");
         
         // Re-execute query with pagination
         $stmt = $pdo->prepare("
@@ -149,12 +155,13 @@ function listGames() {
                    COUNT(gi.id) as extra_image_count
             FROM games g
             LEFT JOIN game_images gi ON g.id = gi.game_id
+            WHERE g.user_id = ?
             GROUP BY g.id
             ORDER BY g.created_at DESC
             LIMIT ? OFFSET ?
         ");
         
-        $stmt->execute([$perPage, $offset]);
+        $stmt->execute([$targetUserId, $perPage, $offset]);
         
         // Collect games for this page
         $games = [];
@@ -207,6 +214,8 @@ function getGame() {
     global $pdo;
     
     $id = $_GET['id'] ?? 0;
+    $currentUserId = $_SESSION['user_id'];
+    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Game ID is required'], 400);
@@ -218,6 +227,11 @@ function getGame() {
     
     if (!$game) {
         sendJsonResponse(['success' => false, 'message' => 'Game not found'], 404);
+    }
+    
+    // Verify ownership (unless admin)
+    if (!$isAdmin && $game['user_id'] != $currentUserId) {
+        sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
     }
     
     // Get extra images
@@ -248,18 +262,21 @@ function createGame() {
         sendJsonResponse(['success' => false, 'message' => 'Title and platform are required'], 400);
     }
     
+    $userId = $_SESSION['user_id'];
+    
     $stmt = $pdo->prepare("
         INSERT INTO games (
-            title, platform, genre, description, series, special_edition,
+            user_id, title, platform, genre, description, series, special_edition,
             `condition`, review, star_rating, metacritic_rating, played,
             price_paid, pricecharting_price, is_physical, digital_store,
             front_cover_image, back_cover_image, release_date
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
     ");
     
     $stmt->execute([
+        $userId,
         $data['title'] ?? '',
         $data['platform'] ?? '',
         $data['genre'] ?? null,
@@ -409,11 +426,21 @@ function updateGame() {
         sendJsonResponse(['success' => false, 'message' => 'Game ID is required'], 400);
     }
     
-    // Check if game exists
-    $stmt = $pdo->prepare("SELECT id FROM games WHERE id = ?");
+    $currentUserId = $_SESSION['user_id'];
+    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    
+    // Check if game exists and verify ownership
+    $stmt = $pdo->prepare("SELECT id, user_id FROM games WHERE id = ?");
     $stmt->execute([$id]);
-    if (!$stmt->fetch()) {
+    $game = $stmt->fetch();
+    
+    if (!$game) {
         sendJsonResponse(['success' => false, 'message' => 'Game not found'], 404);
+    }
+    
+    // Verify ownership (unless admin)
+    if (!$isAdmin && $game['user_id'] != $currentUserId) {
+        sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
     }
     
     // Auto-download external URLs and convert to local files
@@ -526,15 +553,26 @@ function deleteGame() {
     global $pdo;
     
     $id = $_GET['id'] ?? 0;
+    $currentUserId = $_SESSION['user_id'];
+    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Game ID is required'], 400);
     }
     
-    // Get game to delete images
-    $stmt = $pdo->prepare("SELECT front_cover_image, back_cover_image FROM games WHERE id = ?");
+    // Get game to verify ownership and delete images
+    $stmt = $pdo->prepare("SELECT user_id, front_cover_image, back_cover_image FROM games WHERE id = ?");
     $stmt->execute([$id]);
     $game = $stmt->fetch();
+    
+    if (!$game) {
+        sendJsonResponse(['success' => false, 'message' => 'Game not found'], 404);
+    }
+    
+    // Verify ownership (unless admin)
+    if (!$isAdmin && $game['user_id'] != $currentUserId) {
+        sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
+    }
     
     // Get extra images
     $stmt = $pdo->prepare("SELECT image_path FROM game_images WHERE game_id = ?");
