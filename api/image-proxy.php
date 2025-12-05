@@ -27,56 +27,28 @@ if (!filter_var($url, FILTER_VALIDATE_URL)) {
     die('Invalid URL');
 }
 
-// Only allow specific domains for security
-$allowedDomains = [
-    // TheCoverProject
-    'coverproject.sfo2.cdn.digitaloceanspaces.com',
-    'cdn.digitaloceanspaces.com',
-    'thecoverproject.net',
-    // Common game cover/image sources
-    'vgchartz.com',
-    'mobygames.com',
-    'media-amazon.com',
-    'm.media-amazon.com',
-    'ebayimg.com',
-    'i.ebayimg.com',
-    'wikimedia.org',
-    'upload.wikimedia.org',
-    'pricecharting.com',
-    'storage.googleapis.com', // PriceCharting uses this
-    'thegamesdb.net',
-    'cdn.thegamesdb.net',
-    'staticneo.com',
-    'cdn.staticneo.com',
-    'lukiegames.com',
-    'www.lukiegames.com',
-    'psxdatacenter.com',
-    'webuy.com',
-    'uk.static.webuy.com',
-    'static.thcdn.com',
-    'thcdn.com',
-    'dodo.ac',
-    'doorwaytodorkness.co.uk',
-    // Google images (for thumbnails)
-    'gstatic.com',
-    'encrypted-tbn0.gstatic.com'
-];
-
+// Security: Only allow HTTPS URLs and basic validation
 $parsedUrl = parse_url($url);
+$scheme = $parsedUrl['scheme'] ?? '';
 $host = $parsedUrl['host'] ?? '';
 
-$allowed = false;
-foreach ($allowedDomains as $domain) {
-    if (strpos($host, $domain) !== false) {
-        $allowed = true;
-        break;
-    }
-}
-
-if (!$allowed) {
+// Only allow HTTPS for security
+if ($scheme !== 'https') {
     http_response_code(403);
     header('Content-Type: text/plain');
-    die('Domain not allowed');
+    die('Only HTTPS URLs are allowed');
+}
+
+// Block local/internal IPs for security
+if (empty($host) || 
+    strpos($host, 'localhost') !== false || 
+    strpos($host, '127.0.0.1') !== false ||
+    strpos($host, '192.168.') !== false ||
+    strpos($host, '10.') !== false ||
+    strpos($host, '172.16.') !== false) {
+    http_response_code(403);
+    header('Content-Type: text/plain');
+    die('Local/internal URLs not allowed');
 }
 
 // Fetch the image
