@@ -310,6 +310,24 @@ function updateGame() {
         sendJsonResponse(['success' => false, 'message' => 'Game not found'], 404);
     }
     
+    // Log cover image data for debugging
+    if (isset($data['front_cover_image'])) {
+        $frontCover = $data['front_cover_image'];
+        $frontCoverType = 'unknown';
+        $frontCoverLength = strlen($frontCover);
+        if (strpos($frontCover, 'data:') === 0) {
+            $frontCoverType = 'base64';
+            $base64Part = explode(',', $frontCover)[1] ?? '';
+            error_log("Updating front cover - Type: base64, Total length: $frontCoverLength, Base64 length: " . strlen($base64Part));
+        } elseif (strpos($frontCover, 'http') === 0) {
+            $frontCoverType = 'external URL';
+            error_log("Updating front cover - Type: external URL, Length: $frontCoverLength");
+        } else {
+            $frontCoverType = 'local file';
+            error_log("Updating front cover - Type: local file, Path: $frontCover");
+        }
+    }
+    
     $stmt = $pdo->prepare("
         UPDATE games SET
             title = ?,
@@ -334,27 +352,51 @@ function updateGame() {
         WHERE id = ?
     ");
     
-    $stmt->execute([
-        $data['title'] ?? '',
-        $data['platform'] ?? '',
-        $data['genre'] ?? null,
-        $data['description'] ?? null,
-        $data['series'] ?? null,
-        $data['special_edition'] ?? null,
-        $data['condition'] ?? null,
-        $data['review'] ?? null,
-        isset($data['star_rating']) ? (int)$data['star_rating'] : null,
-        isset($data['metacritic_rating']) ? (int)$data['metacritic_rating'] : null,
-        isset($data['played']) ? (int)$data['played'] : 0,
-        isset($data['price_paid']) ? (float)$data['price_paid'] : null,
-        isset($data['pricecharting_price']) ? (float)$data['pricecharting_price'] : null,
-        isset($data['is_physical']) ? (int)$data['is_physical'] : 1,
-        $data['digital_store'] ?? null,
-        $data['front_cover_image'] ?? null,
-        $data['back_cover_image'] ?? null,
-        !empty($data['release_date']) ? $data['release_date'] : null,
-        $id
-    ]);
+    try {
+        $stmt->execute([
+            $data['title'] ?? '',
+            $data['platform'] ?? '',
+            $data['genre'] ?? null,
+            $data['description'] ?? null,
+            $data['series'] ?? null,
+            $data['special_edition'] ?? null,
+            $data['condition'] ?? null,
+            $data['review'] ?? null,
+            isset($data['star_rating']) ? (int)$data['star_rating'] : null,
+            isset($data['metacritic_rating']) ? (int)$data['metacritic_rating'] : null,
+            isset($data['played']) ? (int)$data['played'] : 0,
+            isset($data['price_paid']) ? (float)$data['price_paid'] : null,
+            isset($data['pricecharting_price']) ? (float)$data['pricecharting_price'] : null,
+            isset($data['is_physical']) ? (int)$data['is_physical'] : 1,
+            $data['digital_store'] ?? null,
+            $data['front_cover_image'] ?? null,
+            $data['back_cover_image'] ?? null,
+            !empty($data['release_date']) ? $data['release_date'] : null,
+            $id
+        ]);
+        
+        // Verify what was actually saved
+        $verifyStmt = $pdo->prepare("SELECT front_cover_image FROM games WHERE id = ?");
+        $verifyStmt->execute([$id]);
+        $saved = $verifyStmt->fetch(PDO::FETCH_ASSOC);
+        if ($saved && isset($data['front_cover_image'])) {
+            $savedLength = strlen($saved['front_cover_image'] ?? '');
+            $sentLength = strlen($data['front_cover_image']);
+            if ($savedLength !== $sentLength) {
+                error_log("WARNING: Front cover image length mismatch - Sent: $sentLength, Saved: $savedLength");
+            } else {
+                error_log("Front cover image saved successfully - Length: $savedLength");
+            }
+        }
+    } catch (PDOException $e) {
+        error_log("Error updating game: " . $e->getMessage());
+        if (strpos($e->getMessage(), 'Data too long') !== false) {
+            sendJsonResponse(['success' => false, 'message' => 'Cover image is too large. Please use a smaller image or an external URL.'], 400);
+        } else {
+            sendJsonResponse(['success' => false, 'message' => 'Failed to update game: ' . $e->getMessage()], 500);
+        }
+        return;
+    }
     
     sendJsonResponse([
         'success' => true,
