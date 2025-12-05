@@ -273,6 +273,20 @@ function displayGamesGridView(games, container) {
     container.innerHTML = html;
     console.log('innerHTML set, container now has', container.children.length, 'children');
     
+    // Detect and handle combined covers (very wide or tall images)
+    container.querySelectorAll('.game-cover').forEach(img => {
+        img.addEventListener('load', function() {
+            const aspectRatio = this.naturalWidth / this.naturalHeight;
+            // Combined covers are usually wider (aspect ratio > 1.3) or taller (aspect ratio < 0.7)
+            if (aspectRatio > 1.3 || aspectRatio < 0.7) {
+                // Add a class to indicate it's a combined cover
+                this.classList.add('combined-cover');
+                // Optionally add a tooltip or visual indicator
+                this.title = 'This appears to be a combined front/back cover. Use the split tool to separate them.';
+            }
+        });
+    });
+    
     // Attach click handlers directly to each game card (only for games container)
     console.log('About to attach handlers, container:', container, 'container.id:', container?.id);
     if (container && container.id === 'gamesContainer') {
