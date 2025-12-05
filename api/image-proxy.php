@@ -39,13 +39,20 @@ if ($scheme !== 'https') {
     die('Only HTTPS URLs are allowed');
 }
 
-// Block local/internal IPs for security
-if (empty($host) || 
-    strpos($host, 'localhost') !== false || 
-    strpos($host, '127.0.0.1') !== false ||
-    strpos($host, '192.168.') !== false ||
-    strpos($host, '10.') !== false ||
-    strpos($host, '172.16.') !== false) {
+// Block local/internal IPs for security (simple check)
+if (empty($host)) {
+    http_response_code(403);
+    header('Content-Type: text/plain');
+    die('Invalid host');
+}
+
+// Block obvious localhost patterns
+if ($host === 'localhost' || 
+    $host === '127.0.0.1' || 
+    $host === '::1' ||
+    preg_match('/^192\.168\./', $host) ||
+    preg_match('/^10\./', $host) ||
+    preg_match('/^172\.(1[6-9]|2[0-9]|3[01])\./', $host)) {
     http_response_code(403);
     header('Content-Type: text/plain');
     die('Local/internal URLs not allowed');
