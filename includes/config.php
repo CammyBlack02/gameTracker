@@ -114,8 +114,8 @@ function initializeDatabase($pdo) {
         pricecharting_price DECIMAL(10,2),
         is_physical INT DEFAULT 1,
         digital_store VARCHAR(255),
-        front_cover_image TEXT,
-        back_cover_image TEXT,
+        front_cover_image MEDIUMTEXT,
+        back_cover_image MEDIUMTEXT,
         release_date DATE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -133,6 +133,18 @@ function initializeDatabase($pdo) {
         $pdo->exec("ALTER TABLE games ADD COLUMN release_date DATE");
     } catch (PDOException $e) {
         // Column already exists, ignore error
+    }
+    
+    // Upgrade image columns from TEXT to MEDIUMTEXT if needed (for existing databases)
+    try {
+        $pdo->exec("ALTER TABLE games MODIFY COLUMN front_cover_image MEDIUMTEXT");
+    } catch (PDOException $e) {
+        // Column might not exist or already be MEDIUMTEXT, ignore error
+    }
+    try {
+        $pdo->exec("ALTER TABLE games MODIFY COLUMN back_cover_image MEDIUMTEXT");
+    } catch (PDOException $e) {
+        // Column might not exist or already be MEDIUMTEXT, ignore error
     }
     
     // Game images table (for extra photos)
