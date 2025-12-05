@@ -59,7 +59,7 @@ if (!$profileUserId) {
         // Load user info
         loadUserInfo();
         
-        // Load games
+        // Load games for this user profile
         loadUserGames();
         
         // Setup logout

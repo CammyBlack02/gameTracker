@@ -8,8 +8,11 @@ window.allGames = []; // Expose to window for spin wheel
 let currentView = localStorage.getItem('gameView') || 'list';
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Don't auto-load on user profile page (it loads games manually)
+    const isUserProfilePage = window.location.pathname.includes('user-profile.php');
+    
     // Load games on dashboard
-    if (document.getElementById('gamesContainer')) {
+    if (document.getElementById('gamesContainer') && !isUserProfilePage) {
         loadGames();
         setupAddGameForm();
         setupViewToggle();
