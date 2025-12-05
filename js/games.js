@@ -1932,6 +1932,17 @@ function setupEditGameForm() {
             };
             
             try {
+                // Debug: Log cover image data being sent
+                if (formData.front_cover_image) {
+                    const frontCoverPreview = formData.front_cover_image.substring(0, 100);
+                    console.log('Saving front cover image:', {
+                        type: formData.front_cover_image.startsWith('data:') ? 'base64' : 
+                              formData.front_cover_image.startsWith('http') ? 'external URL' : 'local file',
+                        preview: frontCoverPreview,
+                        length: formData.front_cover_image.length
+                    });
+                }
+                
                 const response = await fetch('api/games.php?action=update', {
                     method: 'POST',
                     headers: {
