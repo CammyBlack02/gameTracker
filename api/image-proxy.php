@@ -46,18 +46,28 @@ if (!$allowed) {
     die('Domain not allowed');
 }
 
-// Fetch the image
+// Fetch the image with streaming
 $ch = curl_init($url);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+curl_setopt($ch, CURLOPT_TIMEOUT, 30); // Increased timeout for large images
+curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; GameTracker/1.0)');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Still use return transfer for Content-Length
+curl_setopt($ch, CURLOPT_HEADER, false);
 
 $imageData = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+$contentLength = curl_getinfo($ch, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+$error = curl_error($ch);
 curl_close($ch);
+
+if ($error) {
+    error_log("Image proxy error for $url: $error");
+    http_response_code(500);
+    die('Error fetching image');
+}
 
 if ($httpCode !== 200 || empty($imageData)) {
     http_response_code(404);
@@ -67,6 +77,16 @@ if ($httpCode !== 200 || empty($imageData)) {
 // Set appropriate content type
 if ($contentType && strpos($contentType, 'image/') === 0) {
     header('Content-Type: ' . $contentType);
+}
+
+// Set Content-Length if available
+if ($contentLength > 0) {
+    header('Content-Length: ' . strlen($imageData));
+}
+
+// Disable output buffering for large images
+if (ob_get_level()) {
+    ob_end_clean();
 }
 
 echo $imageData;
