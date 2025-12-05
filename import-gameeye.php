@@ -139,7 +139,7 @@ while (($row = fgetcsv($handle)) !== false) {
         try {
             $stmt = $pdo->prepare("
                 INSERT INTO items (
-                    title, platform, category, description, condition,
+                    title, platform, category, description, `condition`,
                     price_paid, pricecharting_price, notes, created_at
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?
@@ -309,7 +309,7 @@ while (($row = fgetcsv($handle)) !== false) {
         $stmt = $pdo->prepare("
             INSERT INTO games (
                 title, platform, genre, description, series, special_edition,
-                condition, review, star_rating, metacritic_rating, played,
+                `condition`, review, star_rating, metacritic_rating, played,
                 price_paid, pricecharting_price, is_physical,
                 front_cover_image, back_cover_image, created_at
             ) VALUES (

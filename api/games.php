@@ -139,7 +139,7 @@ function listGames() {
                    g.genre,
                    g.series,
                    g.special_edition,
-                   g.condition,
+                   g.`condition`,
                    g.star_rating,
                    g.metacritic_rating,
                    g.played,
@@ -256,7 +256,7 @@ function createGame() {
     $stmt = $pdo->prepare("
         INSERT INTO games (
             title, platform, genre, description, series, special_edition,
-            condition, review, star_rating, metacritic_rating, played,
+            `condition`, review, star_rating, metacritic_rating, played,
             price_paid, pricecharting_price, is_physical, digital_store,
             front_cover_image, back_cover_image, release_date
         ) VALUES (
@@ -323,7 +323,7 @@ function updateGame() {
             description = ?,
             series = ?,
             special_edition = ?,
-            condition = ?,
+            `condition` = ?,
             review = ?,
             star_rating = ?,
             metacritic_rating = ?,
