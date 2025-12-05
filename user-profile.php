@@ -119,14 +119,34 @@ if (!$profileUserId) {
         }
         
         async function loadUserGames() {
+            console.log('loadUserGames: Loading games for user', profileUserId);
             try {
                 const response = await fetch(`api/games.php?action=list&user_id=${profileUserId}&page=1&per_page=500`);
                 const data = await response.json();
                 
+                console.log('loadUserGames: Response received', data.success, data.games?.length || 0, 'games');
+                
                 if (data.success && data.games) {
+                    // Set allGames so filters work correctly, but prevent loadGames from being called
+                    if (typeof allGames !== 'undefined') {
+                        allGames = data.games;
+                        console.log('loadUserGames: Set allGames to', allGames.length, 'games');
+                    }
+                    if (typeof window.allGames !== 'undefined') {
+                        window.allGames = data.games;
+                        console.log('loadUserGames: Set window.allGames to', window.allGames.length, 'games');
+                    }
                     // Use existing displayGames function but make it read-only
+                    console.log('loadUserGames: Calling displayGames with', data.games.length, 'games');
                     displayGames(data.games);
                 } else {
+                    // Clear allGames if no games found
+                    if (typeof allGames !== 'undefined') {
+                        allGames = [];
+                    }
+                    if (typeof window.allGames !== 'undefined') {
+                        window.allGames = [];
+                    }
                     document.getElementById('gamesContainer').innerHTML = 
                         '<div class="empty-state">No games found</div>';
                 }
