@@ -11,8 +11,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Don't auto-load on user profile page (it loads games manually)
     const isUserProfilePage = window.location.pathname.includes('user-profile.php');
     
+    if (isUserProfilePage) {
+        console.log('User profile page detected - skipping auto-loadGames');
+        return; // Exit early, don't run any setup
+    }
+    
     // Load games on dashboard
-    if (document.getElementById('gamesContainer') && !isUserProfilePage) {
+    if (document.getElementById('gamesContainer')) {
         loadGames();
         setupAddGameForm();
         setupViewToggle();
@@ -36,6 +41,12 @@ let isLoadingGames = false;
  * Load all games (with pagination)
  */
 async function loadGames() {
+    // Don't load games on user profile page
+    if (window.location.pathname.includes('user-profile.php')) {
+        console.log('loadGames: Blocked on user profile page');
+        return;
+    }
+    
     // Prevent duplicate calls
     if (isLoadingGames) {
         console.log('loadGames: Already loading, skipping duplicate call');
