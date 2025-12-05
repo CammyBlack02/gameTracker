@@ -36,15 +36,15 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Database configuration
-define('DB_PATH', __DIR__ . '/../database/games.db');
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'gameTracker');
+define('DB_USER', 'CammyBlack02');
+define('DB_PASS', 'RetroTinker87!');
 define('UPLOAD_DIR', __DIR__ . '/../uploads/');
 define('COVERS_DIR', UPLOAD_DIR . 'covers/');
 define('EXTRAS_DIR', UPLOAD_DIR . 'extras/');
 
 // Create directories if they don't exist
-if (!file_exists(__DIR__ . '/../database')) {
-    mkdir(__DIR__ . '/../database', 0755, true);
-}
 if (!file_exists(UPLOAD_DIR)) {
     mkdir(UPLOAD_DIR, 0755, true);
 }
@@ -57,21 +57,16 @@ if (!file_exists(EXTRAS_DIR)) {
 
 // Database connection
 try {
-    // Add timeout and optimize for large databases
-    $pdo = new PDO('sqlite:' . DB_PATH, null, null, [
+    // MySQL connection
+    $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4';
+    $pdo = new PDO($dsn, DB_USER, DB_PASS, [
         PDO::ATTR_TIMEOUT => 30,
-        PDO::ATTR_PERSISTENT => false
+        PDO::ATTR_PERSISTENT => false,
+        PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
     ]);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-    
-    // Optimize SQLite for better performance with large databases
-    $pdo->exec('PRAGMA busy_timeout = 30000'); // Wait up to 30 seconds for locks
-    $pdo->exec('PRAGMA journal_mode = WAL'); // Write-Ahead Logging for better concurrency
-    $pdo->exec('PRAGMA synchronous = NORMAL'); // Balance between safety and performance
-    $pdo->exec('PRAGMA cache_size = -64000'); // 64MB cache
-    $pdo->exec('PRAGMA temp_store = MEMORY'); // Use memory for temp tables
-    $pdo->exec('PRAGMA mmap_size = 268435456'); // 256MB memory-mapped I/O
     
     // Initialize database tables
     initializeDatabase($pdo);
@@ -90,111 +85,114 @@ try {
  * Initialize database tables if they don't exist
  */
 function initializeDatabase($pdo) {
+    // Enable foreign key checks
+    $pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
+    
     // Users table
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        username VARCHAR(255) UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     
     // Games table
     $pdo->exec("CREATE TABLE IF NOT EXISTS games (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT PRIMARY KEY AUTO_INCREMENT,
         title TEXT NOT NULL,
-        platform TEXT NOT NULL,
-        genre TEXT,
+        platform VARCHAR(255) NOT NULL,
+        genre VARCHAR(255),
         description TEXT,
-        series TEXT,
-        special_edition TEXT,
-        condition TEXT,
+        series VARCHAR(255),
+        special_edition VARCHAR(255),
+        condition VARCHAR(255),
         review TEXT,
-        star_rating INTEGER,
-        metacritic_rating INTEGER,
-        played INTEGER DEFAULT 0,
+        star_rating INT,
+        metacritic_rating INT,
+        played INT DEFAULT 0,
         price_paid DECIMAL(10,2),
         pricecharting_price DECIMAL(10,2),
-        is_physical INTEGER DEFAULT 1,
-        digital_store TEXT,
+        is_physical INT DEFAULT 1,
+        digital_store VARCHAR(255),
         front_cover_image TEXT,
         back_cover_image TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     
     // Add digital_store column if it doesn't exist (for existing databases)
     try {
-        $pdo->exec("ALTER TABLE games ADD COLUMN digital_store TEXT");
+        $pdo->exec("ALTER TABLE games ADD COLUMN digital_store VARCHAR(255)");
     } catch (PDOException $e) {
         // Column already exists, ignore error
     }
     
     // Game images table (for extra photos)
     $pdo->exec("CREATE TABLE IF NOT EXISTS game_images (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        game_id INTEGER NOT NULL,
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        game_id INT NOT NULL,
         image_path TEXT NOT NULL,
         uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
-    )");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     
     // Consoles and accessories table
     $pdo->exec("CREATE TABLE IF NOT EXISTS items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT PRIMARY KEY AUTO_INCREMENT,
         title TEXT NOT NULL,
-        platform TEXT,
-        category TEXT NOT NULL,
+        platform VARCHAR(255),
+        category VARCHAR(255) NOT NULL,
         description TEXT,
-        condition TEXT,
+        condition VARCHAR(255),
         price_paid DECIMAL(10,2),
         pricecharting_price DECIMAL(10,2),
         front_image TEXT,
         back_image TEXT,
         notes TEXT,
-        quantity INTEGER DEFAULT 1,
+        quantity INT DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     
     // Add quantity column if it doesn't exist (for existing databases)
     try {
-        $pdo->exec("ALTER TABLE items ADD COLUMN quantity INTEGER DEFAULT 1");
+        $pdo->exec("ALTER TABLE items ADD COLUMN quantity INT DEFAULT 1");
     } catch (PDOException $e) {
         // Column already exists, ignore error
     }
     
     // Item images table (for extra photos)
     $pdo->exec("CREATE TABLE IF NOT EXISTS item_images (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_id INTEGER NOT NULL,
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        item_id INT NOT NULL,
         image_path TEXT NOT NULL,
         uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
-    )");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     
     // Settings table (for background image, etc.)
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        setting_key TEXT UNIQUE NOT NULL,
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        setting_key VARCHAR(255) UNIQUE NOT NULL,
         setting_value TEXT,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     
     // Game completions table
     $pdo->exec("CREATE TABLE IF NOT EXISTS game_completions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        game_id INTEGER,
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        game_id INT,
         title TEXT NOT NULL,
-        platform TEXT,
-        time_taken TEXT,
+        platform VARCHAR(255),
+        time_taken VARCHAR(255),
         date_started DATE,
         date_completed DATE,
-        completion_year INTEGER,
+        completion_year INT,
         notes TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL
-    )");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     
     // Create default admin user if no users exist
     $stmt = $pdo->query("SELECT COUNT(*) as count FROM users");
