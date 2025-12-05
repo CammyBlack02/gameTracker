@@ -4,13 +4,16 @@
  * Usage: /api/image-proxy.php?url=<encoded_url>
  */
 
-header('Content-Type: image/jpeg');
-header('Cache-Control: public, max-age=31536000'); // Cache for 1 year
+// Disable output buffering early
+if (ob_get_level()) {
+    ob_end_clean();
+}
 
 $url = $_GET['url'] ?? '';
 
 if (empty($url)) {
     http_response_code(400);
+    header('Content-Type: text/plain');
     die('Missing URL parameter');
 }
 
@@ -20,6 +23,7 @@ $url = urldecode($url);
 // Validate URL
 if (!filter_var($url, FILTER_VALIDATE_URL)) {
     http_response_code(400);
+    header('Content-Type: text/plain');
     die('Invalid URL');
 }
 
@@ -43,50 +47,50 @@ foreach ($allowedDomains as $domain) {
 
 if (!$allowed) {
     http_response_code(403);
+    header('Content-Type: text/plain');
     die('Domain not allowed');
 }
 
-// Fetch the image with streaming
+// Fetch the image
 $ch = curl_init($url);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-curl_setopt($ch, CURLOPT_TIMEOUT, 30); // Increased timeout for large images
+curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; GameTracker/1.0)');
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Still use return transfer for Content-Length
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HEADER, false);
 
 $imageData = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-$contentLength = curl_getinfo($ch, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
 $error = curl_error($ch);
 curl_close($ch);
 
 if ($error) {
     error_log("Image proxy error for $url: $error");
     http_response_code(500);
+    header('Content-Type: text/plain');
     die('Error fetching image');
 }
 
 if ($httpCode !== 200 || empty($imageData)) {
     http_response_code(404);
+    header('Content-Type: text/plain');
     die('Image not found');
 }
 
-// Set appropriate content type
+// Set appropriate content type (default to jpeg if not detected)
 if ($contentType && strpos($contentType, 'image/') === 0) {
     header('Content-Type: ' . $contentType);
+} else {
+    header('Content-Type: image/jpeg');
 }
 
-// Set Content-Length if available
-if ($contentLength > 0) {
-    header('Content-Length: ' . strlen($imageData));
-}
+// Set cache headers
+header('Cache-Control: public, max-age=31536000');
 
-// Disable output buffering for large images
-if (ob_get_level()) {
-    ob_end_clean();
-}
+// Set Content-Length
+header('Content-Length: ' . strlen($imageData));
 
 echo $imageData;
