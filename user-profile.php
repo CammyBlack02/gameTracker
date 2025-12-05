@@ -51,12 +51,25 @@ if (!$profileUserId) {
         // Set flag BEFORE loading games.js to prevent auto-load
         window.IS_USER_PROFILE_PAGE = true;
         window.PROFILE_USER_ID = <?php echo $profileUserId; ?>;
+        
+        // Override loadGames to prevent it from running on profile page
+        window.loadGames = function() {
+            console.log('loadGames: Blocked on user profile page (override)');
+            return Promise.resolve();
+        };
     </script>
     <script src="js/games.js"></script>
     <script src="js/items.js"></script>
     <script>
         const profileUserId = window.PROFILE_USER_ID;
         const isViewingOwnProfile = profileUserId == <?php echo $_SESSION['user_id']; ?>;
+        
+        // Override loadGames again after games.js loads to ensure it's blocked
+        const originalLoadGames = window.loadGames;
+        window.loadGames = function() {
+            console.log('loadGames: Blocked on user profile page (post-override)');
+            return Promise.resolve();
+        };
         
         // Setup dark mode
         setupDarkMode();
