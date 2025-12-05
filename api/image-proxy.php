@@ -17,7 +17,7 @@ if (empty($url)) {
     die('Missing URL parameter');
 }
 
-// Decode URL if needed
+// Decode URL
 $url = urldecode($url);
 
 // Validate URL
