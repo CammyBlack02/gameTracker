@@ -32,6 +32,10 @@
             </form>
             
             <p class="login-note">Default credentials: admin / admin<br>(Change after first login!)</p>
+            
+            <p style="margin-top: 20px; text-align: center;">
+                <a href="register.php" style="color: #4a90e2; text-decoration: none;">Create an account</a>
+            </p>
         </div>
     </div>
     

@@ -10,14 +10,32 @@
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/functions.php';
 
-// Optional: Add authentication check for web access
-// require_once __DIR__ . '/includes/auth-check.php';
+// Get user_id - from session (web) or CLI argument
+$userId = null;
+if (php_sapi_name() === 'cli') {
+    // CLI mode - get user_id from argument or use admin (user_id = 1)
+    $userId = isset($argv[1]) ? (int)$argv[1] : 1;
+    echo "==========================================\n";
+    echo "GameEye CSV Import Script (CLI Mode)\n";
+    echo "==========================================\n\n";
+    echo "Importing for user_id: $userId\n";
+    echo "Usage: php import-gameeye.php [user_id] [csv_file]\n\n";
+} else {
+    // Web mode - require authentication
+    require_once __DIR__ . '/includes/auth-check.php';
+    $userId = $_SESSION['user_id'];
+    echo "==========================================\n";
+    echo "GameEye CSV Import Script (Web Mode)\n";
+    echo "==========================================\n\n";
+    echo "Importing for user: " . $_SESSION['username'] . " (ID: $userId)\n\n";
+}
 
-echo "==========================================\n";
-echo "GameEye CSV Import Script\n";
-echo "==========================================\n\n";
+if (!$userId) {
+    die("Error: User ID is required\n");
+}
 
-$csvFile = __DIR__ . '/11_9_2025_ge_collection.csv';
+// Get CSV file from argument or default
+$csvFile = isset($argv[2]) ? $argv[2] : (__DIR__ . '/11_9_2025_ge_collection.csv');
 
 if (!file_exists($csvFile)) {
     die("Error: CSV file not found: $csvFile\n");
@@ -105,11 +123,38 @@ while (($row = fgetcsv($handle)) !== false) {
         // Normalize platform name
         $platform = $platformMap[$platformRaw] ?? $platformRaw;
         
-        // Check for duplicates
-        $checkStmt = $pdo->prepare("SELECT id FROM items WHERE title = ? AND category = ?");
-        $checkStmt->execute([$title, $category]);
-        if ($checkStmt->fetch()) {
-            $itemDuplicates++;
+        // Check for existing item (smart merge - match by title, category, and user_id)
+        $checkStmt = $pdo->prepare("SELECT id FROM items WHERE title = ? AND category = ? AND user_id = ?");
+        $checkStmt->execute([$title, $category, $userId]);
+        $existingItem = $checkStmt->fetch();
+        
+        if ($existingItem) {
+            // Update existing item instead of skipping
+            $itemId = $existingItem['id'];
+            $updateStmt = $pdo->prepare("
+                UPDATE items SET
+                    platform = ?,
+                    description = ?,
+                    `condition` = ?,
+                    price_paid = ?,
+                    pricecharting_price = ?,
+                    notes = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ");
+            
+            $updateStmt->execute([
+                $platform,
+                $description,
+                $condition,
+                $pricePaid,
+                $priceCharting,
+                $description,
+                $itemId
+            ]);
+            
+            $importedItems++;
+            echo "  ↻ Updated item: $title ($category)\n";
             continue;
         }
         
@@ -139,10 +184,10 @@ while (($row = fgetcsv($handle)) !== false) {
         try {
             $stmt = $pdo->prepare("
                 INSERT INTO items (
-                    title, platform, category, description, `condition`,
+                    user_id, title, platform, category, description, `condition`,
                     price_paid, pricecharting_price, notes, created_at
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
             ");
             
@@ -156,6 +201,7 @@ while (($row = fgetcsv($handle)) !== false) {
             }
             
             $stmt->execute([
+                $userId,
                 $title,
                 $platform,
                 $category,
@@ -220,12 +266,93 @@ while (($row = fgetcsv($handle)) !== false) {
         $cleanTitle = trim($cleanTitle);
     }
     
-    // Check for duplicates (title + platform) - use clean title
-    $checkStmt = $pdo->prepare("SELECT id FROM games WHERE title = ? AND platform = ?");
-    $checkStmt->execute([$cleanTitle, $platform]);
-    if ($checkStmt->fetch()) {
-        $duplicates++;
-        echo "  ⊗ Duplicate: $cleanTitle ($platform)\n";
+    // Check for existing game (smart merge - match by title, platform, and user_id)
+    $checkStmt = $pdo->prepare("SELECT id FROM games WHERE title = ? AND platform = ? AND user_id = ?");
+    $checkStmt->execute([$cleanTitle, $platform, $userId]);
+    $existingGame = $checkStmt->fetch();
+    
+    if ($existingGame) {
+        // Update existing game instead of skipping
+        $gameId = $existingGame['id'];
+        
+        // Determine if physical or digital
+        $ownership = $getValue('Ownership');
+        $releaseType = $getValue('ReleaseType');
+        $isPhysical = 1; // Default to physical
+        
+        if ($releaseType === 'Digital' || 
+            in_array(strtolower($ownership), ['digital', 'download'])) {
+            $isPhysical = 0;
+        }
+        
+        // Handle prices
+        $pricePaid = $getValue('PricePaid');
+        $pricePaid = ($pricePaid === '-1.0' || $pricePaid === '' || $pricePaid === '?') ? null : (float)$pricePaid;
+        
+        $priceCharting = $getValue('YourPrice');
+        if ($priceCharting === '-1.0' || $priceCharting === '' || $priceCharting === '?') {
+            $priceCharting = $getValue('PriceCIB');
+        }
+        $priceCharting = ($priceCharting === '-1.0' || $priceCharting === '' || $priceCharting === '?') ? null : (float)$priceCharting;
+        
+        // Condition
+        $condition = $getValue('ItemCondition');
+        if ($condition === '?' || $condition === '') {
+            $condition = null;
+        }
+        
+        // Description
+        $description = $getValue('Notes');
+        if (empty($description)) {
+            $description = null;
+        }
+        
+        // Extract series
+        $series = null;
+        $seriesPatterns = [
+            'Call of Duty', 'FIFA', 'Assassin\'s Creed', 'Grand Theft Auto', 'Halo',
+            'Gears of War', 'Uncharted', 'God of War', 'Spider-Man', 'Batman',
+            'Star Wars', 'LEGO', 'Tony Hawk', 'Need for Speed', 'Forza',
+            'Mario', 'Zelda', 'Pokémon', 'Sonic', 'Resident Evil',
+            'Silent Hill', 'Dark Souls', 'Elder Scrolls', 'Fallout', 'BioShock',
+            'Borderlands', 'Far Cry', 'Watch Dogs', 'The Sims', 'SimCity'
+        ];
+        
+        foreach ($seriesPatterns as $pattern) {
+            if (stripos($title, $pattern) !== false) {
+                $series = $pattern;
+                break;
+            }
+        }
+        
+        $updateStmt = $pdo->prepare("
+            UPDATE games SET
+                genre = COALESCE(genre, ?),
+                description = COALESCE(description, ?),
+                series = COALESCE(series, ?),
+                special_edition = COALESCE(special_edition, ?),
+                `condition` = COALESCE(`condition`, ?),
+                price_paid = COALESCE(price_paid, ?),
+                pricecharting_price = COALESCE(pricecharting_price, ?),
+                is_physical = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ");
+        
+        $updateStmt->execute([
+            null, // genre
+            $description,
+            $series,
+            $specialEdition,
+            $condition,
+            $pricePaid,
+            $priceCharting,
+            $isPhysical,
+            $gameId
+        ]);
+        
+        $imported++;
+        echo "  ↻ Updated: $cleanTitle ($platform)\n";
         continue;
     }
     
@@ -308,12 +435,12 @@ while (($row = fgetcsv($handle)) !== false) {
     try {
         $stmt = $pdo->prepare("
             INSERT INTO games (
-                title, platform, genre, description, series, special_edition,
+                user_id, title, platform, genre, description, series, special_edition,
                 `condition`, review, star_rating, metacritic_rating, played,
                 price_paid, pricecharting_price, is_physical,
                 front_cover_image, back_cover_image, created_at
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
         ");
         
@@ -328,6 +455,7 @@ while (($row = fgetcsv($handle)) !== false) {
         }
         
         $stmt->execute([
+            $userId,
             $cleanTitle,
             $platform,
             null, // genre - not in GameEye CSV
@@ -360,12 +488,11 @@ fclose($handle);
 
 echo "\n==========================================\n";
 echo "Import Summary:\n";
-echo "  ✓ Games Imported:  $imported\n";
-echo "  ✓ Items Imported:  $importedItems\n";
-echo "  ⊗ Game Duplicates: $duplicates\n";
-echo "  ⊗ Item Duplicates: $itemDuplicates\n";
+echo "  ✓ Games Imported/Updated:  $imported\n";
+echo "  ✓ Items Imported/Updated:  $importedItems\n";
 echo "  ⊘ Skipped:   $skipped (non-games/wishlist)\n";
 echo "  ✗ Errors:    $errors\n";
 echo "==========================================\n";
+echo "\nNote: Smart merge was used - existing games/items were updated instead of creating duplicates.\n";
 echo "\nImport complete! You can now run bulk-download-covers.php to fetch cover images.\n";
 

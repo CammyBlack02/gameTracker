@@ -60,13 +60,18 @@ function getStats() {
     try {
         ini_set('memory_limit', '512M');
         
+        // Get user_id from session or optional parameter (for admin viewing other users)
+        $currentUserId = $_SESSION['user_id'];
+        $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+        $targetUserId = isset($_GET['user_id']) && $isAdmin ? (int)$_GET['user_id'] : $currentUserId;
+        
         // Get filters
         $platform = $_GET['platform'] ?? '';
         $isPhysical = $_GET['is_physical'] ?? null; // null = all, '1' = physical, '0' = digital
         
-        // Build games query
-        $gamesWhere = [];
-        $gamesParams = [];
+        // Build games query - always filter by user_id
+        $gamesWhere = ["user_id = ?"];
+        $gamesParams = [$targetUserId];
         
         if (!empty($platform)) {
             $gamesWhere[] = "platform = ?";
@@ -78,7 +83,7 @@ function getStats() {
             $gamesParams[] = $isPhysical;
         }
         
-        $gamesWhereClause = !empty($gamesWhere) ? "WHERE " . implode(" AND ", $gamesWhere) : "";
+        $gamesWhereClause = "WHERE " . implode(" AND ", $gamesWhere);
         
         // Total games
         $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM games $gamesWhereClause");
@@ -127,21 +132,24 @@ function getStats() {
         $newestGame = $stmt->fetch();
         
         // Total consoles (check both 'Console' and 'Systems' for compatibility)
-        $stmt = $pdo->query("SELECT COUNT(*) as count FROM items WHERE category = 'Console' OR category = 'Systems'");
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM items WHERE user_id = ? AND (category = 'Console' OR category = 'Systems')");
+        $stmt->execute([$targetUserId]);
         $totalConsoles = $stmt->fetch()['count'];
         
         // Total accessories by type (exclude both 'Console' and 'Systems')
-        $stmt = $pdo->query("
+        $stmt = $pdo->prepare("
             SELECT category, COUNT(*) as count 
             FROM items 
-            WHERE category != 'Console' AND category != 'Systems'
+            WHERE user_id = ? AND category != 'Console' AND category != 'Systems'
             GROUP BY category
             ORDER BY count DESC
         ");
+        $stmt->execute([$targetUserId]);
         $accessoryTypes = $stmt->fetchAll();
         
         // Total items (games + consoles + accessories)
-        $stmt = $pdo->query("SELECT COUNT(*) as count FROM items");
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM items WHERE user_id = ?");
+        $stmt->execute([$targetUserId]);
         $totalItems = $stmt->fetch()['count'];
         $totalCollection = $totalGames + $totalItems;
         
@@ -223,8 +231,9 @@ function getTopItems($settingKey) {
     global $pdo;
     
     try {
-        $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
-        $stmt->execute([$settingKey]);
+        $currentUserId = $_SESSION['user_id'];
+        $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ? AND user_id = ?");
+        $stmt->execute([$settingKey, $currentUserId]);
         $result = $stmt->fetch();
         
         if (!$result || empty($result['setting_value'])) {
@@ -272,9 +281,11 @@ function getTopItems($settingKey) {
     
     $placeholders = str_repeat('?,', count($itemIds) - 1) . '?';
     
-    // Build WHERE conditions
-    $whereConditions = ["$idField IN ($placeholders)"];
-    $params = array_values($itemIds); // Ensure array is indexed correctly
+    // Build WHERE conditions - always filter by user_id
+    $currentUserId = $_SESSION['user_id'];
+    $whereConditions = ["user_id = ?", "$idField IN ($placeholders)"];
+    $params = [$currentUserId];
+    $params = array_merge($params, array_values($itemIds)); // Ensure array is indexed correctly
     
     if ($categoryFilter === 'Systems') {
         // Check for both 'Systems' and 'Console' for compatibility
@@ -346,37 +357,39 @@ function updateTopItems() {
     
     $settingKey = 'top_' . $type;
     
-    // Validate that all IDs exist in the appropriate table
+    // Validate that all IDs exist in the appropriate table and belong to user
+    $currentUserId = $_SESSION['user_id'];
     $table = ($type === 'games') ? 'games' : 'items';
     $idField = 'id';
     
     if (!empty($itemIds)) {
         $placeholders = str_repeat('?,', count($itemIds) - 1) . '?';
-        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM $table WHERE $idField IN ($placeholders)");
-        $stmt->execute($itemIds);
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM $table WHERE user_id = ? AND $idField IN ($placeholders)");
+        $params = array_merge([$currentUserId], $itemIds);
+        $stmt->execute($params);
         $count = $stmt->fetch()['count'];
         
         if ($count != count($itemIds)) {
-            sendJsonResponse(['success' => false, 'message' => 'Some item IDs are invalid'], 400);
+            sendJsonResponse(['success' => false, 'message' => 'Some item IDs are invalid or do not belong to you'], 400);
         }
     }
     
-    // Insert or update setting (SQLite syntax)
+    // Insert or update setting (per-user)
     $jsonValue = json_encode($itemIds);
     
     // Check if setting exists
-    $checkStmt = $pdo->prepare("SELECT id FROM settings WHERE setting_key = ?");
-    $checkStmt->execute([$settingKey]);
+    $checkStmt = $pdo->prepare("SELECT id FROM settings WHERE setting_key = ? AND user_id = ?");
+    $checkStmt->execute([$settingKey, $currentUserId]);
     $exists = $checkStmt->fetch();
     
     if ($exists) {
         // Update
-        $stmt = $pdo->prepare("UPDATE settings SET setting_value = ?, updated_at = CURRENT_TIMESTAMP WHERE setting_key = ?");
-        $stmt->execute([$jsonValue, $settingKey]);
+        $stmt = $pdo->prepare("UPDATE settings SET setting_value = ?, updated_at = CURRENT_TIMESTAMP WHERE setting_key = ? AND user_id = ?");
+        $stmt->execute([$jsonValue, $settingKey, $currentUserId]);
     } else {
         // Insert
-        $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)");
-        $stmt->execute([$settingKey, $jsonValue]);
+        $stmt = $pdo->prepare("INSERT INTO settings (user_id, setting_key, setting_value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)");
+        $stmt->execute([$currentUserId, $settingKey, $jsonValue]);
     }
     
     sendJsonResponse([

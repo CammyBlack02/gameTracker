@@ -32,6 +32,17 @@ if ($currentMemoryLimit !== '-1') {
 
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
+    // Secure session configuration
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || 
+               (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'domain' => '',
+        'secure' => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
     session_start();
 }
 
@@ -93,12 +104,34 @@ function initializeDatabase($pdo) {
         id INT PRIMARY KEY AUTO_INCREMENT,
         username VARCHAR(255) UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        role ENUM('user', 'admin') DEFAULT 'user',
+        email VARCHAR(255) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_username (username)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // Add role and email columns if they don't exist (for existing databases)
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN role ENUM('user', 'admin') DEFAULT 'user'");
+    } catch (PDOException $e) {
+        // Column already exists, ignore error
+    }
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN email VARCHAR(255) NULL");
+    } catch (PDOException $e) {
+        // Column already exists, ignore error
+    }
+    // Add index on username if it doesn't exist
+    try {
+        $pdo->exec("ALTER TABLE users ADD INDEX idx_username (username)");
+    } catch (PDOException $e) {
+        // Index already exists, ignore error
+    }
     
     // Games table
     $pdo->exec("CREATE TABLE IF NOT EXISTS games (
         id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT NOT NULL,
         title TEXT NOT NULL,
         platform VARCHAR(255) NOT NULL,
         genre VARCHAR(255),
@@ -118,8 +151,21 @@ function initializeDatabase($pdo) {
         back_cover_image MEDIUMTEXT,
         release_date DATE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX idx_user_id (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // Add user_id column if it doesn't exist (for existing databases)
+    try {
+        $pdo->exec("ALTER TABLE games ADD COLUMN user_id INT NOT NULL");
+        // Add index
+        $pdo->exec("ALTER TABLE games ADD INDEX idx_user_id (user_id)");
+        // Add foreign key
+        $pdo->exec("ALTER TABLE games ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
+    } catch (PDOException $e) {
+        // Column already exists, ignore error
+    }
     
     // Add digital_store column if it doesn't exist (for existing databases)
     try {
@@ -151,14 +197,27 @@ function initializeDatabase($pdo) {
     $pdo->exec("CREATE TABLE IF NOT EXISTS game_images (
         id INT PRIMARY KEY AUTO_INCREMENT,
         game_id INT NOT NULL,
+        user_id INT NOT NULL,
         image_path TEXT NOT NULL,
         uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX idx_user_id (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // Add user_id column if it doesn't exist (for existing databases)
+    try {
+        $pdo->exec("ALTER TABLE game_images ADD COLUMN user_id INT NOT NULL");
+        $pdo->exec("ALTER TABLE game_images ADD INDEX idx_user_id (user_id)");
+        $pdo->exec("ALTER TABLE game_images ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
+    } catch (PDOException $e) {
+        // Column already exists, ignore error
+    }
     
     // Consoles and accessories table
     $pdo->exec("CREATE TABLE IF NOT EXISTS items (
         id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT NOT NULL,
         title TEXT NOT NULL,
         platform VARCHAR(255),
         category VARCHAR(255) NOT NULL,
@@ -171,8 +230,19 @@ function initializeDatabase($pdo) {
         notes TEXT,
         quantity INT DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX idx_user_id (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // Add user_id column if it doesn't exist (for existing databases)
+    try {
+        $pdo->exec("ALTER TABLE items ADD COLUMN user_id INT NOT NULL");
+        $pdo->exec("ALTER TABLE items ADD INDEX idx_user_id (user_id)");
+        $pdo->exec("ALTER TABLE items ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
+    } catch (PDOException $e) {
+        // Column already exists, ignore error
+    }
     
     // Add quantity column if it doesn't exist (for existing databases)
     try {
@@ -185,22 +255,55 @@ function initializeDatabase($pdo) {
     $pdo->exec("CREATE TABLE IF NOT EXISTS item_images (
         id INT PRIMARY KEY AUTO_INCREMENT,
         item_id INT NOT NULL,
+        user_id INT NOT NULL,
         image_path TEXT NOT NULL,
         uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
+        FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX idx_user_id (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     
-    // Settings table (for background image, etc.)
+    // Add user_id column if it doesn't exist (for existing databases)
+    try {
+        $pdo->exec("ALTER TABLE item_images ADD COLUMN user_id INT NOT NULL");
+        $pdo->exec("ALTER TABLE item_images ADD INDEX idx_user_id (user_id)");
+        $pdo->exec("ALTER TABLE item_images ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
+    } catch (PDOException $e) {
+        // Column already exists, ignore error
+    }
+    
+    // Settings table (for background image, etc.) - per-user settings
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        setting_key VARCHAR(255) UNIQUE NOT NULL,
+        user_id INT NOT NULL,
+        setting_key VARCHAR(255) NOT NULL,
         setting_value TEXT,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE KEY unique_user_setting (user_id, setting_key),
+        INDEX idx_user_id (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // Add user_id column if it doesn't exist (for existing databases)
+    try {
+        $pdo->exec("ALTER TABLE settings ADD COLUMN user_id INT NOT NULL");
+        // Drop old unique constraint if it exists
+        try {
+            $pdo->exec("ALTER TABLE settings DROP INDEX setting_key");
+        } catch (PDOException $e) {
+            // Index doesn't exist, ignore
+        }
+        $pdo->exec("ALTER TABLE settings ADD INDEX idx_user_id (user_id)");
+        $pdo->exec("ALTER TABLE settings ADD UNIQUE KEY unique_user_setting (user_id, setting_key)");
+        $pdo->exec("ALTER TABLE settings ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
+    } catch (PDOException $e) {
+        // Column already exists, ignore error
+    }
     
     // Game completions table
     $pdo->exec("CREATE TABLE IF NOT EXISTS game_completions (
         id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT NOT NULL,
         game_id INT,
         title TEXT NOT NULL,
         platform VARCHAR(255),
@@ -211,8 +314,19 @@ function initializeDatabase($pdo) {
         notes TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL,
+        INDEX idx_user_id (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // Add user_id column if it doesn't exist (for existing databases)
+    try {
+        $pdo->exec("ALTER TABLE game_completions ADD COLUMN user_id INT NOT NULL");
+        $pdo->exec("ALTER TABLE game_completions ADD INDEX idx_user_id (user_id)");
+        $pdo->exec("ALTER TABLE game_completions ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
+    } catch (PDOException $e) {
+        // Column already exists, ignore error
+    }
     
     // Create default admin user if no users exist
     $stmt = $pdo->query("SELECT COUNT(*) as count FROM users");
@@ -222,8 +336,15 @@ function initializeDatabase($pdo) {
         // Default username: admin, password: admin (change this after first login!)
         $username = 'admin';
         $password = password_hash('admin', PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'admin')");
         $stmt->execute([$username, $password]);
+    } else {
+        // Ensure existing admin user has admin role
+        try {
+            $pdo->exec("UPDATE users SET role = 'admin' WHERE username = 'admin' AND (role IS NULL OR role = '')");
+        } catch (PDOException $e) {
+            // Ignore if role column doesn't exist yet (will be added by migration)
+        }
     }
 }
 
