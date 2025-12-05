@@ -47,10 +47,15 @@ if (!$profileUserId) {
     </div>
     
     <script src="js/main.js"></script>
+    <script>
+        // Set flag BEFORE loading games.js to prevent auto-load
+        window.IS_USER_PROFILE_PAGE = true;
+        window.PROFILE_USER_ID = <?php echo $profileUserId; ?>;
+    </script>
     <script src="js/games.js"></script>
     <script src="js/items.js"></script>
     <script>
-        const profileUserId = <?php echo $profileUserId; ?>;
+        const profileUserId = window.PROFILE_USER_ID;
         const isViewingOwnProfile = profileUserId == <?php echo $_SESSION['user_id']; ?>;
         
         // Setup dark mode
