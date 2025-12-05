@@ -45,12 +45,7 @@ register_shutdown_function(function() {
 require_once __DIR__ . '/../includes/functions.php';
 
 try {
-    // Check if database exists first
-    $dbPath = __DIR__ . '/../database/games.db';
-    if (!file_exists($dbPath)) {
-        sendJsonResponse(['success' => false, 'message' => 'Database not found'], 500);
-    }
-    
+    // Load database configuration (MySQL)
     require_once __DIR__ . '/../includes/config.php';
     
     // Check if $pdo is available
