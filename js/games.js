@@ -9,7 +9,7 @@ let currentView = localStorage.getItem('gameView') || 'list';
 
 document.addEventListener('DOMContentLoaded', function() {
     // Don't auto-load on user profile page (it loads games manually)
-    const isUserProfilePage = window.location.pathname.includes('user-profile.php');
+    const isUserProfilePage = window.IS_USER_PROFILE_PAGE || window.location.pathname.includes('user-profile.php');
     
     if (isUserProfilePage) {
         console.log('User profile page detected - skipping auto-loadGames');
