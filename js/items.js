@@ -183,12 +183,17 @@ function displayItems(items, container) {
 
 /**
  * Get image URL - handles both external URLs and local paths
+ * Uses proxy for external URLs to avoid CORS issues
  */
 function getItemImageUrl(imagePath) {
     if (!imagePath) return null;
-    // Check if it's already a full URL
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    // Data URLs - return as-is
+    if (imagePath.startsWith('data:')) {
         return imagePath;
+    }
+    // External URLs - use proxy to avoid CORS
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+        return `api/image-proxy.php?url=${encodeURIComponent(imagePath)}`;
     }
     // Otherwise, it's a local file
     return `uploads/covers/${imagePath}`;

@@ -307,12 +307,17 @@ function renderTopItems(containerId, items, type) {
 }
 
 /**
- * Get image URL
+ * Get image URL - uses proxy for external URLs to avoid CORS
  */
 function getImageUrl(imagePath) {
     if (!imagePath) return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect fill="%23ddd" width="200" height="200"/></svg>';
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) {
+    // Data URLs - return as-is
+    if (imagePath.startsWith('data:')) {
         return imagePath;
+    }
+    // External URLs - use proxy to avoid CORS
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+        return `api/image-proxy.php?url=${encodeURIComponent(imagePath)}`;
     }
     return `uploads/covers/${imagePath}`;
 }
