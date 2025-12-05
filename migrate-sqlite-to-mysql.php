@@ -4,6 +4,12 @@
  * Run from command line: php migrate-sqlite-to-mysql.php
  */
 
+// Suppress session warnings for CLI
+if (php_sapi_name() === 'cli') {
+    ini_set('display_errors', 1);
+    error_reporting(E_ALL & ~E_WARNING);
+}
+
 // SQLite database path (on your Mac)
 $sqlitePath = __DIR__ . '/database/games.db';
 
@@ -49,14 +55,31 @@ try {
     echo "Migrating users...\n";
     $users = $sqlite->query("SELECT * FROM users")->fetchAll(PDO::FETCH_ASSOC);
     $userMap = []; // Map old IDs to new IDs
+    
+    // First, get existing users in MySQL to map IDs
+    $existingUsers = $pdo->query("SELECT id, username FROM users")->fetchAll(PDO::FETCH_ASSOC);
+    $usernameToId = [];
+    foreach ($existingUsers as $existing) {
+        $usernameToId[$existing['username']] = $existing['id'];
+    }
+    
     foreach ($users as $user) {
         $oldId = $user['id'];
-        unset($user['id']);
+        $username = $user['username'];
         
+        // Check if user already exists
+        if (isset($usernameToId[$username])) {
+            $userMap[$oldId] = $usernameToId[$username];
+            echo "  - Skipped existing user: $username\n";
+            continue;
+        }
+        
+        unset($user['id']);
         $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)");
         $stmt->execute([$user['username'], $user['password_hash'], $user['created_at']]);
         $newId = $pdo->lastInsertId();
         $userMap[$oldId] = $newId;
+        $usernameToId[$username] = $newId;
         $totalUsers++;
     }
     echo "  ✓ Migrated $totalUsers users\n\n";
