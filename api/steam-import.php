@@ -66,12 +66,13 @@ function testSteamConnection() {
     global $pdo;
     
     // Get Steam credentials from settings
-    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+    $userId = $_SESSION['user_id'];
+    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ? AND user_id = ?");
     
-    $stmt->execute(['steam_api_key']);
+    $stmt->execute(['steam_api_key', $userId]);
     $apiKey = $stmt->fetchColumn();
     
-    $stmt->execute(['steam_user_id']);
+    $stmt->execute(['steam_user_id', $userId]);
     $steamId = $stmt->fetchColumn();
     
     if (empty($apiKey) || empty($steamId)) {
@@ -147,12 +148,13 @@ function importSteamLibrary() {
     }
     
     // Get Steam credentials from settings
-    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+    $userId = $_SESSION['user_id'];
+    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ? AND user_id = ?");
     
-    $stmt->execute(['steam_api_key']);
+    $stmt->execute(['steam_api_key', $userId]);
     $apiKey = $stmt->fetchColumn();
     
-    $stmt->execute(['steam_user_id']);
+    $stmt->execute(['steam_user_id', $userId]);
     $steamId = $stmt->fetchColumn();
     
     if (empty($apiKey) || empty($steamId)) {

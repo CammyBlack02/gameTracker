@@ -12,8 +12,13 @@
         <header class="app-header">
             <h1>My Collection</h1>
             <div class="header-actions">
+                <span style="margin-right: 15px; color: var(--text-secondary, #666);"><?php echo htmlspecialchars($_SESSION['username']); ?></span>
                 <button id="spinWheelBtn" class="btn btn-secondary" title="Spin the Wheel">🎰 Spin Wheel</button>
                 <button id="darkModeToggle" class="btn btn-secondary" title="Toggle Dark Mode">🌙</button>
+                <a href="users.php" class="btn btn-secondary">Browse Users</a>
+                <?php if (($_SESSION['role'] ?? 'user') === 'admin'): ?>
+                    <a href="admin-dashboard.php" class="btn btn-secondary">Admin</a>
+                <?php endif; ?>
                 <a href="stats.php" class="btn btn-secondary">Stats</a>
                 <a href="completions.php" class="btn btn-secondary">Completions</a>
                 <a href="settings.php" class="btn btn-secondary">Settings</a>

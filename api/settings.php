@@ -36,7 +36,9 @@ switch ($action) {
 function getSettings() {
     global $pdo;
     
-    $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings");
+    $userId = $_SESSION['user_id'];
+    $stmt = $pdo->prepare("SELECT setting_key, setting_value FROM settings WHERE user_id = ?");
+    $stmt->execute([$userId]);
     $settings = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
     
     sendJsonResponse(['success' => true, 'settings' => $settings]);
@@ -62,9 +64,11 @@ function setBackgroundImage() {
     $filename = 'background_' . time() . '.' . pathinfo($file['name'], PATHINFO_EXTENSION);
     $targetPath = UPLOAD_DIR . $filename;
     
+    $userId = $_SESSION['user_id'];
+    
     // Remove old background if exists
-    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'background_image'");
-    $stmt->execute();
+    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'background_image' AND user_id = ?");
+    $stmt->execute([$userId]);
     $oldBackground = $stmt->fetchColumn();
     
     if ($oldBackground && file_exists(UPLOAD_DIR . $oldBackground)) {
@@ -75,13 +79,13 @@ function setBackgroundImage() {
         sendJsonResponse(['success' => false, 'message' => 'Failed to save file'], 500);
     }
     
-    // Save to database
+    // Save to database (MySQL syntax)
     $stmt = $pdo->prepare("
-        INSERT INTO settings (setting_key, setting_value) 
-        VALUES ('background_image', ?)
-        ON CONFLICT(setting_key) DO UPDATE SET setting_value = ?, updated_at = CURRENT_TIMESTAMP
+        INSERT INTO settings (user_id, setting_key, setting_value) 
+        VALUES (?, 'background_image', ?)
+        ON DUPLICATE KEY UPDATE setting_value = ?, updated_at = CURRENT_TIMESTAMP
     ");
-    $stmt->execute([$filename, $filename]);
+    $stmt->execute([$userId, $filename, $filename]);
     
     sendJsonResponse([
         'success' => true,
@@ -93,9 +97,11 @@ function setBackgroundImage() {
 function removeBackgroundImage() {
     global $pdo;
     
+    $userId = $_SESSION['user_id'];
+    
     // Get current background
-    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'background_image'");
-    $stmt->execute();
+    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'background_image' AND user_id = ?");
+    $stmt->execute([$userId]);
     $background = $stmt->fetchColumn();
     
     if ($background && file_exists(UPLOAD_DIR . $background)) {
@@ -103,8 +109,8 @@ function removeBackgroundImage() {
     }
     
     // Remove from database
-    $stmt = $pdo->prepare("DELETE FROM settings WHERE setting_key = 'background_image'");
-    $stmt->execute();
+    $stmt = $pdo->prepare("DELETE FROM settings WHERE setting_key = 'background_image' AND user_id = ?");
+    $stmt->execute([$userId]);
     
     sendJsonResponse(['success' => true, 'message' => 'Background image removed']);
 }
@@ -125,21 +131,23 @@ function setSteamCredentials() {
         sendJsonResponse(['success' => false, 'message' => 'Steam API key and Steam ID are required'], 400);
     }
     
+    $userId = $_SESSION['user_id'];
+    
     // Save Steam API key
     $stmt = $pdo->prepare("
-        INSERT INTO settings (setting_key, setting_value) 
-        VALUES ('steam_api_key', ?)
-        ON CONFLICT(setting_key) DO UPDATE SET setting_value = ?, updated_at = CURRENT_TIMESTAMP
+        INSERT INTO settings (user_id, setting_key, setting_value) 
+        VALUES (?, 'steam_api_key', ?)
+        ON DUPLICATE KEY UPDATE setting_value = ?, updated_at = CURRENT_TIMESTAMP
     ");
-    $stmt->execute([$apiKey, $apiKey]);
+    $stmt->execute([$userId, $apiKey, $apiKey]);
     
     // Save Steam User ID
     $stmt = $pdo->prepare("
-        INSERT INTO settings (setting_key, setting_value) 
-        VALUES ('steam_user_id', ?)
-        ON CONFLICT(setting_key) DO UPDATE SET setting_value = ?, updated_at = CURRENT_TIMESTAMP
+        INSERT INTO settings (user_id, setting_key, setting_value) 
+        VALUES (?, 'steam_user_id', ?)
+        ON DUPLICATE KEY UPDATE setting_value = ?, updated_at = CURRENT_TIMESTAMP
     ");
-    $stmt->execute([$steamId, $steamId]);
+    $stmt->execute([$userId, $steamId, $steamId]);
     
     sendJsonResponse([
         'success' => true,
