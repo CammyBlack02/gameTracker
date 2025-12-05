@@ -266,9 +266,10 @@ function displayGamesGridView(games, container) {
     container.className = 'games-container grid-view';
     const html = games.map(game => {
         const caseType = getCaseType(game.platform);
-        const coverImage = game.front_cover_image 
-            ? `<img src="${getImageUrl(game.front_cover_image)}" alt="${escapeHtml(game.title)}" class="game-cover ${caseType}">`
-            : `<div class="game-cover-placeholder ${caseType}">No Cover</div>`;
+        const imageUrl = game.front_cover_image ? getImageUrl(game.front_cover_image) : null;
+        const coverImage = imageUrl
+            ? `<img src="${imageUrl}" alt="${escapeHtml(game.title)}" class="game-cover ${caseType}">`
+            : `<div class="game-cover-placeholder ${caseType}">${game.front_cover_image ? 'Image Error' : 'No Cover'}</div>`;
         
         return `
             <div class="game-card" data-id="${game.id}" data-type="game">
@@ -306,14 +307,25 @@ function displayGamesGridView(games, container) {
         img.addEventListener('error', function() {
             // If image fails to load (e.g., truncated base64), show placeholder
             console.warn('Image failed to load, possibly truncated base64 data:', this.src.substring(0, 100));
-            const placeholder = this.closest('.game-card')?.querySelector('.game-cover-placeholder');
-            if (!placeholder) {
-                // Replace with placeholder if image fails
-                this.style.display = 'none';
-                const placeholderDiv = document.createElement('div');
-                placeholderDiv.className = this.className.replace('game-cover', 'game-cover-placeholder');
-                placeholderDiv.textContent = 'Image Error';
-                this.parentNode.insertBefore(placeholderDiv, this);
+            // Hide the broken image immediately
+            this.style.display = 'none';
+            // Check if placeholder already exists
+            const card = this.closest('.game-card');
+            if (card) {
+                let placeholder = card.querySelector('.game-cover-placeholder');
+                if (!placeholder) {
+                    // Create placeholder if it doesn't exist
+                    placeholder = document.createElement('div');
+                    const caseType = this.classList.contains('cd-case') ? 'cd-case' : 'dvd-case';
+                    placeholder.className = `game-cover-placeholder ${caseType}`;
+                    placeholder.textContent = 'Image Error';
+                    // Insert before the image or at the start of the card
+                    this.parentNode.insertBefore(placeholder, this);
+                } else {
+                    // Show existing placeholder
+                    placeholder.style.display = 'flex';
+                    placeholder.textContent = 'Image Error';
+                }
             }
         });
     });
@@ -430,10 +442,10 @@ function displayGamesCoverFlow(games, container) {
 function createCoverFlowItem(game, index) {
     const frontCoverUrl = game.front_cover_image 
         ? getImageUrl(game.front_cover_image)
-        : '';
+        : null;
     const backCoverUrl = game.back_cover_image 
         ? getImageUrl(game.back_cover_image)
-        : '';
+        : null;
     const placeholder = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBDb3ZlcjwvdGV4dD48L3N2Zz4=';
     const caseType = getCaseType(game.platform);
     
@@ -782,9 +794,12 @@ function displayGamesListView(games, container) {
                     return `
                     <tr data-id="${game.id}" data-type="game">
                         <td class="game-title-cell">
-                            ${game.front_cover_image 
-                                ? `<img src="${getImageUrl(game.front_cover_image)}" alt="${escapeHtml(game.title)}" class="list-cover-thumb ${caseType}">`
-                                : ''}
+                            ${(() => {
+                                const imageUrl = game.front_cover_image ? getImageUrl(game.front_cover_image) : null;
+                                return imageUrl 
+                                    ? `<img src="${imageUrl}" alt="${escapeHtml(game.title)}" class="list-cover-thumb ${caseType}">`
+                                    : '';
+                            })()}
                             <span>${escapeHtml(game.title)}</span>
                         </td>
                         <td>${escapeHtml(game.platform)}</td>
@@ -1546,13 +1561,15 @@ function displayGameDetail(game) {
     const container = document.getElementById('gameDetailContainer');
     
     const caseType = getCaseType(game.platform);
-    const frontCover = game.front_cover_image 
-        ? `<img src="${getImageUrl(game.front_cover_image)}" alt="Front Cover" class="cover-image ${caseType}">`
-        : `<div class="cover-placeholder ${caseType}">No Front Cover</div>`;
+    const frontCoverUrl = game.front_cover_image ? getImageUrl(game.front_cover_image) : null;
+    const frontCover = frontCoverUrl
+        ? `<img src="${frontCoverUrl}" alt="Front Cover" class="cover-image ${caseType}">`
+        : `<div class="cover-placeholder ${caseType}">${game.front_cover_image ? 'Image Error' : 'No Front Cover'}</div>`;
     
-    const backCover = game.back_cover_image 
-        ? `<img src="${getImageUrl(game.back_cover_image)}" alt="Back Cover" class="cover-image ${caseType}">`
-        : `<div class="cover-placeholder ${caseType}">No Back Cover</div>`;
+    const backCoverUrl = game.back_cover_image ? getImageUrl(game.back_cover_image) : null;
+    const backCover = backCoverUrl
+        ? `<img src="${backCoverUrl}" alt="Back Cover" class="cover-image ${caseType}">`
+        : `<div class="cover-placeholder ${caseType}">${game.back_cover_image ? 'Image Error' : 'No Back Cover'}</div>`;
     
     const extraImages = game.extra_images && game.extra_images.length > 0
         ? game.extra_images.map((img, index) => 
@@ -2007,8 +2024,14 @@ function populateEditForm(game) {
             frontUrlInput.value = game.front_cover_image;
         }
         
-        document.getElementById('frontCoverPreview').innerHTML = 
-            `<img src="${getImageUrl(game.front_cover_image)}" alt="Front Cover" style="max-width: 200px;">`;
+        const frontUrl = getImageUrl(game.front_cover_image);
+        if (frontUrl) {
+            document.getElementById('frontCoverPreview').innerHTML = 
+                `<img src="${frontUrl}" alt="Front Cover" style="max-width: 200px;">`;
+        } else {
+            document.getElementById('frontCoverPreview').innerHTML = 
+                '<div style="padding: 20px; text-align: center; color: #999;">Image Error</div>';
+        }
     }
     if (game.back_cover_image) {
         const backUrlInput = document.getElementById('editBackCoverUrl');
@@ -2018,8 +2041,14 @@ function populateEditForm(game) {
             backUrlInput.value = game.back_cover_image;
         }
         
-        document.getElementById('backCoverPreview').innerHTML = 
-            `<img src="${getImageUrl(game.back_cover_image)}" alt="Back Cover" style="max-width: 200px;">`;
+        const backUrl = getImageUrl(game.back_cover_image);
+        if (backUrl) {
+            document.getElementById('backCoverPreview').innerHTML = 
+                `<img src="${backUrl}" alt="Back Cover" style="max-width: 200px;">`;
+        } else {
+            document.getElementById('backCoverPreview').innerHTML = 
+                '<div style="padding: 20px; text-align: center; color: #999;">Image Error</div>';
+        }
     }
     
     // Display extra images
