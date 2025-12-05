@@ -60,24 +60,36 @@ curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; GameTracker/1.0)');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HEADER, false);
+curl_setopt($ch, CURLOPT_FAILONERROR, false); // Don't fail on HTTP errors, we'll check the code
 
 $imageData = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
 $error = curl_error($ch);
+$curlErrno = curl_errno($ch);
 curl_close($ch);
+
+// Log detailed error info for debugging
+if ($error || $httpCode !== 200) {
+    error_log("Image proxy failed - URL: $url, HTTP: $httpCode, Error: $error, Errno: $curlErrno");
+}
 
 if ($error) {
     error_log("Image proxy error for $url: $error");
-    http_response_code(500);
-    header('Content-Type: text/plain');
-    die('Error fetching image');
+    // Return a 1x1 transparent PNG instead of error text
+    header('Content-Type: image/png');
+    header('Cache-Control: no-cache');
+    echo base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+    exit;
 }
 
 if ($httpCode !== 200 || empty($imageData)) {
-    http_response_code(404);
-    header('Content-Type: text/plain');
-    die('Image not found');
+    error_log("Image proxy: HTTP $httpCode for $url");
+    // Return a 1x1 transparent PNG instead of error text
+    header('Content-Type: image/png');
+    header('Cache-Control: no-cache');
+    echo base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+    exit;
 }
 
 // Set appropriate content type (default to jpeg if not detected)
