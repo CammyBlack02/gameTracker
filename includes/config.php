@@ -116,6 +116,7 @@ function initializeDatabase($pdo) {
         digital_store VARCHAR(255),
         front_cover_image TEXT,
         back_cover_image TEXT,
+        release_date DATE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
@@ -123,6 +124,13 @@ function initializeDatabase($pdo) {
     // Add digital_store column if it doesn't exist (for existing databases)
     try {
         $pdo->exec("ALTER TABLE games ADD COLUMN digital_store VARCHAR(255)");
+    } catch (PDOException $e) {
+        // Column already exists, ignore error
+    }
+    
+    // Add release_date column if it doesn't exist (for existing databases)
+    try {
+        $pdo->exec("ALTER TABLE games ADD COLUMN release_date DATE");
     } catch (PDOException $e) {
         // Column already exists, ignore error
     }
