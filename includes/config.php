@@ -4,6 +4,32 @@
  * Database connection and settings
  */
 
+// Helper function to convert memory limit string to bytes
+if (!function_exists('return_bytes')) {
+    function return_bytes($val) {
+        $val = trim($val);
+        $last = strtolower($val[strlen($val)-1]);
+        $val = (int)$val;
+        switch($last) {
+            case 'g': $val *= 1024;
+            case 'm': $val *= 1024;
+            case 'k': $val *= 1024;
+        }
+        return $val;
+    }
+}
+
+// Increase memory limit for large collections (only if not already set higher)
+$currentMemoryLimit = ini_get('memory_limit');
+if ($currentMemoryLimit !== '-1') {
+    $currentBytes = return_bytes($currentMemoryLimit);
+    $targetBytes = return_bytes('512M');
+    if ($currentBytes < $targetBytes) {
+        @ini_set('memory_limit', '512M');
+    }
+}
+@ini_set('max_execution_time', '300');
+
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
