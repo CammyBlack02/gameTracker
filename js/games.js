@@ -187,8 +187,25 @@ function displayGames(games) {
  */
 function getImageUrl(imagePath) {
     if (!imagePath) return null;
-    // Data URLs (base64) - return as-is
+    // Data URLs (base64) - validate and return
     if (imagePath.startsWith('data:')) {
+        // Check if base64 data appears complete
+        const base64Part = imagePath.split(',')[1] || '';
+        // Base64 should only contain valid characters (A-Z, a-z, 0-9, +, /, =)
+        // If it's truncated, it might end with invalid characters or be cut off mid-string
+        if (base64Part.length > 0) {
+            // Check if it ends with valid base64 padding (= or ==) or valid base64 chars
+            const validBase64Pattern = /^[A-Za-z0-9+/]*={0,2}$/;
+            if (!validBase64Pattern.test(base64Part)) {
+                console.warn('Incomplete base64 image data detected - invalid characters');
+                return null; // Return null to show placeholder instead
+            }
+            // Check if it's exactly 65535 characters (likely truncated during migration)
+            if (base64Part.length === 65535) {
+                console.warn('Base64 image data appears truncated (exactly 65535 chars)');
+                return null;
+            }
+        }
         return imagePath;
     }
     // External URLs - use proxy to avoid CORS
@@ -274,6 +291,7 @@ function displayGamesGridView(games, container) {
     console.log('innerHTML set, container now has', container.children.length, 'children');
     
     // Detect and handle combined covers (very wide or tall images)
+    // Also handle image load errors (e.g., truncated base64 data)
     container.querySelectorAll('.game-cover').forEach(img => {
         img.addEventListener('load', function() {
             const aspectRatio = this.naturalWidth / this.naturalHeight;
@@ -283,6 +301,19 @@ function displayGamesGridView(games, container) {
                 this.classList.add('combined-cover');
                 // Optionally add a tooltip or visual indicator
                 this.title = 'This appears to be a combined front/back cover. Use the split tool to separate them.';
+            }
+        });
+        img.addEventListener('error', function() {
+            // If image fails to load (e.g., truncated base64), show placeholder
+            console.warn('Image failed to load, possibly truncated base64 data:', this.src.substring(0, 100));
+            const placeholder = this.closest('.game-card')?.querySelector('.game-cover-placeholder');
+            if (!placeholder) {
+                // Replace with placeholder if image fails
+                this.style.display = 'none';
+                const placeholderDiv = document.createElement('div');
+                placeholderDiv.className = this.className.replace('game-cover', 'game-cover-placeholder');
+                placeholderDiv.textContent = 'Image Error';
+                this.parentNode.insertBefore(placeholderDiv, this);
             }
         });
     });
