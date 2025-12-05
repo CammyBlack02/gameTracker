@@ -34,6 +34,7 @@ $host = $parsedUrl['host'] ?? '';
 
 // Only allow HTTPS for security
 if ($scheme !== 'https') {
+    error_log("Image proxy blocked: Non-HTTPS scheme '$scheme' for URL: $url");
     http_response_code(403);
     header('Content-Type: text/plain');
     die('Only HTTPS URLs are allowed');
@@ -41,6 +42,7 @@ if ($scheme !== 'https') {
 
 // Block local/internal IPs for security (simple check)
 if (empty($host)) {
+    error_log("Image proxy blocked: Empty host for URL: $url");
     http_response_code(403);
     header('Content-Type: text/plain');
     die('Invalid host');
@@ -53,6 +55,7 @@ if ($host === 'localhost' ||
     preg_match('/^192\.168\./', $host) ||
     preg_match('/^10\./', $host) ||
     preg_match('/^172\.(1[6-9]|2[0-9]|3[01])\./', $host)) {
+    error_log("Image proxy blocked: Local/internal host '$host' for URL: $url");
     http_response_code(403);
     header('Content-Type: text/plain');
     die('Local/internal URLs not allowed');
