@@ -289,6 +289,112 @@ function createGame() {
     ]);
 }
 
+/**
+ * Download external image and return local filename
+ */
+function downloadExternalImage($imageUrl, $gameId = null, $type = 'front') {
+    // Validate URL
+    $parsedUrl = @parse_url($imageUrl);
+    if ($parsedUrl === false || empty($parsedUrl['scheme']) || empty($parsedUrl['host'])) {
+        return false;
+    }
+    
+    // Only allow HTTPS
+    if ($parsedUrl['scheme'] !== 'https') {
+        return false;
+    }
+    
+    // Block local/internal IPs
+    $host = $parsedUrl['host'] ?? '';
+    if (preg_match('/^(localhost|127\.0\.0\.1|::1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/', $host)) {
+        return false;
+    }
+    
+    // Download image using cURL
+    $ch = curl_init($imageUrl);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS => 5,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+        CURLOPT_USERAGENT => 'GameTracker/1.0',
+        CURLOPT_HTTPHEADER => [
+            'Accept: image/jpeg,image/png,image/gif,image/webp,*/*'
+        ]
+    ]);
+    
+    $imageData = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($error || $httpCode !== 200 || empty($imageData)) {
+        error_log("Failed to download image from $imageUrl: $error (HTTP $httpCode)");
+        return false;
+    }
+    
+    // Validate it's actually an image (check magic bytes)
+    $magicBytes = substr($imageData, 0, 4);
+    $magicBytesHex = bin2hex($magicBytes);
+    $isValidImage = false;
+    
+    // JPEG: FF D8 FF
+    if (substr($magicBytesHex, 0, 6) === 'ffd8ff') {
+        $isValidImage = true;
+        $extension = 'jpg';
+    }
+    // PNG: 89 50 4E 47
+    elseif ($magicBytesHex === '89504e47') {
+        $isValidImage = true;
+        $extension = 'png';
+    }
+    // GIF: 47 49 46 38
+    elseif (substr($magicBytesHex, 0, 8) === '47494638') {
+        $isValidImage = true;
+        $extension = 'gif';
+    }
+    // WebP: Check for RIFF...WEBP
+    elseif (substr($magicBytesHex, 0, 8) === '52494646' && strpos($imageData, 'WEBP') !== false) {
+        $isValidImage = true;
+        $extension = 'webp';
+    }
+    
+    if (!$isValidImage) {
+        // Try to get extension from content type or URL
+        if (stripos($contentType, 'png') !== false) {
+            $extension = 'png';
+        } elseif (stripos($contentType, 'gif') !== false) {
+            $extension = 'gif';
+        } elseif (stripos($contentType, 'webp') !== false) {
+            $extension = 'webp';
+        } else {
+            $urlPath = parse_url($imageUrl, PHP_URL_PATH);
+            $urlExtension = pathinfo($urlPath, PATHINFO_EXTENSION);
+            if (in_array(strtolower($urlExtension), ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                $extension = strtolower($urlExtension);
+            } else {
+                $extension = 'jpg'; // Default
+            }
+        }
+    }
+    
+    // Generate unique filename
+    $filename = generateUniqueFilename('cover_' . time() . '_' . uniqid() . '.' . $extension, COVERS_DIR);
+    $targetPath = COVERS_DIR . $filename;
+    
+    // Save image
+    if (!file_put_contents($targetPath, $imageData)) {
+        error_log("Failed to save image to: $targetPath");
+        return false;
+    }
+    
+    return $filename;
+}
+
 function updateGame() {
     global $pdo;
     
@@ -310,21 +416,32 @@ function updateGame() {
         sendJsonResponse(['success' => false, 'message' => 'Game not found'], 404);
     }
     
-    // Log cover image data for debugging
-    if (isset($data['front_cover_image'])) {
-        $frontCover = $data['front_cover_image'];
-        $frontCoverType = 'unknown';
-        $frontCoverLength = strlen($frontCover);
-        if (strpos($frontCover, 'data:') === 0) {
-            $frontCoverType = 'base64';
-            $base64Part = explode(',', $frontCover)[1] ?? '';
-            error_log("Updating front cover - Type: base64, Total length: $frontCoverLength, Base64 length: " . strlen($base64Part));
-        } elseif (strpos($frontCover, 'http') === 0) {
-            $frontCoverType = 'external URL';
-            error_log("Updating front cover - Type: external URL, Length: $frontCoverLength");
-        } else {
-            $frontCoverType = 'local file';
-            error_log("Updating front cover - Type: local file, Path: $frontCover");
+    // Auto-download external URLs and convert to local files
+    $autoDownload = $_POST['auto_download'] ?? $_GET['auto_download'] ?? true; // Default to true
+    
+    if ($autoDownload) {
+        // Download front cover if it's an external URL
+        if (isset($data['front_cover_image']) && 
+            (strpos($data['front_cover_image'], 'http://') === 0 || strpos($data['front_cover_image'], 'https://') === 0)) {
+            $downloaded = downloadExternalImage($data['front_cover_image'], $id, 'front');
+            if ($downloaded) {
+                $data['front_cover_image'] = $downloaded;
+                error_log("Auto-downloaded front cover for game $id");
+            } else {
+                error_log("Failed to auto-download front cover for game $id, keeping URL");
+            }
+        }
+        
+        // Download back cover if it's an external URL
+        if (isset($data['back_cover_image']) && 
+            (strpos($data['back_cover_image'], 'http://') === 0 || strpos($data['back_cover_image'], 'https://') === 0)) {
+            $downloaded = downloadExternalImage($data['back_cover_image'], $id, 'back');
+            if ($downloaded) {
+                $data['back_cover_image'] = $downloaded;
+                error_log("Auto-downloaded back cover for game $id");
+            } else {
+                error_log("Failed to auto-download back cover for game $id, keeping URL");
+            }
         }
     }
     
