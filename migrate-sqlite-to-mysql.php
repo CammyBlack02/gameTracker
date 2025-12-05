@@ -101,34 +101,56 @@ try {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
-        $stmt->execute([
-            $game['title'],
-            $game['platform'],
-            $game['genre'] ?? null,
-            $game['description'] ?? null,
-            $game['series'] ?? null,
-            $game['special_edition'] ?? null,
-            $game['condition'] ?? null,
-            $game['review'] ?? null,
-            $game['star_rating'] ?? null,
-            $game['metacritic_rating'] ?? null,
-            $game['played'] ?? 0,
-            $game['price_paid'] ?? null,
-            $game['pricecharting_price'] ?? null,
-            $game['is_physical'] ?? 1,
-            $game['digital_store'] ?? null,
-            $game['front_cover_image'] ?? null,
-            $game['back_cover_image'] ?? null,
-            $game['created_at'] ?? date('Y-m-d H:i:s'),
-            $game['updated_at'] ?? date('Y-m-d H:i:s')
-        ]);
-        
-        $newId = $pdo->lastInsertId();
-        $gameMap[$oldId] = $newId;
-        $totalGames++;
-        
-        if ($totalGames % 100 === 0) {
-            echo "  ... Migrated $totalGames games\n";
+        try {
+            // Truncate image paths if they're too long (TEXT limit is 65,535 bytes)
+            $frontCover = $game['front_cover_image'] ?? null;
+            $backCover = $game['back_cover_image'] ?? null;
+            if ($frontCover && strlen($frontCover) > 65535) {
+                $frontCover = substr($frontCover, 0, 65535);
+                echo "  Warning: Truncated front_cover_image for game ID $oldId\n";
+            }
+            if ($backCover && strlen($backCover) > 65535) {
+                $backCover = substr($backCover, 0, 65535);
+                echo "  Warning: Truncated back_cover_image for game ID $oldId\n";
+            }
+            
+            $stmt->execute([
+                $game['title'],
+                $game['platform'],
+                $game['genre'] ?? null,
+                $game['description'] ?? null,
+                $game['series'] ?? null,
+                $game['special_edition'] ?? null,
+                $game['condition'] ?? null,
+                $game['review'] ?? null,
+                $game['star_rating'] ?? null,
+                $game['metacritic_rating'] ?? null,
+                $game['played'] ?? 0,
+                $game['price_paid'] ?? null,
+                $game['pricecharting_price'] ?? null,
+                $game['is_physical'] ?? 1,
+                $game['digital_store'] ?? null,
+                $frontCover,
+                $backCover,
+                $game['created_at'] ?? date('Y-m-d H:i:s'),
+                $game['updated_at'] ?? date('Y-m-d H:i:s')
+            ]);
+            
+            $newId = $pdo->lastInsertId();
+            $gameMap[$oldId] = $newId;
+            $totalGames++;
+            
+            if ($totalGames % 100 === 0) {
+                echo "  ... Migrated $totalGames games\n";
+            }
+        } catch (PDOException $e) {
+            echo "  ✗ Error migrating game ID $oldId ({$game['title']}): " . $e->getMessage() . "\n";
+            if (strpos($e->getMessage(), 'Data too long') !== false) {
+                $frontLen = strlen($frontCover ?? '');
+                $backLen = strlen($backCover ?? '');
+                echo "    Front cover length: $frontLen, Back cover length: $backLen\n";
+            }
+            throw $e; // Re-throw to trigger rollback
         }
     }
     echo "  ✓ Migrated $totalGames games\n\n";
