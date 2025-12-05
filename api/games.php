@@ -417,7 +417,8 @@ function updateGame() {
     }
     
     // Auto-download external URLs and convert to local files
-    $autoDownload = $_POST['auto_download'] ?? $_GET['auto_download'] ?? true; // Default to true
+    // Check JSON data first, then POST/GET, default to true
+    $autoDownload = $data['auto_download'] ?? $_POST['auto_download'] ?? $_GET['auto_download'] ?? true;
     
     if ($autoDownload) {
         // Download front cover if it's an external URL
@@ -426,7 +427,7 @@ function updateGame() {
             $downloaded = downloadExternalImage($data['front_cover_image'], $id, 'front');
             if ($downloaded) {
                 $data['front_cover_image'] = $downloaded;
-                error_log("Auto-downloaded front cover for game $id");
+                error_log("Auto-downloaded front cover for game $id: $downloaded");
             } else {
                 error_log("Failed to auto-download front cover for game $id, keeping URL");
             }
@@ -438,7 +439,7 @@ function updateGame() {
             $downloaded = downloadExternalImage($data['back_cover_image'], $id, 'back');
             if ($downloaded) {
                 $data['back_cover_image'] = $downloaded;
-                error_log("Auto-downloaded back cover for game $id");
+                error_log("Auto-downloaded back cover for game $id: $downloaded");
             } else {
                 error_log("Failed to auto-download back cover for game $id, keeping URL");
             }
