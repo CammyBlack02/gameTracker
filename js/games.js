@@ -183,7 +183,9 @@ function displayGames(games) {
 
 /**
  * Get image URL - handles both external URLs, data URLs, and local paths
- * Uses image proxy for external URLs to avoid CORS issues
+ * Priority: Local files > External URLs (via proxy) > Data URLs
+ * Note: External URLs are automatically downloaded and stored locally when saved,
+ * so the database will contain local filenames for downloaded images.
  */
 function getImageUrl(imagePath) {
     if (!imagePath) return null;
