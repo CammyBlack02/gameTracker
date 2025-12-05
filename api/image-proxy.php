@@ -29,9 +29,37 @@ if (!filter_var($url, FILTER_VALIDATE_URL)) {
 
 // Only allow specific domains for security
 $allowedDomains = [
+    // TheCoverProject
     'coverproject.sfo2.cdn.digitaloceanspaces.com',
     'cdn.digitaloceanspaces.com',
-    'thecoverproject.net'
+    'thecoverproject.net',
+    // Common game cover/image sources
+    'vgchartz.com',
+    'mobygames.com',
+    'media-amazon.com',
+    'm.media-amazon.com',
+    'ebayimg.com',
+    'i.ebayimg.com',
+    'wikimedia.org',
+    'upload.wikimedia.org',
+    'pricecharting.com',
+    'storage.googleapis.com', // PriceCharting uses this
+    'thegamesdb.net',
+    'cdn.thegamesdb.net',
+    'staticneo.com',
+    'cdn.staticneo.com',
+    'lukiegames.com',
+    'www.lukiegames.com',
+    'psxdatacenter.com',
+    'webuy.com',
+    'uk.static.webuy.com',
+    'static.thcdn.com',
+    'thcdn.com',
+    'dodo.ac',
+    'doorwaytodorkness.co.uk',
+    // Google images (for thumbnails)
+    'gstatic.com',
+    'encrypted-tbn0.gstatic.com'
 ];
 
 $parsedUrl = parse_url($url);
