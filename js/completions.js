@@ -148,14 +148,18 @@ function displayCompletions() {
 }
 
 /**
- * Get completion image URL
+ * Get completion image URL - uses proxy for external URLs to avoid CORS
  */
 function getCompletionImageUrl(completion) {
     if (completion.front_cover_image) {
-        if (completion.front_cover_image.startsWith('http://') || 
-            completion.front_cover_image.startsWith('https://') || 
-            completion.front_cover_image.startsWith('data:')) {
+        // Data URLs - return as-is
+        if (completion.front_cover_image.startsWith('data:')) {
             return completion.front_cover_image;
+        }
+        // External URLs - use proxy to avoid CORS
+        if (completion.front_cover_image.startsWith('http://') || 
+            completion.front_cover_image.startsWith('https://')) {
+            return `api/image-proxy.php?url=${encodeURIComponent(completion.front_cover_image)}`;
         }
         return `uploads/covers/${completion.front_cover_image}`;
     }
