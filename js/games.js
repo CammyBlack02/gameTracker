@@ -191,20 +191,30 @@ function getImageUrl(imagePath) {
     if (imagePath.startsWith('data:')) {
         // Check if base64 data appears complete
         const base64Part = imagePath.split(',')[1] || '';
-        // Base64 should only contain valid characters (A-Z, a-z, 0-9, +, /, =)
-        // If it's truncated, it might end with invalid characters or be cut off mid-string
         if (base64Part.length > 0) {
-            // Check if it ends with valid base64 padding (= or ==) or valid base64 chars
-            const validBase64Pattern = /^[A-Za-z0-9+/]*={0,2}$/;
-            if (!validBase64Pattern.test(base64Part)) {
-                console.warn('Incomplete base64 image data detected - invalid characters');
-                return null; // Return null to show placeholder instead
-            }
+            // Remove any whitespace/newlines that might have been added
+            const cleanBase64 = base64Part.replace(/\s/g, '');
+            
             // Check if it's exactly 65535 characters (likely truncated during migration)
-            if (base64Part.length === 65535) {
+            if (cleanBase64.length === 65535) {
                 console.warn('Base64 image data appears truncated (exactly 65535 chars)');
                 return null;
             }
+            
+            // Check if it ends with valid base64 padding (= or ==) or valid base64 chars
+            // Allow for some flexibility - base64 can have 0, 1, or 2 padding characters
+            const validBase64Pattern = /^[A-Za-z0-9+/]+={0,2}$/;
+            if (!validBase64Pattern.test(cleanBase64)) {
+                console.warn('Incomplete base64 image data detected - invalid characters', {
+                    length: cleanBase64.length,
+                    lastChars: cleanBase64.slice(-10),
+                    firstChars: cleanBase64.slice(0, 10)
+                });
+                return null; // Return null to show placeholder instead
+            }
+            
+            // Return the cleaned version
+            return imagePath.split(',')[0] + ',' + cleanBase64;
         }
         return imagePath;
     }
@@ -1884,20 +1894,40 @@ function setupEditGameForm() {
                     }
                     return null;
                 })(),
-                // Get cover images - prefer URL if provided, otherwise use uploaded file or existing
+                // Get cover images - prefer updated currentGame values (from split/upload), then URL input, then existing
                 front_cover_image: (() => {
+                    // First check if currentGame was updated (e.g., from split tool or upload)
+                    if (window.currentGame && window.currentGame.front_cover_image) {
+                        const currentValue = window.currentGame.front_cover_image;
+                        // If it's a data URL or external URL, use it
+                        if (currentValue.startsWith('data:') || currentValue.startsWith('http://') || currentValue.startsWith('https://')) {
+                            return currentValue;
+                        }
+                    }
+                    // Then check URL input
                     const urlInput = document.getElementById('editFrontCoverUrl');
                     if (urlInput && urlInput.value.trim()) {
                         return urlInput.value.trim();
                     }
-                    return window.currentGame.front_cover_image || null;
+                    // Finally fall back to original
+                    return window.currentGame?.front_cover_image || null;
                 })(),
                 back_cover_image: (() => {
+                    // First check if currentGame was updated (e.g., from split tool or upload)
+                    if (window.currentGame && window.currentGame.back_cover_image) {
+                        const currentValue = window.currentGame.back_cover_image;
+                        // If it's a data URL or external URL, use it
+                        if (currentValue.startsWith('data:') || currentValue.startsWith('http://') || currentValue.startsWith('https://')) {
+                            return currentValue;
+                        }
+                    }
+                    // Then check URL input
                     const urlInput = document.getElementById('editBackCoverUrl');
                     if (urlInput && urlInput.value.trim()) {
                         return urlInput.value.trim();
                     }
-                    return window.currentGame.back_cover_image || null;
+                    // Finally fall back to original
+                    return window.currentGame?.back_cover_image || null;
                 })()
             };
             
@@ -2811,11 +2841,20 @@ async function uploadCoverImage(fileInput, type) {
             document.getElementById(previewId).innerHTML = 
                 `<img src="${data.url}" alt="${type} cover" style="max-width: 200px;">`;
             
-            // Update game data
+            // Update game data - store the full path, not just filename
             if (type === 'front') {
-                window.currentGame.front_cover_image = data.image_path;
+                window.currentGame.front_cover_image = data.image_path; // This is just the filename
+                // Also update the URL input so it's saved on submit
+                const urlInput = document.getElementById('editFrontCoverUrl');
+                if (urlInput) {
+                    urlInput.value = ''; // Clear URL input since we're using uploaded file
+                }
             } else {
                 window.currentGame.back_cover_image = data.image_path;
+                const urlInput = document.getElementById('editBackCoverUrl');
+                if (urlInput) {
+                    urlInput.value = ''; // Clear URL input since we're using uploaded file
+                }
             }
             
             showNotification('Image uploaded successfully', 'success');
