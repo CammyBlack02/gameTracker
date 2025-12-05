@@ -123,7 +123,7 @@ function createItem() {
     
     $stmt = $pdo->prepare("
         INSERT INTO items (
-            title, platform, category, description, condition,
+            title, platform, category, description, `condition`,
             price_paid, pricecharting_price, notes, front_image, back_image, quantity
         ) VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
@@ -179,7 +179,7 @@ function updateItem() {
             platform = ?,
             category = ?,
             description = ?,
-            condition = ?,
+            `condition` = ?,
             price_paid = ?,
             pricecharting_price = ?,
             notes = ?,
