@@ -17,18 +17,24 @@ if (empty($url)) {
     die('Missing URL parameter');
 }
 
-// Decode URL
-$url = urldecode($url);
+// Decode URL - handle double-encoding by decoding until it stops changing
+$prevUrl = '';
+while ($url !== $prevUrl) {
+    $prevUrl = $url;
+    $url = urldecode($url);
+}
 
-// Validate URL
-if (!filter_var($url, FILTER_VALIDATE_URL)) {
+// Try to parse the URL first - more lenient than filter_var
+$parsedUrl = @parse_url($url);
+if ($parsedUrl === false || empty($parsedUrl['scheme']) || empty($parsedUrl['host'])) {
+    error_log("Image proxy: Invalid URL format - Original: " . $_GET['url'] . ", Decoded: $url");
     http_response_code(400);
     header('Content-Type: text/plain');
-    die('Invalid URL');
+    die('Invalid URL format');
 }
 
 // Security: Only allow HTTPS URLs and basic validation
-$parsedUrl = parse_url($url);
+// $parsedUrl already set above
 $scheme = $parsedUrl['scheme'] ?? '';
 $host = $parsedUrl['host'] ?? '';
 
