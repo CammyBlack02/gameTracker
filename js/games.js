@@ -42,8 +42,11 @@ let isLoadingGames = false;
  */
 async function loadGames() {
     // Don't load games on user profile page
-    if (window.location.pathname.includes('user-profile.php')) {
-        console.log('loadGames: Blocked on user profile page');
+    if (window.IS_USER_PROFILE_PAGE || window.location.pathname.includes('user-profile.php')) {
+        console.log('loadGames: Blocked on user profile page', {
+            IS_USER_PROFILE_PAGE: window.IS_USER_PROFILE_PAGE,
+            pathname: window.location.pathname
+        });
         return;
     }
     
