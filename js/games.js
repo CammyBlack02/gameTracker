@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', function() {
         setupViewToggle();
         setupScrollToTop();
         setupHeroStats();
+        // Populate platform dropdowns
+        populatePlatformDropdowns();
     }
     
     // Load game detail if on detail page
@@ -31,6 +33,8 @@ document.addEventListener('DOMContentLoaded', function() {
         setupEditGameForm();
         setupDeleteGame();
         setupScrollToTop();
+        // Populate platform dropdowns
+        populatePlatformDropdowns();
     }
 });
 
@@ -903,6 +907,9 @@ function setupAddGameForm() {
             if (backUrlInput) backUrlInput.value = '';
             window.addGameFrontCover = null;
             window.addGameBackCover = null;
+            
+            // Refresh platform dropdown when opening modal
+            populatePlatformDropdowns();
             
             // Update digital store visibility when opening modal
             setTimeout(() => {
@@ -1852,8 +1859,11 @@ function setupEditGameForm() {
     if (editBtn) {
         editBtn.addEventListener('click', () => {
             if (window.currentGame) {
-                populateEditForm(window.currentGame);
-                showModal('editGameModal');
+                // Refresh platform dropdown when opening modal
+                populatePlatformDropdowns().then(() => {
+                    populateEditForm(window.currentGame);
+                    showModal('editGameModal');
+                });
             }
         });
     }
@@ -3055,6 +3065,48 @@ function setupDeleteGame() {
 /**
  * Update filter options based on available games
  */
+/**
+ * Populate platform dropdowns with admin's existing platforms
+ */
+async function populatePlatformDropdowns() {
+    try {
+        // Fetch admin's games to get unique platforms
+        const response = await fetch('api/games.php?action=list&per_page=1000');
+        const data = await response.json();
+        
+        if (data.success && data.games) {
+            // Get unique platforms from admin's games
+            const platforms = [...new Set(data.games.map(g => g.platform).filter(Boolean))].sort();
+            
+            // Populate add platform dropdown
+            const addPlatformSelect = document.getElementById('addPlatform');
+            if (addPlatformSelect) {
+                const currentValue = addPlatformSelect.value;
+                addPlatformSelect.innerHTML = '<option value="">Select Platform</option>' +
+                    platforms.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+                // Restore value if it exists
+                if (currentValue && addPlatformSelect.querySelector(`option[value="${escapeHtml(currentValue)}"]`)) {
+                    addPlatformSelect.value = currentValue;
+                }
+            }
+            
+            // Populate edit platform dropdown
+            const editPlatformSelect = document.getElementById('editPlatform');
+            if (editPlatformSelect) {
+                const currentValue = editPlatformSelect.value;
+                editPlatformSelect.innerHTML = '<option value="">Select Platform</option>' +
+                    platforms.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+                // Restore value if it exists
+                if (currentValue && editPlatformSelect.querySelector(`option[value="${escapeHtml(currentValue)}"]`)) {
+                    editPlatformSelect.value = currentValue;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error populating platform dropdowns:', error);
+    }
+}
+
 function updateFilters() {
     // Get unique platforms and genres
     const platforms = [...new Set(allGames.map(g => g.platform).filter(Boolean))].sort();
@@ -3222,7 +3274,7 @@ function animateCounter(containerId, index, endValue, type = 'number') {
         const currentValue = startValue + (endValue - startValue) * easeOut;
         
         if (type === 'currency') {
-            valueElement.textContent = '$' + Math.round(currentValue).toLocaleString();
+            valueElement.textContent = '£' + Math.round(currentValue).toLocaleString();
         } else {
             valueElement.textContent = Math.round(currentValue).toLocaleString();
         }
@@ -3232,7 +3284,7 @@ function animateCounter(containerId, index, endValue, type = 'number') {
         } else {
             // Ensure final value is exact
             if (type === 'currency') {
-                valueElement.textContent = '$' + endValue.toLocaleString();
+                valueElement.textContent = '£' + endValue.toLocaleString();
             } else {
                 valueElement.textContent = endValue.toLocaleString();
             }
