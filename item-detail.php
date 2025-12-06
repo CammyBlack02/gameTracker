@@ -57,7 +57,16 @@
                     </div>
                     <div class="form-group">
                         <label for="editItemCondition">Condition</label>
-                        <input type="text" id="editItemCondition" name="condition" placeholder="e.g., New, Like New, Good">
+                        <select id="editItemCondition" name="condition">
+                            <option value="">Select Condition</option>
+                            <option value="New">New</option>
+                            <option value="Like New">Like New</option>
+                            <option value="Good">Good</option>
+                            <option value="Acceptable">Acceptable</option>
+                            <option value="Poor">Poor</option>
+                            <option value="Disc/Cart Only">Disc/Cart Only</option>
+                            <option value="Broken">Broken</option>
+                        </select>
                     </div>
                 </div>
                 

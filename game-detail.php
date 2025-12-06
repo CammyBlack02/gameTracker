@@ -73,7 +73,16 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="editCondition">Condition (Physical Only)</label>
-                        <input type="text" id="editCondition" name="condition" placeholder="e.g., New, Like New, Good">
+                        <select id="editCondition" name="condition">
+                            <option value="">Select Condition</option>
+                            <option value="New">New</option>
+                            <option value="Like New">Like New</option>
+                            <option value="Good">Good</option>
+                            <option value="Acceptable">Acceptable</option>
+                            <option value="Poor">Poor</option>
+                            <option value="Disc/Cart Only">Disc/Cart Only</option>
+                            <option value="Broken">Broken</option>
+                        </select>
                     </div>
                 </div>
                 

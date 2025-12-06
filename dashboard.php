@@ -201,7 +201,16 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="addCondition">Condition (Physical Only)</label>
-                        <input type="text" id="addCondition" name="condition" placeholder="e.g., New, Like New, Good">
+                        <select id="addCondition" name="condition">
+                            <option value="">Select Condition</option>
+                            <option value="New">New</option>
+                            <option value="Like New">Like New</option>
+                            <option value="Good">Good</option>
+                            <option value="Acceptable">Acceptable</option>
+                            <option value="Poor">Poor</option>
+                            <option value="Disc/Cart Only">Disc/Cart Only</option>
+                            <option value="Broken">Broken</option>
+                        </select>
                     </div>
                 </div>
                 
@@ -351,7 +360,16 @@
                     </div>
                     <div class="form-group">
                         <label for="addItemCondition">Condition</label>
-                        <input type="text" id="addItemCondition" name="condition" placeholder="e.g., New, Like New, Good">
+                        <select id="addItemCondition" name="condition">
+                            <option value="">Select Condition</option>
+                            <option value="New">New</option>
+                            <option value="Like New">Like New</option>
+                            <option value="Good">Good</option>
+                            <option value="Acceptable">Acceptable</option>
+                            <option value="Poor">Poor</option>
+                            <option value="Disc/Cart Only">Disc/Cart Only</option>
+                            <option value="Broken">Broken</option>
+                        </select>
                     </div>
                 </div>
                 

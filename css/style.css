@@ -197,10 +197,26 @@ body.custom-background {
 /* Login Page */
 .login-page {
     display: flex;
-    justify-content: center;
-    align-items: center;
+    flex-direction: column;
     min-height: 100vh;
     padding: 20px;
+    padding-bottom: 0;
+}
+
+.login-page .login-container {
+    flex: 1 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 40px;
+}
+
+.login-page .site-footer {
+    flex: 0 0 auto;
+    margin-top: auto;
+    margin-bottom: 0;
+    width: 100%;
+    align-self: stretch;
 }
 
 .login-container {
@@ -2363,6 +2379,12 @@ body.dark-mode .coverflow-info {
     border-top: 1px solid var(--border-color);
     color: var(--text-light);
     font-size: 0.85em;
+    width: 100%;
+    max-width: 100%;
+    clear: both;
+    position: relative;
+    text-align: center;
+    box-sizing: border-box;
 }
 
 .footer-content {
@@ -2371,6 +2393,7 @@ body.dark-mode .coverflow-info {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 30px;
+    text-align: left;
 }
 
 .footer-section {
@@ -2411,14 +2434,30 @@ body.dark-mode .footer-copyright {
     color: var(--text-color);
 }
 
+/* Footer positioning - ensure it's always full width and centered */
+.site-footer {
+    box-sizing: border-box;
+}
+
+/* Footer on login/register pages */
+.login-page .site-footer {
+    width: 100%;
+    align-self: stretch;
+}
+
 @media (max-width: 768px) {
     .footer-content {
         grid-template-columns: 1fr;
         gap: 20px;
+        text-align: center;
     }
     
     .site-footer {
         padding: 20px 15px;
         font-size: 0.8em;
+    }
+    
+    .login-page .site-footer {
+        max-width: 100%;
     }
 }

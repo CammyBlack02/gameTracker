@@ -43,6 +43,76 @@ if (!$profileUserId) {
                 <button class="tab-button" data-tab="accessories">Accessories</button>
             </div>
             
+            <!-- Games Toolbar with Filters -->
+            <div class="toolbar" id="gamesToolbar">
+                <div class="search-container">
+                    <input type="text" id="searchInput" placeholder="Search games..." class="search-input">
+                </div>
+                
+                <div class="filter-container">
+                    <select id="platformFilter" class="filter-select">
+                        <option value="">All Platforms</option>
+                    </select>
+                    
+                    <select id="genreFilter" class="filter-select">
+                        <option value="">All Genres</option>
+                    </select>
+                    
+                    <select id="typeFilter" class="filter-select">
+                        <option value="">All Types</option>
+                        <option value="physical">Physical</option>
+                        <option value="digital">Digital</option>
+                    </select>
+                    
+                    <select id="playedFilter" class="filter-select">
+                        <option value="">All Games</option>
+                        <option value="1">Played</option>
+                        <option value="0">Not Played</option>
+                    </select>
+                    
+                    <select id="sortSelect" class="filter-select">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="release-newest">Release Date (Newest)</option>
+                        <option value="release-oldest">Release Date (Oldest)</option>
+                        <option value="title-asc">Title (A-Z)</option>
+                        <option value="title-desc">Title (Z-A)</option>
+                        <option value="price-low">Price (Low to High)</option>
+                        <option value="price-high">Price (High to Low)</option>
+                        <option value="rating-high">Rating (High to Low)</option>
+                        <option value="rating-low">Rating (Low to High)</option>
+                    </select>
+                </div>
+                
+                <div class="view-toggle">
+                    <button id="listViewBtn" class="view-btn active" title="List View">
+                        <span>☰</span>
+                    </button>
+                    <button id="gridViewBtn" class="view-btn" title="Grid View">
+                        <span>⊞</span>
+                    </button>
+                    <button id="coverFlowViewBtn" class="view-btn" title="Cover Flow">
+                        <span>🎮</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Items Toolbar (for consoles/accessories) -->
+            <div class="toolbar" id="itemsToolbar" style="display: none;">
+                <div class="search-container">
+                    <input type="text" id="itemsSearchInput" placeholder="Search items..." class="search-input">
+                </div>
+                
+                <div class="view-toggle">
+                    <button id="itemsListViewBtn" class="view-btn active" title="List View">
+                        <span>☰</span>
+                    </button>
+                    <button id="itemsGridViewBtn" class="view-btn" title="Grid View">
+                        <span>⊞</span>
+                    </button>
+                </div>
+            </div>
+            
             <div id="gamesContainer" class="games-container grid-view"></div>
         </div>
     </div>
@@ -61,6 +131,7 @@ if (!$profileUserId) {
     </script>
     <script src="js/games.js"></script>
     <script src="js/items.js"></script>
+    <script src="js/filters.js"></script>
     <script>
         const profileUserId = window.PROFILE_USER_ID;
         const isViewingOwnProfile = profileUserId == <?php echo $_SESSION['user_id']; ?>;
@@ -99,6 +170,18 @@ if (!$profileUserId) {
                 this.classList.add('active');
                 
                 const tab = this.dataset.tab;
+                
+                // Show/hide toolbars
+                const gamesToolbar = document.getElementById('gamesToolbar');
+                const itemsToolbar = document.getElementById('itemsToolbar');
+                
+                if (gamesToolbar) {
+                    gamesToolbar.style.display = tab === 'games' ? 'block' : 'none';
+                }
+                if (itemsToolbar) {
+                    itemsToolbar.style.display = (tab === 'consoles' || tab === 'accessories') ? 'block' : 'none';
+                }
+                
                 if (tab === 'games') {
                     loadUserGames();
                 } else if (tab === 'consoles') {
@@ -155,6 +238,13 @@ if (!$profileUserId) {
                         window.allGames = data.games;
                         console.log('loadUserGames: Set window.allGames to', window.allGames.length, 'games');
                     }
+                    
+                    // Populate filter dropdowns (using updateFilters from games.js)
+                    // This will populate platform and genre dropdowns based on the loaded games
+                    if (typeof updateFilters === 'function') {
+                        updateFilters();
+                    }
+                    
                     // Use existing displayGames function but make it read-only
                     console.log('loadUserGames: Calling displayGames with', data.games.length, 'games');
                     displayGames(data.games);

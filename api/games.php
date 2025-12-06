@@ -248,6 +248,81 @@ function getGame() {
     sendJsonResponse(['success' => true, 'game' => $game]);
 }
 
+/**
+ * Find matching game with fuzzy title and exact platform match
+ * Returns game data if found, null otherwise
+ */
+function findMatchingGame($title, $platform) {
+    global $pdo;
+    
+    if (empty($title) || empty($platform)) {
+        return null;
+    }
+    
+    // Normalize title for fuzzy matching (remove special chars, lowercase)
+    $normalizedTitle = strtolower(trim($title));
+    $normalizedTitle = preg_replace('/[^a-z0-9\s]/', '', $normalizedTitle);
+    $normalizedTitle = preg_replace('/\s+/', ' ', $normalizedTitle);
+    
+    // Get all games with matching platform
+    $stmt = $pdo->prepare("
+        SELECT id, title, front_cover_image, back_cover_image
+        FROM games
+        WHERE platform = ?
+        AND front_cover_image IS NOT NULL
+        AND front_cover_image != ''
+    ");
+    $stmt->execute([$platform]);
+    $games = $stmt->fetchAll();
+    
+    if (empty($games)) {
+        return null;
+    }
+    
+    // Find best match using fuzzy matching
+    $bestMatch = null;
+    $bestScore = 0;
+    
+    foreach ($games as $game) {
+        // Normalize game title
+        $gameTitle = strtolower(trim($game['title']));
+        $gameTitle = preg_replace('/[^a-z0-9\s]/', '', $gameTitle);
+        $gameTitle = preg_replace('/\s+/', ' ', $gameTitle);
+        
+        // Calculate similarity using similar_text
+        similar_text($normalizedTitle, $gameTitle, $percent);
+        
+        // Also check if one title contains the other (for partial matches)
+        if (strpos($normalizedTitle, $gameTitle) !== false || strpos($gameTitle, $normalizedTitle) !== false) {
+            $percent = max($percent, 85); // Boost partial matches
+        }
+        
+        if ($percent > $bestScore && $percent >= 80) { // 80% similarity threshold
+            $bestScore = $percent;
+            $bestMatch = $game;
+        }
+    }
+    
+    // Check if best match has local images (not external URLs)
+    if ($bestMatch) {
+        $frontCover = $bestMatch['front_cover_image'] ?? null;
+        $backCover = $bestMatch['back_cover_image'] ?? null;
+        
+        // Only return if at least one cover is a local file (not external URL)
+        $hasLocalFront = $frontCover && !preg_match('/^https?:\/\//', $frontCover);
+        $hasLocalBack = $backCover && !preg_match('/^https?:\/\//', $backCover);
+        
+        if ($hasLocalFront || $hasLocalBack) {
+            return [
+                'front_cover_image' => $hasLocalFront ? $frontCover : null,
+                'back_cover_image' => $hasLocalBack ? $backCover : null
+            ];
+        }
+    }
+    
+    return null;
+}
+
 function createGame() {
     global $pdo;
     
@@ -263,6 +338,27 @@ function createGame() {
     }
     
     $userId = $_SESSION['user_id'];
+    
+    // Check for matching game to reuse images (only if user hasn't provided images)
+    $frontCover = $data['front_cover_image'] ?? null;
+    $backCover = $data['back_cover_image'] ?? null;
+    
+    if (empty($frontCover) || empty($backCover)) {
+        $matchingGame = findMatchingGame($data['title'], $data['platform']);
+        
+        if ($matchingGame) {
+            // Use matching images only if user hasn't provided them
+            if (empty($frontCover) && !empty($matchingGame['front_cover_image'])) {
+                $frontCover = $matchingGame['front_cover_image'];
+                error_log("Reusing front cover from matching game for: {$data['title']} ({$data['platform']})");
+            }
+            
+            if (empty($backCover) && !empty($matchingGame['back_cover_image'])) {
+                $backCover = $matchingGame['back_cover_image'];
+                error_log("Reusing back cover from matching game for: {$data['title']} ({$data['platform']})");
+            }
+        }
+    }
     
     $stmt = $pdo->prepare("
         INSERT INTO games (
@@ -292,8 +388,8 @@ function createGame() {
         isset($data['pricecharting_price']) ? (float)$data['pricecharting_price'] : null,
         isset($data['is_physical']) ? (int)$data['is_physical'] : 1,
         $data['digital_store'] ?? null,
-        $data['front_cover_image'] ?? null,
-        $data['back_cover_image'] ?? null,
+        $frontCover,
+        $backCover,
         !empty($data['release_date']) ? $data['release_date'] : null
     ]);
     
