@@ -279,6 +279,7 @@
     
     <script src="js/main.js"></script>
     <script src="js/completions.js"></script>
+    <?php include __DIR__ . '/includes/footer.php'; ?>
 </body>
 </html>
 

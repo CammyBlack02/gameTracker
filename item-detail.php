@@ -825,6 +825,7 @@
         // Load item on page load
         loadItemDetail();
     </script>
+    <?php include __DIR__ . '/includes/footer.php'; ?>
 </body>
 </html>
 
