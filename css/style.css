@@ -201,6 +201,7 @@ body.custom-background {
     min-height: 100vh;
     padding: 20px;
     padding-bottom: 0;
+    box-sizing: border-box;
 }
 
 .login-page .login-container {
@@ -209,6 +210,7 @@ body.custom-background {
     justify-content: center;
     align-items: center;
     margin-bottom: 40px;
+    width: 100%;
 }
 
 .login-page .site-footer {
@@ -217,6 +219,8 @@ body.custom-background {
     margin-bottom: 0;
     width: 100%;
     align-self: stretch;
+    padding-left: 0;
+    padding-right: 0;
 }
 
 .login-container {
@@ -2393,7 +2397,7 @@ body.dark-mode .coverflow-info {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 30px;
-    text-align: left;
+    text-align: center;
 }
 
 .footer-section {

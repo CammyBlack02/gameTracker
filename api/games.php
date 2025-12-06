@@ -539,6 +539,41 @@ function updateGame() {
         sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
     }
     
+    // Get current game data to check for missing images
+    $currentStmt = $pdo->prepare("SELECT title, platform, front_cover_image, back_cover_image FROM games WHERE id = ?");
+    $currentStmt->execute([$id]);
+    $currentGame = $currentStmt->fetch(PDO::FETCH_ASSOC);
+    
+    // Determine final image values
+    // If explicitly set in data, use that; otherwise preserve current value
+    $frontCover = isset($data['front_cover_image']) ? $data['front_cover_image'] : $currentGame['front_cover_image'];
+    $backCover = isset($data['back_cover_image']) ? $data['back_cover_image'] : $currentGame['back_cover_image'];
+    
+    // If images are missing (empty or null), try to find matching games to reuse images
+    if (empty($frontCover) || empty($backCover)) {
+        $gameTitle = $data['title'] ?? $currentGame['title'];
+        $gamePlatform = $data['platform'] ?? $currentGame['platform'];
+        
+        $matchingGame = findMatchingGame($gameTitle, $gamePlatform);
+        
+        if ($matchingGame) {
+            // Use matching images only if current image is missing
+            if (empty($frontCover) && !empty($matchingGame['front_cover_image'])) {
+                $frontCover = $matchingGame['front_cover_image'];
+                error_log("Reusing front cover from matching game for existing game: $gameTitle ($gamePlatform)");
+            }
+            
+            if (empty($backCover) && !empty($matchingGame['back_cover_image'])) {
+                $backCover = $matchingGame['back_cover_image'];
+                error_log("Reusing back cover from matching game for existing game: $gameTitle ($gamePlatform)");
+            }
+        }
+    }
+    
+    // Update data array with final image values
+    $data['front_cover_image'] = $frontCover;
+    $data['back_cover_image'] = $backCover;
+    
     // Auto-download external URLs and convert to local files
     // Check JSON data first, then POST/GET, default to true
     $autoDownload = $data['auto_download'] ?? $_POST['auto_download'] ?? $_GET['auto_download'] ?? true;
