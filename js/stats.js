@@ -151,11 +151,11 @@ function displayStats() {
             </div>
             
             ${stats.most_expensive_game ? `
-            <div class="stat-card">
-                <div class="stat-label">Most Expensive Game</div>
-                <div class="stat-value">$${parseFloat(stats.most_expensive_game.price).toFixed(2)}</div>
-                <div class="stat-detail">${escapeHtml(stats.most_expensive_game.title)} (${escapeHtml(stats.most_expensive_game.platform)})</div>
-            </div>
+                <div class="stat-card">
+                    <div class="stat-label">Most Expensive Game</div>
+                    <div class="stat-value">${formatCurrency(stats.most_expensive_game.price)}</div>
+                    <div class="stat-detail">${escapeHtml(stats.most_expensive_game.title)} (${escapeHtml(stats.most_expensive_game.platform)})</div>
+                </div>
             ` : ''}
             
             ${stats.newest_game ? `
