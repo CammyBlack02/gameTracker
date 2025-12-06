@@ -105,15 +105,23 @@
         }
         
         .user-card {
-            background: var(--card-bg, #fff);
+            background: var(--card-background, #fff);
             border: 1px solid var(--border-color, #ddd);
             border-radius: 8px;
             padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow, 0 2px 4px rgba(0,0,0,0.1));
+            color: var(--text-color, #333);
+            transition: var(--transition, all 0.3s ease);
+        }
+        
+        .user-card:hover {
+            box-shadow: var(--shadow-hover, 0 4px 12px rgba(0,0,0,0.15));
+            transform: translateY(-2px);
         }
         
         .user-card h3 {
             margin: 0 0 15px 0;
+            color: var(--text-color, #333);
         }
         
         .user-card h3 a {
@@ -123,6 +131,7 @@
         
         .user-card h3 a:hover {
             text-decoration: underline;
+            color: var(--primary-color, #4a90e2);
         }
         
         .user-stats {
@@ -138,21 +147,23 @@
         }
         
         .stat-label {
-            color: var(--text-secondary, #666);
+            color: var(--text-light, #666);
         }
         
         .stat-value {
             font-weight: bold;
+            color: var(--text-color, #333);
         }
         
         .user-meta {
             font-size: 0.85em;
-            color: var(--text-secondary, #666);
+            color: var(--text-light, #666);
             margin-top: 10px;
             padding-top: 10px;
             border-top: 1px solid var(--border-color, #eee);
         }
     </style>
+    <?php include __DIR__ . '/includes/footer.php'; ?>
 </body>
 </html>
 

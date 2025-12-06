@@ -490,6 +490,7 @@
             max-height: 400px;
         }
     </style>
+    <?php include __DIR__ . '/includes/footer.php'; ?>
 </body>
 </html>
 

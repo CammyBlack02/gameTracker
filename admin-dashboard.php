@@ -30,7 +30,7 @@ if (($_SESSION['role'] ?? 'user') !== 'admin') {
         
         <div class="content-container">
             <div class="admin-section">
-                <div style="margin-bottom: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 8px;">
+                <div class="admin-info-box">
                     <h3 style="margin-top: 0;">Admin Account</h3>
                     <p>Change your admin username and password:</p>
                     <a href="change-admin-credentials.php" class="btn btn-primary">Change Admin Credentials</a>
@@ -283,26 +283,29 @@ if (($_SESSION['role'] ?? 'user') !== 'admin') {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
+            background: var(--card-background);
+            color: var(--text-color);
         }
         
         .admin-table th,
         .admin-table td {
             padding: 12px;
             text-align: left;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .admin-table th {
-            background-color: #f5f5f5;
+            background: var(--background-color);
             font-weight: bold;
+            color: var(--text-color);
         }
         
         .admin-table tr:hover {
-            background-color: #f9f9f9;
+            background: var(--background-color);
         }
         
         .badge-admin {
-            background-color: #d32f2f;
+            background-color: var(--danger-color);
             color: white;
             padding: 4px 8px;
             border-radius: 4px;
@@ -310,7 +313,7 @@ if (($_SESSION['role'] ?? 'user') !== 'admin') {
         }
         
         .badge-user {
-            background-color: #666;
+            background-color: var(--secondary-color);
             color: white;
             padding: 4px 8px;
             border-radius: 4px;
@@ -323,14 +326,16 @@ if (($_SESSION['role'] ?? 'user') !== 'admin') {
         }
         
         .btn-danger {
-            background-color: #d32f2f;
+            background-color: var(--danger-color);
             color: white;
         }
         
         .btn-danger:hover {
-            background-color: #b71c1c;
+            background-color: var(--danger-color);
+            opacity: 0.9;
         }
     </style>
+    <?php include __DIR__ . '/includes/footer.php'; ?>
 </body>
 </html>
 

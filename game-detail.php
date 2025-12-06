@@ -267,6 +267,7 @@
         // Setup dark mode toggle
         setupDarkMode();
     </script>
+    <?php include __DIR__ . '/includes/footer.php'; ?>
 </body>
 </html>
 

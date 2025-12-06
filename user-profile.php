@@ -220,10 +220,12 @@ if (!$profileUserId) {
         }
         
         .user-profile-card {
-            background: var(--card-bg, #fff);
+            background: var(--card-background, #fff);
             border: 1px solid var(--border-color, #ddd);
             border-radius: 8px;
             padding: 20px;
+            color: var(--text-color, #333);
+            box-shadow: var(--shadow, 0 2px 4px rgba(0,0,0,0.1));
         }
         
         .user-profile-stats {
@@ -240,15 +242,17 @@ if (!$profileUserId) {
         
         .stat-label {
             font-size: 0.85em;
-            color: var(--text-secondary, #666);
+            color: var(--text-light, #666);
             margin-bottom: 5px;
         }
         
         .stat-value {
             font-size: 1.5em;
             font-weight: bold;
+            color: var(--text-color, #333);
         }
     </style>
+    <?php include __DIR__ . '/includes/footer.php'; ?>
 </body>
 </html>
 
