@@ -1,12 +1,21 @@
 # Database
 database/*.db
 database/*.db-journal
+database/*.db.gz
 *.db
 *.db-journal
 
 # Uploads
 uploads/*
 !uploads/.gitkeep
+!uploads/covers/.gitkeep
+!uploads/extras/.gitkeep
+
+# Data files (CSV, Excel, etc.)
+*.csv
+*.xlsx
+*.xls
+*.ged
 
 # Certificates (if using HTTPS)
 certs/
@@ -25,7 +34,21 @@ Thumbs.db
 # Logs
 *.log
 /tmp/gametracker-*.log
+logs/
 
 # Temporary files
 *.tmp
 *.temp
+
+# Backup files
+*.bak
+*.backup
+*_backup.*
+
+# Security - don't commit these
+php-security.ini
+.env
+.env.local
+
+# Config file with credentials - NEVER commit this!
+includes/config.php

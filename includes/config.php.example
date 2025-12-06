@@ -2,6 +2,10 @@
 /**
  * Configuration file for Game Tracker
  * Database connection and settings
+ * 
+ * IMPORTANT SECURITY NOTE:
+ * This is a template file. Copy it to config.php and fill in your actual credentials.
+ * NEVER commit config.php to version control - it contains sensitive database credentials!
  */
 
 // Helper function to convert memory limit string to bytes
@@ -35,22 +39,50 @@ if (session_status() === PHP_SESSION_NONE) {
     // Secure session configuration
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || 
                (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+    
+    // Session timeout: 30 minutes of inactivity
+    $sessionTimeout = 1800; // 30 minutes in seconds
+    
+    // Check if session has expired
+    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $sessionTimeout)) {
+        // Session expired, destroy it
+        session_unset();
+        session_destroy();
+        session_start();
+    }
+    
+    // Update last activity time
+    $_SESSION['last_activity'] = time();
+    
     session_set_cookie_params([
-        'lifetime' => 0,
+        'lifetime' => $sessionTimeout,
         'path' => '/',
         'domain' => '',
         'secure' => $isHttps,
         'httponly' => true,
         'samesite' => 'Lax'
     ]);
+    
+    // Use strict mode to prevent session fixation
+    ini_set('session.use_strict_mode', '1');
+    
     session_start();
+    
+    // Regenerate session ID periodically (every 5 minutes) to prevent fixation
+    if (!isset($_SESSION['created'])) {
+        $_SESSION['created'] = time();
+    } else if (time() - $_SESSION['created'] > 300) {
+        session_regenerate_id(true);
+        $_SESSION['created'] = time();
+    }
 }
 
 // Database configuration
+// TODO: Fill in your actual database credentials
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'gameTracker');
-define('DB_USER', 'CammyBlack02');
-define('DB_PASS', 'RetroTinker87!');
+define('DB_USER', 'your_database_username');
+define('DB_PASS', 'your_database_password');
 define('UPLOAD_DIR', __DIR__ . '/../uploads/');
 define('COVERS_DIR', UPLOAD_DIR . 'covers/');
 define('EXTRAS_DIR', UPLOAD_DIR . 'extras/');
@@ -347,4 +379,3 @@ function initializeDatabase($pdo) {
         }
     }
 }
-
