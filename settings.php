@@ -86,6 +86,31 @@
                     <div id="steamImportResult" style="margin-top: 15px; display: none;"></div>
                 </div>
             </div>
+            
+            <div class="settings-section">
+                <h2>GameEye CSV Import</h2>
+                <p class="settings-description">
+                    Import your game collection from a GameEye CSV backup file. This will import games, consoles, and accessories.
+                    <br>
+                    <strong>Note:</strong> Games that already exist in your collection (matching title and platform) will be updated with new information.
+                </p>
+                
+                <form id="gameeyeForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="gameeyeCsvFile">Select GameEye CSV File</label>
+                        <input type="file" id="gameeyeCsvFile" name="csv_file" accept=".csv" required>
+                        <small style="color: var(--text-light); font-size: 0.85em; display: block; margin-top: 5px;">
+                            Maximum file size: 10MB
+                        </small>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="importGameeyeBtn">📥 Import GameEye CSV</button>
+                    </div>
+                    
+                    <div id="gameeyeImportResult" style="margin-top: 15px; display: none;"></div>
+                </form>
+            </div>
         </div>
     </div>
     
@@ -448,6 +473,119 @@
         }
         
         loadBackgroundImage();
+        
+        // Handle GameEye CSV import
+        document.getElementById('gameeyeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('gameeyeCsvFile');
+            if (!fileInput.files[0]) {
+                showNotification('Please select a CSV file', 'error');
+                return;
+            }
+            
+            if (!confirm('This will import all games, consoles, and accessories from your GameEye CSV file. Games that already exist will be updated. This may take a few minutes. Continue?')) {
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('csv_file', fileInput.files[0]);
+            
+            const btn = document.getElementById('importGameeyeBtn');
+            const resultDiv = document.getElementById('gameeyeImportResult');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Importing...';
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<p>Importing from CSV... This may take a few minutes.</p>';
+            
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes timeout
+                
+                let response;
+                try {
+                    response = await fetch('api/import-gameeye.php', {
+                        method: 'POST',
+                        body: formData,
+                        signal: controller.signal
+                    });
+                } catch (error) {
+                    clearTimeout(timeoutId);
+                    if (error.name === 'AbortError') {
+                        throw new Error('Import timed out after 10 minutes. The import may still be processing in the background.');
+                    }
+                    throw error;
+                }
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server returned ${response.status}: ${errorText.substring(0, 200)}`);
+                }
+                
+                const responseText = await response.text();
+                if (!responseText.trim()) {
+                    throw new Error('Empty response from server');
+                }
+                
+                const data = JSON.parse(responseText);
+                
+                if (data.success) {
+                    let successHtml = '<div style="color: var(--success-color);">';
+                    successHtml += '<p><strong>✓ Import completed successfully!</strong></p>';
+                    successHtml += `<p>Imported: ${data.imported || 0} games, ${data.imported_items || 0} items</p>`;
+                    
+                    if (data.updated > 0) {
+                        successHtml += `<p>Updated: ${data.updated} existing games</p>`;
+                    }
+                    
+                    if (data.skipped > 0) {
+                        successHtml += `<p>Skipped: ${data.skipped} items (wishlist/non-games)</p>`;
+                    }
+                    
+                    if (data.errors > 0) {
+                        successHtml += `<p style="color: var(--error-color);">Errors: ${data.errors}</p>`;
+                        if (data.error_messages && data.error_messages.length > 0) {
+                            successHtml += '<details style="margin-top: 10px;"><summary>Error details</summary><ul style="margin: 5px 0; padding-left: 20px;">';
+                            data.error_messages.forEach(msg => {
+                                successHtml += `<li style="font-size: 0.9em;">${escapeHtml(msg)}</li>`;
+                            });
+                            successHtml += '</ul></details>';
+                        }
+                    }
+                    
+                    successHtml += '</div>';
+                    
+                    resultDiv.innerHTML = successHtml;
+                    showNotification(data.message || 'Import completed successfully!', 'success');
+                    fileInput.value = '';
+                    
+                    // Refresh the page after a short delay to show new games
+                    setTimeout(() => {
+                        if (confirm('Import completed! Would you like to go to your dashboard to see the imported games?')) {
+                            window.location.href = 'dashboard.php';
+                        }
+                    }, 2000);
+                } else {
+                    resultDiv.innerHTML = `<p style="color: var(--error-color);">✗ ${data.message || 'Import failed'}</p>`;
+                    showNotification(data.message || 'Import failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error importing GameEye CSV:', error);
+                resultDiv.innerHTML = `<p style="color: var(--error-color);">✗ Error importing CSV: ${error.message}</p>`;
+                showNotification('Error importing CSV: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        });
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
         
         // Setup dark mode toggle
         setupDarkMode();
