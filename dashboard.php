@@ -46,7 +46,7 @@
                 </div>
                 <div class="hero-stat-card">
                     <div class="hero-stat-icon">💰</div>
-                    <div class="hero-stat-value" data-target="0">$0</div>
+                    <div class="hero-stat-value" data-target="0">£0</div>
                     <div class="hero-stat-label">Collection Value</div>
                 </div>
                 <div class="hero-stat-card">
@@ -169,7 +169,9 @@
                     </div>
                     <div class="form-group">
                         <label for="addPlatform">Platform *</label>
-                        <input type="text" id="addPlatform" name="platform" required>
+                        <select id="addPlatform" name="platform" required>
+                            <option value="">Select Platform</option>
+                        </select>
                     </div>
                 </div>
                 
