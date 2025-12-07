@@ -14,23 +14,30 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
     sendJsonResponse(['success' => false, 'message' => 'Authentication required'], 401);
 }
 
-// Check admin role
-if (($_SESSION['role'] ?? 'user') !== 'admin') {
-    sendJsonResponse(['success' => false, 'message' => 'Admin access required'], 403);
-}
-
 $action = $_GET['action'] ?? '';
+
+// Check admin role only for admin-only actions
+$isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
 
 switch ($action) {
     case 'list':
+        // All authenticated users can list users
         listUsers();
         break;
     
     case 'reset_password':
+        // Admin only
+        if (!$isAdmin) {
+            sendJsonResponse(['success' => false, 'message' => 'Admin access required'], 403);
+        }
         resetPassword();
         break;
     
     case 'delete':
+        // Admin only
+        if (!$isAdmin) {
+            sendJsonResponse(['success' => false, 'message' => 'Admin access required'], 403);
+        }
         deleteUser();
         break;
     
