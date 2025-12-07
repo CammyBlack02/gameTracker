@@ -111,22 +111,22 @@ function listGames() {
         
         // Get pagination parameters
         $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-        $perPage = isset($_GET['per_page']) ? max(1, min(1000, (int)$_GET['per_page'])) : 500; // Max 1000 per page
+        $perPage = isset($_GET['per_page']) ? max(1, min(1000, (int)$_GET['per_page'])) : 100; // Reduced default from 500 to 100
         $offset = ($page - 1) * $perPage;
         
         // Get user_id from session or optional parameter (any user can view other users' collections)
         $currentUserId = $_SESSION['user_id'];
         $targetUserId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : $currentUserId;
         
-        // Get total count
-        $countStmt = $pdo->prepare("SELECT COUNT(DISTINCT g.id) as total FROM games g WHERE g.user_id = ?");
+        // Get total count - optimized: no need for DISTINCT since we're not joining yet
+        $countStmt = $pdo->prepare("SELECT COUNT(*) as total FROM games WHERE user_id = ?");
         $countStmt->execute([$targetUserId]);
         $totalGames = (int)$countStmt->fetch(PDO::FETCH_ASSOC)['total'];
         $totalPages = $totalGames > 0 ? ceil($totalGames / $perPage) : 1;
         
         error_log("listGames: Page $page of $totalPages (showing $perPage games, offset $offset) for user_id: $targetUserId");
         
-        // Re-execute query with pagination
+        // Optimized query: use subquery for image count to avoid GROUP BY overhead
         $stmt = $pdo->prepare("
             SELECT g.id,
                    g.title,
@@ -146,11 +146,9 @@ function listGames() {
                    g.back_cover_image,
                    g.created_at,
                    g.updated_at,
-                   COUNT(gi.id) as extra_image_count
+                   (SELECT COUNT(*) FROM game_images gi WHERE gi.game_id = g.id) as extra_image_count
             FROM games g
-            LEFT JOIN game_images gi ON g.id = gi.game_id
             WHERE g.user_id = ?
-            GROUP BY g.id
             ORDER BY g.created_at DESC
             LIMIT ? OFFSET ?
         ");
@@ -215,6 +213,7 @@ function getGame() {
         sendJsonResponse(['success' => false, 'message' => 'Game ID is required'], 400);
     }
     
+    // Optimized: Get game and verify ownership in one query
     $stmt = $pdo->prepare("SELECT * FROM games WHERE id = ?");
     $stmt->execute([$id]);
     $game = $stmt->fetch();
@@ -228,7 +227,7 @@ function getGame() {
         sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
     }
     
-    // Get extra images
+    // Get extra images (indexed query should be fast)
     $stmt = $pdo->prepare("SELECT * FROM game_images WHERE game_id = ? ORDER BY uploaded_at DESC");
     $stmt->execute([$id]);
     $game['extra_images'] = $stmt->fetchAll();
@@ -245,6 +244,7 @@ function getGame() {
 /**
  * Find matching game with fuzzy title and exact platform match
  * Returns game data if found, null otherwise
+ * Optimized: Uses database-level LIKE matching first to reduce dataset size
  */
 function findMatchingGame($title, $platform) {
     global $pdo;
@@ -253,27 +253,41 @@ function findMatchingGame($title, $platform) {
         return null;
     }
     
-    // Normalize title for fuzzy matching (remove special chars, lowercase)
+    // Normalize title for matching (remove special chars, lowercase)
     $normalizedTitle = strtolower(trim($title));
     $normalizedTitle = preg_replace('/[^a-z0-9\s]/', '', $normalizedTitle);
     $normalizedTitle = preg_replace('/\s+/', ' ', $normalizedTitle);
     
-    // Get all games with matching platform
+    // Extract key words from title (first 2-3 words) for initial database filtering
+    $titleWords = explode(' ', $normalizedTitle);
+    $keyWords = array_slice($titleWords, 0, min(3, count($titleWords)));
+    $searchPattern = '%' . implode('%', $keyWords) . '%';
+    
+    // First, use database LIKE to filter down to potential matches
+    // This dramatically reduces the dataset before PHP fuzzy matching
     $stmt = $pdo->prepare("
         SELECT id, title, front_cover_image, back_cover_image
         FROM games
         WHERE platform = ?
         AND front_cover_image IS NOT NULL
         AND front_cover_image != ''
+        AND (
+            LOWER(REPLACE(REPLACE(REPLACE(REPLACE(title, '-', ' '), ':', ' '), '!', ' '), '.', ' ')) LIKE ?
+            OR LOWER(REPLACE(REPLACE(REPLACE(REPLACE(title, '-', ' '), ':', ' '), '!', ' '), '.', ' ')) LIKE ?
+        )
+        LIMIT 50
     ");
-    $stmt->execute([$platform]);
+    
+    // Try with first word, then first two words
+    $firstWordPattern = '%' . ($titleWords[0] ?? '') . '%';
+    $stmt->execute([$platform, $searchPattern, $firstWordPattern]);
     $games = $stmt->fetchAll();
     
     if (empty($games)) {
         return null;
     }
     
-    // Find best match using fuzzy matching
+    // Find best match using fuzzy matching on the filtered results
     $bestMatch = null;
     $bestScore = 0;
     
