@@ -9,13 +9,14 @@ ini_set('display_errors', 0);
 @ini_set('memory_limit', '1024M');
 @ini_set('max_execution_time', '300');
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Load functions first so sendJsonResponse is available
+require_once __DIR__ . '/../includes/functions.php';
 
-// Don't start output buffering here - we'll handle it per-endpoint
-// ob_start();
+// Load database configuration (MySQL) - this also handles session configuration
+require_once __DIR__ . '/../includes/config.php';
+
+// Session is now started by config.php with proper cookie parameters
+// No need to start it again here
 
 // Register shutdown handler to catch fatal errors
 register_shutdown_function(function() {
@@ -41,13 +42,7 @@ register_shutdown_function(function() {
     }
 });
 
-// Load functions first so sendJsonResponse is available
-require_once __DIR__ . '/../includes/functions.php';
-
 try {
-    // Load database configuration (MySQL)
-    require_once __DIR__ . '/../includes/config.php';
-    
     // Check if $pdo is available
     if (!isset($pdo)) {
         sendJsonResponse(['success' => false, 'message' => 'Database connection failed'], 500);
