@@ -77,8 +77,8 @@ function listCompletions() {
         $year = $_GET['year'] ?? null;
         $status = $_GET['status'] ?? 'all'; // 'all', 'completed', 'in_progress'
         $currentUserId = $_SESSION['user_id'];
-        $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
-        $targetUserId = isset($_GET['user_id']) && $isAdmin ? (int)$_GET['user_id'] : $currentUserId;
+        // Any user can view other users' completions
+        $targetUserId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : $currentUserId;
         
         $where = ["c.user_id = ?"];
         $params = [$targetUserId];

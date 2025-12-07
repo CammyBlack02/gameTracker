@@ -60,10 +60,9 @@ function getStats() {
     try {
         ini_set('memory_limit', '512M');
         
-        // Get user_id from session or optional parameter (for admin viewing other users)
+        // Get user_id from session or optional parameter (any user can view other users' stats)
         $currentUserId = $_SESSION['user_id'];
-        $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
-        $targetUserId = isset($_GET['user_id']) && $isAdmin ? (int)$_GET['user_id'] : $currentUserId;
+        $targetUserId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : $currentUserId;
         
         // Get filters
         $platform = $_GET['platform'] ?? '';
