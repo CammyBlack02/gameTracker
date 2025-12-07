@@ -119,10 +119,9 @@ function listGames() {
         $perPage = isset($_GET['per_page']) ? max(1, min(1000, (int)$_GET['per_page'])) : 500; // Max 1000 per page
         $offset = ($page - 1) * $perPage;
         
-        // Get user_id from session or optional parameter (for admin viewing other users)
+        // Get user_id from session or optional parameter (any user can view other users' collections)
         $currentUserId = $_SESSION['user_id'];
-        $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
-        $targetUserId = isset($_GET['user_id']) && $isAdmin ? (int)$_GET['user_id'] : $currentUserId;
+        $targetUserId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : $currentUserId;
         
         // Get total count
         $countStmt = $pdo->prepare("SELECT COUNT(DISTINCT g.id) as total FROM games g WHERE g.user_id = ?");

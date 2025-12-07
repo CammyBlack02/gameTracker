@@ -41,8 +41,8 @@ function listItems() {
     
     $category = $_GET['category'] ?? '';
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
-    $targetUserId = isset($_GET['user_id']) && $isAdmin ? (int)$_GET['user_id'] : $currentUserId;
+    // Any user can view other users' collections
+    $targetUserId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : $currentUserId;
     
     $sql = "
         SELECT i.*, 
