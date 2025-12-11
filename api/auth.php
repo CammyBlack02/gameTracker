@@ -3,10 +3,27 @@
  * Authentication API endpoints
  */
 
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/functions.php';
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
-header('Content-Type: application/json');
+try {
+    require_once __DIR__ . '/../includes/config.php';
+    require_once __DIR__ . '/../includes/functions.php';
+    
+    header('Content-Type: application/json');
+} catch (Throwable $e) {
+    error_log('Auth API initialization error: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => false, 
+        'message' => 'Server error: ' . $e->getMessage() . ' (File: ' . basename($e->getFile()) . ' Line: ' . $e->getLine() . ')'
+    ], JSON_UNESCAPED_SLASHES);
+    exit;
+}
 
 /**
  * Rate limiting helper
@@ -113,57 +130,75 @@ switch ($action) {
 function handleLogin() {
     global $pdo;
     
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
-    }
-    
-    // Rate limiting: 5 attempts per 15 minutes
-    $rateLimit = checkRateLimit('login', 5, 900);
-    if (!$rateLimit['allowed']) {
-        logSecurityEvent('login_rate_limit_exceeded', ['username' => $_POST['username'] ?? 'unknown']);
-        sendJsonResponse(['success' => false, 'message' => $rateLimit['message']], 429);
-    }
-    
-    $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
-    
-    if (empty($username) || empty($password)) {
-        sendJsonResponse(['success' => false, 'message' => 'Username and password are required'], 400);
-    }
-    
-    $stmt = $pdo->prepare("SELECT id, username, password_hash, role FROM users WHERE username = ?");
-    $stmt->execute([$username]);
-    $user = $stmt->fetch();
-    
-    if ($user && password_verify($password, $user['password_hash'])) {
-        // Successful login - reset rate limit
-        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-        $rateLimitKey = 'login_' . $ip;
-        $stmt = $pdo->prepare("DELETE FROM rate_limits WHERE rate_key = ? AND ip_address = ?");
-        $stmt->execute([$rateLimitKey, $ip]);
+    try {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
+            return;
+        }
         
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['username'];
-        $_SESSION['role'] = $user['role'] ?? 'user';
-        $_SESSION['last_activity'] = time();
+        // Rate limiting: 5 attempts per 15 minutes
+        $rateLimit = checkRateLimit('login', 5, 900);
+        if (!$rateLimit['allowed']) {
+            if (function_exists('logSecurityEvent')) {
+                logSecurityEvent('login_rate_limit_exceeded', ['username' => $_POST['username'] ?? 'unknown']);
+            }
+            sendJsonResponse(['success' => false, 'message' => $rateLimit['message']], 429);
+            return;
+        }
         
-        // Regenerate session ID for security
-        session_regenerate_id(true);
+        $username = $_POST['username'] ?? '';
+        $password = $_POST['password'] ?? '';
         
-        logSecurityEvent('login_success', ['user_id' => $user['id'], 'username' => $username]);
+        if (empty($username) || empty($password)) {
+            sendJsonResponse(['success' => false, 'message' => 'Username and password are required'], 400);
+            return;
+        }
         
+        $stmt = $pdo->prepare("SELECT id, username, password_hash, role FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch();
+        
+        if ($user && password_verify($password, $user['password_hash'])) {
+            // Successful login - reset rate limit
+            $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+            $rateLimitKey = 'login_' . $ip;
+            $stmt = $pdo->prepare("DELETE FROM rate_limits WHERE rate_key = ? AND ip_address = ?");
+            $stmt->execute([$rateLimitKey, $ip]);
+            
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'] ?? 'user';
+            $_SESSION['last_activity'] = time();
+            
+            // Regenerate session ID for security
+            session_regenerate_id(true);
+            
+            if (function_exists('logSecurityEvent')) {
+                logSecurityEvent('login_success', ['user_id' => $user['id'], 'username' => $username]);
+            }
+            
+            sendJsonResponse([
+                'success' => true,
+                'message' => 'Login successful',
+                'user' => [
+                    'id' => $user['id'],
+                    'username' => $user['username'],
+                    'role' => $_SESSION['role']
+                ]
+            ]);
+        } else {
+            if (function_exists('logSecurityEvent')) {
+                logSecurityEvent('login_failed', ['username' => $username]);
+            }
+            sendJsonResponse(['success' => false, 'message' => 'Invalid username or password'], 401);
+        }
+    } catch (Throwable $e) {
+        error_log('handleLogin error: ' . $e->getMessage());
+        error_log('Stack trace: ' . $e->getTraceAsString());
         sendJsonResponse([
-            'success' => true,
-            'message' => 'Login successful',
-            'user' => [
-                'id' => $user['id'],
-                'username' => $user['username'],
-                'role' => $_SESSION['role']
-            ]
-        ]);
-    } else {
-        logSecurityEvent('login_failed', ['username' => $username]);
-        sendJsonResponse(['success' => false, 'message' => 'Invalid username or password'], 401);
+            'success' => false, 
+            'message' => 'Login error: ' . $e->getMessage() . ' (File: ' . basename($e->getFile()) . ' Line: ' . $e->getLine() . ')'
+        ], 500);
     }
 }
 
