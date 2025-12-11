@@ -201,8 +201,9 @@ function listGames() {
     } catch (Throwable $e) {
         error_log('listGames Error: ' . $e->getMessage());
         error_log('Stack trace: ' . $e->getTraceAsString());
+        error_log('File: ' . $e->getFile() . ' Line: ' . $e->getLine());
         
-        // Clean any output and send error response
+        // Clean any output and send error response with detailed error for debugging
         while (ob_get_level() > 0) {
             ob_end_clean();
         }
@@ -210,7 +211,10 @@ function listGames() {
         if (!headers_sent()) {
             http_response_code(500);
             header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Failed to load games: ' . $e->getMessage()], JSON_UNESCAPED_SLASHES);
+            // Include error details for debugging (remove in production)
+            $errorMessage = 'Failed to load games: ' . $e->getMessage();
+            $errorMessage .= ' (File: ' . basename($e->getFile()) . ' Line: ' . $e->getLine() . ')';
+            echo json_encode(['success' => false, 'message' => $errorMessage], JSON_UNESCAPED_SLASHES);
         }
         exit;
     }
