@@ -12,15 +12,27 @@ try {
     require_once __DIR__ . '/../includes/config.php';
     require_once __DIR__ . '/../includes/functions.php';
     
+    // Check if database connection is available
+    if (!isset($pdo)) {
+        throw new Exception('Database connection not available');
+    }
+    
     header('Content-Type: application/json');
 } catch (Throwable $e) {
     error_log('Auth API initialization error: ' . $e->getMessage());
     error_log('Stack trace: ' . $e->getTraceAsString());
+    
+    // Ensure we send proper JSON response
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    
     http_response_code(500);
     header('Content-Type: application/json');
+    $errorMsg = 'Server error: ' . $e->getMessage() . ' (File: ' . basename($e->getFile()) . ' Line: ' . $e->getLine() . ')';
     echo json_encode([
         'success' => false, 
-        'message' => 'Server error: ' . $e->getMessage() . ' (File: ' . basename($e->getFile()) . ' Line: ' . $e->getLine() . ')'
+        'message' => $errorMsg
     ], JSON_UNESCAPED_SLASHES);
     exit;
 }
