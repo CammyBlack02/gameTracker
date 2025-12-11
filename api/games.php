@@ -119,10 +119,17 @@ function listGames() {
         $targetUserId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : $currentUserId;
         
         // Get total count - optimized: no need for DISTINCT since we're not joining yet
-        $countStmt = $pdo->prepare("SELECT COUNT(*) as total FROM games WHERE user_id = ?");
-        $countStmt->execute([$targetUserId]);
-        $totalGames = (int)$countStmt->fetch(PDO::FETCH_ASSOC)['total'];
-        $totalPages = $totalGames > 0 ? ceil($totalGames / $perPage) : 1;
+        try {
+            $countStmt = $pdo->prepare("SELECT COUNT(*) as total FROM games WHERE user_id = ?");
+            $countStmt->execute([$targetUserId]);
+            $countResult = $countStmt->fetch(PDO::FETCH_ASSOC);
+            $totalGames = (int)($countResult['total'] ?? 0);
+            $totalPages = $totalGames > 0 ? ceil($totalGames / $perPage) : 1;
+        } catch (PDOException $e) {
+            error_log("listGames: COUNT query failed: " . $e->getMessage());
+            $totalGames = 0;
+            $totalPages = 1;
+        }
         
         error_log("listGames: Page $page of $totalPages (showing $perPage games, offset $offset) for user_id: $targetUserId");
         
@@ -132,7 +139,7 @@ function listGames() {
         
         // Simplified query without subquery to avoid any potential issues
         // Image count will be set to 0 for now (can be calculated separately if needed)
-        $stmt = $pdo->prepare("
+        $query = "
             SELECT g.id,
                    g.title,
                    g.platform,
@@ -156,8 +163,10 @@ function listGames() {
             WHERE g.user_id = ?
             ORDER BY g.created_at DESC
             LIMIT $perPage OFFSET $offset
-        ");
+        ";
         
+        error_log("listGames: Executing query with perPage=$perPage, offset=$offset");
+        $stmt = $pdo->prepare($query);
         $stmt->execute([$targetUserId]);
         
         // Collect games for this page
