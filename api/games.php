@@ -131,33 +131,66 @@ function listGames() {
         $offset = (int)$offset;
         
         // Optimized query: use subquery for image count to avoid GROUP BY overhead
-        $stmt = $pdo->prepare("
-            SELECT g.id,
-                   g.title,
-                   g.platform,
-                   g.genre,
-                   g.series,
-                   g.special_edition,
-                   g.`condition`,
-                   g.star_rating,
-                   g.metacritic_rating,
-                   g.played,
-                   g.price_paid,
-                   g.pricecharting_price,
-                   g.is_physical,
-                   g.digital_store,
-                   g.front_cover_image,
-                   g.back_cover_image,
-                   g.created_at,
-                   g.updated_at,
-                   (SELECT COUNT(*) FROM game_images gi WHERE gi.game_id = g.id) as extra_image_count
-            FROM games g
-            WHERE g.user_id = ?
-            ORDER BY g.created_at DESC
-            LIMIT $perPage OFFSET $offset
-        ");
-        
-        $stmt->execute([$targetUserId]);
+        // Using COALESCE to handle cases where subquery might fail
+        try {
+            $stmt = $pdo->prepare("
+                SELECT g.id,
+                       g.title,
+                       g.platform,
+                       g.genre,
+                       g.series,
+                       g.special_edition,
+                       g.`condition`,
+                       g.star_rating,
+                       g.metacritic_rating,
+                       g.played,
+                       g.price_paid,
+                       g.pricecharting_price,
+                       g.is_physical,
+                       g.digital_store,
+                       g.front_cover_image,
+                       g.back_cover_image,
+                       g.created_at,
+                       g.updated_at,
+                       COALESCE((SELECT COUNT(*) FROM game_images gi WHERE gi.game_id = g.id), 0) as extra_image_count
+                FROM games g
+                WHERE g.user_id = ?
+                ORDER BY g.created_at DESC
+                LIMIT $perPage OFFSET $offset
+            ");
+            
+            $stmt->execute([$targetUserId]);
+        } catch (PDOException $e) {
+            // If subquery fails, fall back to simpler query without image count
+            error_log("listGames: Subquery failed, using fallback query: " . $e->getMessage());
+            $stmt = $pdo->prepare("
+                SELECT g.id,
+                       g.title,
+                       g.platform,
+                       g.genre,
+                       g.series,
+                       g.special_edition,
+                       g.`condition`,
+                       g.star_rating,
+                       g.metacritic_rating,
+                       g.played,
+                       g.price_paid,
+                       g.pricecharting_price,
+                       g.is_physical,
+                       g.digital_store,
+                       g.front_cover_image,
+                       g.back_cover_image,
+                       g.created_at,
+                       g.updated_at,
+                       0 as extra_image_count
+                FROM games g
+                WHERE g.user_id = ?
+                ORDER BY g.created_at DESC
+                LIMIT $perPage OFFSET $offset
+            ");
+            
+            $stmt->execute([$targetUserId]);
+        }
         
         // Collect games for this page
         $games = [];
