@@ -126,6 +126,10 @@ function listGames() {
         
         error_log("listGames: Page $page of $totalPages (showing $perPage games, offset $offset) for user_id: $targetUserId");
         
+        // Ensure LIMIT and OFFSET are integers (MySQL doesn't allow bound parameters for LIMIT/OFFSET)
+        $perPage = (int)$perPage;
+        $offset = (int)$offset;
+        
         // Optimized query: use subquery for image count to avoid GROUP BY overhead
         $stmt = $pdo->prepare("
             SELECT g.id,
@@ -150,10 +154,10 @@ function listGames() {
             FROM games g
             WHERE g.user_id = ?
             ORDER BY g.created_at DESC
-            LIMIT ? OFFSET ?
+            LIMIT $perPage OFFSET $offset
         ");
         
-        $stmt->execute([$targetUserId, $perPage, $offset]);
+        $stmt->execute([$targetUserId]);
         
         // Collect games for this page
         $games = [];
