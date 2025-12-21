@@ -3070,13 +3070,34 @@ function setupDeleteGame() {
  */
 async function populatePlatformDropdowns() {
     try {
-        // Fetch admin's games to get unique platforms
-        const response = await fetch('api/games.php?action=list&per_page=1000');
+        // First, get the admin user ID
+        const adminResponse = await fetch('api/admin.php?action=list');
+        const adminData = await adminResponse.json();
+        
+        if (!adminData.success || !adminData.users) {
+            console.error('Failed to get admin user:', adminData);
+            return;
+        }
+        
+        // Find the admin user
+        const adminUser = adminData.users.find(u => u.role === 'admin');
+        if (!adminUser) {
+            console.error('No admin user found');
+            return;
+        }
+        
+        // Fetch admin's platforms (much more efficient - no game data!)
+        const response = await fetch(`api/games.php?action=platforms&user_id=${adminUser.id}`);
+        
+        if (!response.ok) {
+            console.error('Failed to fetch platforms:', response.status, response.statusText);
+            return;
+        }
+        
         const data = await response.json();
         
-        if (data.success && data.games) {
-            // Get unique platforms from admin's games
-            const platforms = [...new Set(data.games.map(g => g.platform).filter(Boolean))].sort();
+        if (data.success && data.platforms) {
+            const platforms = data.platforms;
             
             // Populate add platform dropdown
             const addPlatformSelect = document.getElementById('addPlatform');

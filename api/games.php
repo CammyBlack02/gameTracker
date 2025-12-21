@@ -86,6 +86,10 @@ try {
             deleteGame();
             break;
         
+        case 'platforms':
+            getPlatforms();
+            break;
+        
         default:
             sendJsonResponse(['success' => false, 'message' => 'Invalid action'], 400);
     }
@@ -760,5 +764,33 @@ function deleteGame() {
         'success' => true,
         'message' => 'Game deleted successfully'
     ]);
+}
+
+function getPlatforms() {
+    global $pdo;
+    
+    try {
+        // Get user_id from session or optional parameter
+        $currentUserId = $_SESSION['user_id'];
+        $targetUserId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : $currentUserId;
+        
+        // Get unique platforms for the specified user
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT platform 
+            FROM games 
+            WHERE user_id = ? AND platform IS NOT NULL AND platform != '' 
+            ORDER BY platform
+        ");
+        $stmt->execute([$targetUserId]);
+        $platforms = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        sendJsonResponse([
+            'success' => true,
+            'platforms' => $platforms
+        ]);
+    } catch (Throwable $e) {
+        error_log('getPlatforms Error: ' . $e->getMessage());
+        sendJsonResponse(['success' => false, 'message' => 'Failed to get platforms'], 500);
+    }
 }
 
