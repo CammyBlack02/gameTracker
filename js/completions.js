@@ -49,12 +49,16 @@ async function loadCompletions() {
  */
 async function loadGames() {
     try {
-        const response = await fetch('api/games.php?action=list');
+        // Load all games (use high per_page to get all games)
+        const response = await fetch('api/games.php?action=list&per_page=10000');
         const data = await response.json();
         
         if (data.success) {
-            allGames = data.games;
+            allGames = data.games || [];
+            console.log(`Loaded ${allGames.length} games for linking`);
             updatePlatformList();
+        } else {
+            console.error('Failed to load games:', data.message);
         }
     } catch (error) {
         console.error('Error loading games:', error);
@@ -471,6 +475,45 @@ async function linkCompletion(completionId) {
             score += 20; // Words in order
         }
         
+        // Penalty for conflicting words - if query has specific words that aren't in title
+        // This helps distinguish "Infinite Warfare" from "Advanced Warfare" when searching for "infinite"
+        const importantWords = queryWords.filter(w => w.length >= 4); // Words 4+ chars are important
+        const missingImportantWords = importantWords.filter(w => !normalizedTitle.includes(w));
+        
+        // If we're searching for "infinite warfare" and title has "advanced" instead of "infinite", penalize heavily
+        if (missingImportantWords.length > 0) {
+            // Check if title has alternative words that might conflict
+            // Common conflicts: infinite vs advanced, modern vs black ops, etc.
+            const conflictPairs = [
+                ['infinite', 'advanced'],
+                ['advanced', 'infinite'],
+                ['modern', 'black'],
+                ['black', 'modern']
+            ];
+            
+            let hasConflict = false;
+            for (const missingWord of missingImportantWords) {
+                for (const [word1, word2] of conflictPairs) {
+                    if (missingWord === word1 && normalizedTitle.includes(word2)) {
+                        hasConflict = true;
+                        score -= 50; // Heavy penalty for conflicting words
+                        break;
+                    }
+                }
+                if (hasConflict) break;
+            }
+            
+            if (!hasConflict && missingImportantWords.length > 0) {
+                score -= missingImportantWords.length * 15; // Penalty for missing important words
+            }
+        }
+        
+        // Big bonus if all important words (4+ chars) are in the title
+        const importantWordsInTitle = importantWords.filter(w => normalizedTitle.includes(w)).length;
+        if (importantWords.length > 0 && importantWordsInTitle === importantWords.length) {
+            score += 30; // All important words match - big bonus
+        }
+        
         return { game, score };
     }).filter(m => m.score > 0) // Only keep matches
       .sort((a, b) => b.score - a.score); // Sort by score descending
@@ -482,6 +525,25 @@ async function linkCompletion(completionId) {
     
     const matches = scoredMatches.map(m => m.game);
     
+    // Debug: log top matches
+    console.log('Top matches:', scoredMatches.slice(0, 5).map(m => ({
+        title: m.game.title,
+        score: m.score,
+        platform: m.game.platform
+    })));
+    
+    // Check if the exact game exists
+    const exactMatch = allGames.find(g => {
+        const normalized = normalizeTitle(g.title);
+        return normalized === normalizedQuery || normalized.includes(normalizedQuery);
+    });
+    if (exactMatch) {
+        console.log('Exact match found:', exactMatch.title);
+    } else {
+        console.log('No exact match found. Total games loaded:', allGames.length);
+        console.log('Sample games:', allGames.slice(0, 10).map(g => g.title));
+    }
+    
     if (matches.length === 1) {
         // Auto-link if only one match
         await linkCompletionToGame(completionId, matches[0].id);
@@ -492,7 +554,8 @@ async function linkCompletion(completionId) {
     const gameList = matches.slice(0, 15).map((game, index) => {
         const platformMatch = completionPlatform && game.platform && 
             completionPlatform.toLowerCase().trim() === game.platform.toLowerCase().trim() ? ' ✓ Platform Match' : '';
-        return `${index + 1}. ${game.title} (${game.platform || 'Unknown'})${platformMatch}`;
+        const matchScore = scoredMatches.find(m => m.game.id === game.id)?.score || 0;
+        return `${index + 1}. ${game.title} (${game.platform || 'Unknown'})${platformMatch} [Score: ${matchScore}]`;
     }).join('\n');
     
     const selection = prompt(`Multiple games found (showing best matches first):\n\n${gameList}\n\nEnter number (1-${Math.min(matches.length, 15)}):`);
