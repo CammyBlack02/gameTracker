@@ -169,9 +169,10 @@
                     </div>
                     <div class="form-group">
                         <label for="addPlatform">Platform *</label>
-                        <select id="addPlatform" name="platform" required>
+                        <input type="text" id="addPlatform" name="platform" list="addPlatformList" required autocomplete="off">
+                        <datalist id="addPlatformList">
                             <option value="">Select Platform</option>
-                        </select>
+                        </datalist>
                     </div>
                 </div>
                 

@@ -770,18 +770,28 @@ function getPlatforms() {
     global $pdo;
     
     try {
-        // Get user_id from session or optional parameter
-        $currentUserId = $_SESSION['user_id'];
-        $targetUserId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : $currentUserId;
+        // If user_id is provided, get platforms for that user
+        // Otherwise, get platforms from all users (for dropdown suggestions)
+        if (isset($_GET['user_id'])) {
+            $targetUserId = (int)$_GET['user_id'];
+            $stmt = $pdo->prepare("
+                SELECT DISTINCT platform 
+                FROM games 
+                WHERE user_id = ? AND platform IS NOT NULL AND platform != '' 
+                ORDER BY platform
+            ");
+            $stmt->execute([$targetUserId]);
+        } else {
+            // Get platforms from all users
+            $stmt = $pdo->prepare("
+                SELECT DISTINCT platform 
+                FROM games 
+                WHERE platform IS NOT NULL AND platform != '' 
+                ORDER BY platform
+            ");
+            $stmt->execute();
+        }
         
-        // Get unique platforms for the specified user
-        $stmt = $pdo->prepare("
-            SELECT DISTINCT platform 
-            FROM games 
-            WHERE user_id = ? AND platform IS NOT NULL AND platform != '' 
-            ORDER BY platform
-        ");
-        $stmt->execute([$targetUserId]);
         $platforms = $stmt->fetchAll(PDO::FETCH_COLUMN);
         
         sendJsonResponse([
