@@ -396,27 +396,75 @@ async function linkCompletion(completionId) {
     // Normalize query for better matching
     const normalizedQuery = normalizeTitle(query);
     const queryWords = normalizedQuery.split(' ').filter(w => w.length > 0);
+    const completionPlatform = completion ? completion.platform : null;
     
-    // Better matching: check if all query words appear in title (normalized)
-    const matches = allGames.filter(game => {
+    // Score and match games
+    const scoredMatches = allGames.map(game => {
         const normalizedTitle = normalizeTitle(game.title);
+        let score = 0;
         
-        // Check if all query words appear in the title
+        // Check if all query words appear in the title (required for match)
         const allWordsMatch = queryWords.every(word => normalizedTitle.includes(word));
+        if (!allWordsMatch) {
+            return { game, score: 0 }; // No match
+        }
         
-        // Also check if normalized title includes normalized query (for partial matches)
-        const includesMatch = normalizedTitle.includes(normalizedQuery);
+        // Base score for matching all words
+        score += 10;
         
-        // Also check reverse (title contains query or query contains significant parts of title)
-        const reverseMatch = normalizedQuery.length >= 3 && normalizedTitle.includes(normalizedQuery.substring(0, Math.min(10, normalizedQuery.length)));
+        // Exact match (normalized) gets highest score
+        if (normalizedTitle === normalizedQuery) {
+            score += 100;
+        }
         
-        return allWordsMatch || includesMatch || reverseMatch;
-    });
+        // Title starts with query gets high score
+        if (normalizedTitle.startsWith(normalizedQuery)) {
+            score += 50;
+        }
+        
+        // Title contains full query gets good score
+        if (normalizedTitle.includes(normalizedQuery)) {
+            score += 30;
+        }
+        
+        // Platform match bonus (if completion has platform)
+        if (completionPlatform && game.platform) {
+            const normalizedCompletionPlatform = completionPlatform.toLowerCase().trim();
+            const normalizedGamePlatform = game.platform.toLowerCase().trim();
+            if (normalizedCompletionPlatform === normalizedGamePlatform) {
+                score += 40; // Big bonus for platform match
+            }
+        }
+        
+        // Bonus for longer query matches (more specific)
+        if (normalizedQuery.length >= 10) {
+            score += 10;
+        }
+        
+        // Check word order - if words appear in same order, bonus
+        const titleWords = normalizedTitle.split(' ');
+        let orderMatch = 0;
+        let queryIndex = 0;
+        for (let i = 0; i < titleWords.length && queryIndex < queryWords.length; i++) {
+            if (titleWords[i].includes(queryWords[queryIndex])) {
+                orderMatch++;
+                queryIndex++;
+            }
+        }
+        if (orderMatch === queryWords.length) {
+            score += 20; // Words in order
+        }
+        
+        return { game, score };
+    }).filter(m => m.score > 0) // Only keep matches
+      .sort((a, b) => b.score - a.score); // Sort by score descending
     
-    if (matches.length === 0) {
+    if (scoredMatches.length === 0) {
         showNotification('No games found matching that title', 'error');
         return;
     }
+    
+    const matches = scoredMatches.map(m => m.game);
     
     if (matches.length === 1) {
         // Auto-link if only one match
@@ -424,15 +472,17 @@ async function linkCompletion(completionId) {
         return;
     }
     
-    // Show selection dialog
-    const gameList = matches.slice(0, 10).map((game, index) => 
-        `${index + 1}. ${game.title} (${game.platform || 'Unknown'})`
-    ).join('\n');
+    // Show selection dialog with best matches first
+    const gameList = matches.slice(0, 15).map((game, index) => {
+        const platformMatch = completionPlatform && game.platform && 
+            completionPlatform.toLowerCase().trim() === game.platform.toLowerCase().trim() ? ' ✓ Platform Match' : '';
+        return `${index + 1}. ${game.title} (${game.platform || 'Unknown'})${platformMatch}`;
+    }).join('\n');
     
-    const selection = prompt(`Multiple games found:\n\n${gameList}\n\nEnter number (1-${Math.min(matches.length, 10)}):`);
+    const selection = prompt(`Multiple games found (showing best matches first):\n\n${gameList}\n\nEnter number (1-${Math.min(matches.length, 15)}):`);
     const selectedIndex = parseInt(selection) - 1;
     
-    if (selectedIndex >= 0 && selectedIndex < Math.min(matches.length, 10)) {
+    if (selectedIndex >= 0 && selectedIndex < Math.min(matches.length, 15)) {
         await linkCompletionToGame(completionId, matches[selectedIndex].id);
     }
 }
