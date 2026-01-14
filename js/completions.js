@@ -403,14 +403,30 @@ async function linkCompletion(completionId) {
         const normalizedTitle = normalizeTitle(game.title);
         let score = 0;
         
-        // Check if all query words appear in the title (required for match)
-        const allWordsMatch = queryWords.every(word => normalizedTitle.includes(word));
-        if (!allWordsMatch) {
+        // Count how many query words appear in the title
+        const matchingWords = queryWords.filter(word => normalizedTitle.includes(word)).length;
+        const wordMatchRatio = queryWords.length > 0 ? matchingWords / queryWords.length : 0;
+        
+        // Require at least 50% of words to match, OR the title contains the full query
+        const hasEnoughWords = wordMatchRatio >= 0.5;
+        const containsFullQuery = normalizedQuery.length >= 3 && normalizedTitle.includes(normalizedQuery);
+        const titleStartsWithQuery = normalizedQuery.length >= 3 && normalizedTitle.startsWith(normalizedQuery);
+        
+        if (!hasEnoughWords && !containsFullQuery && !titleStartsWithQuery) {
             return { game, score: 0 }; // No match
         }
         
-        // Base score for matching all words
-        score += 10;
+        // Bonus for matching more words
+        score += matchingWords * 5;
+        
+        // Base score for matching
+        if (wordMatchRatio === 1) {
+            score += 20; // All words match
+        } else if (wordMatchRatio >= 0.75) {
+            score += 15; // Most words match
+        } else {
+            score += 10; // Some words match
+        }
         
         // Exact match (normalized) gets highest score
         if (normalizedTitle === normalizedQuery) {
