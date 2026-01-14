@@ -177,33 +177,58 @@ function createCompletion() {
         }
     }
     
-    $userId = $_SESSION['user_id'];
+    $userId = $_SESSION['user_id'] ?? null;
     
-    $stmt = $pdo->prepare("
-        INSERT INTO game_completions (
-            user_id, game_id, title, platform, time_taken,
-            date_started, date_completed, completion_year, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ");
+    if (!$userId) {
+        error_log('createCompletion: No user_id in session');
+        sendJsonResponse(['success' => false, 'message' => 'User not authenticated'], 401);
+        return;
+    }
     
-    $stmt->execute([
-        $userId,
-        $data['game_id'] ?? null,
-        $data['title'] ?? '',
-        $data['platform'] ?? null,
-        $data['time_taken'] ?? null,
-        !empty($data['date_started']) ? $data['date_started'] : null,
-        !empty($data['date_completed']) ? $data['date_completed'] : null,
-        $completionYear,
-        $data['notes'] ?? null
-    ]);
+    // Auto-link to game if not already linked and we have title and platform
+    $gameId = $data['game_id'] ?? null;
+    if (!$gameId && !empty($data['title']) && !empty($data['platform'])) {
+        $matchedGame = findMatchingGameForCompletion($data['title'], $data['platform'], $userId);
+        if ($matchedGame) {
+            $gameId = $matchedGame['id'];
+        }
+    }
     
-    $completionId = $pdo->lastInsertId();
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO game_completions (
+                user_id, game_id, title, platform, time_taken,
+                date_started, date_completed, completion_year, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $stmt->execute([
+            $userId,
+            $gameId,
+            $data['title'] ?? '',
+            $data['platform'] ?? null,
+            $data['time_taken'] ?? null,
+            !empty($data['date_started']) ? $data['date_started'] : null,
+            !empty($data['date_completed']) ? $data['date_completed'] : null,
+            $completionYear,
+            $data['notes'] ?? null
+        ]);
+        
+        $completionId = $pdo->lastInsertId();
+        
+        // Log successful creation for debugging
+        error_log("createCompletion: Created completion ID $completionId for user_id $userId");
+    } catch (PDOException $e) {
+        error_log('createCompletion: Database error - ' . $e->getMessage());
+        sendJsonResponse(['success' => false, 'message' => 'Failed to save completion: ' . $e->getMessage()], 500);
+        return;
+    }
     
     sendJsonResponse([
         'success' => true,
         'message' => 'Completion added successfully',
-        'completion_id' => $completionId
+        'completion_id' => $completionId,
+        'game_id' => $gameId
     ]);
 }
 
@@ -246,6 +271,15 @@ function updateCompletion() {
         }
     }
     
+    // Auto-link to game if not already linked and we have title and platform
+    $gameId = $data['game_id'] ?? null;
+    if (!$gameId && !empty($data['title']) && !empty($data['platform'])) {
+        $matchedGame = findMatchingGameForCompletion($data['title'], $data['platform'], $currentUserId);
+        if ($matchedGame) {
+            $gameId = $matchedGame['id'];
+        }
+    }
+    
     $stmt = $pdo->prepare("
         UPDATE game_completions SET
             game_id = ?,
@@ -261,7 +295,7 @@ function updateCompletion() {
     ");
     
     $stmt->execute([
-        $data['game_id'] ?? null,
+        $gameId,
         $data['title'] ?? '',
         $data['platform'] ?? null,
         $data['time_taken'] ?? null,
@@ -274,7 +308,8 @@ function updateCompletion() {
     
     sendJsonResponse([
         'success' => true,
-        'message' => 'Completion updated successfully'
+        'message' => 'Completion updated successfully',
+        'game_id' => $gameId
     ]);
 }
 
@@ -334,5 +369,75 @@ function linkCompletion() {
         'success' => true,
         'message' => 'Completion linked successfully'
     ]);
+}
+
+/**
+ * Find matching game for completion auto-linking
+ * Uses fuzzy matching on title and exact platform match
+ */
+function findMatchingGameForCompletion($title, $platform, $userId) {
+    global $pdo;
+    
+    if (empty($title) || empty($platform)) {
+        return null;
+    }
+    
+    // Normalize title for matching (remove special chars, lowercase)
+    $normalizedTitle = strtolower(trim($title));
+    $normalizedTitle = preg_replace('/[^a-z0-9\s]/', '', $normalizedTitle);
+    $normalizedTitle = preg_replace('/\s+/', ' ', $normalizedTitle);
+    
+    // Extract key words from title (first 2-3 words) for initial database filtering
+    $titleWords = explode(' ', $normalizedTitle);
+    $keyWords = array_slice($titleWords, 0, min(3, count($titleWords)));
+    $searchPattern = '%' . implode('%', $keyWords) . '%';
+    
+    // First, use database LIKE to filter down to potential matches for this user
+    $stmt = $pdo->prepare("
+        SELECT id, title
+        FROM games
+        WHERE user_id = ?
+        AND platform = ?
+        AND (
+            LOWER(REPLACE(REPLACE(REPLACE(REPLACE(title, '-', ' '), ':', ' '), '!', ' '), '.', ' ')) LIKE ?
+            OR LOWER(REPLACE(REPLACE(REPLACE(REPLACE(title, '-', ' '), ':', ' '), '!', ' '), '.', ' ')) LIKE ?
+        )
+        LIMIT 50
+    ");
+    
+    // Try with first word, then first two words
+    $firstWordPattern = '%' . ($titleWords[0] ?? '') . '%';
+    $stmt->execute([$userId, $platform, $searchPattern, $firstWordPattern]);
+    $games = $stmt->fetchAll();
+    
+    if (empty($games)) {
+        return null;
+    }
+    
+    // Find best match using fuzzy matching on the filtered results
+    $bestMatch = null;
+    $bestScore = 0;
+    
+    foreach ($games as $game) {
+        // Normalize game title
+        $gameTitle = strtolower(trim($game['title']));
+        $gameTitle = preg_replace('/[^a-z0-9\s]/', '', $gameTitle);
+        $gameTitle = preg_replace('/\s+/', ' ', $gameTitle);
+        
+        // Calculate similarity using similar_text
+        similar_text($normalizedTitle, $gameTitle, $percent);
+        
+        // Also check if one title contains the other (for partial matches)
+        if (strpos($normalizedTitle, $gameTitle) !== false || strpos($gameTitle, $normalizedTitle) !== false) {
+            $percent = max($percent, 85); // Boost partial matches
+        }
+        
+        if ($percent > $bestScore && $percent >= 80) { // 80% similarity threshold
+            $bestScore = $percent;
+            $bestMatch = $game;
+        }
+    }
+    
+    return $bestMatch;
 }
 

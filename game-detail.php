@@ -41,9 +41,10 @@
                     </div>
                     <div class="form-group">
                         <label for="editPlatform">Platform *</label>
-                        <select id="editPlatform" name="platform" required>
+                        <input type="text" id="editPlatform" name="platform" list="editPlatformList" required autocomplete="off">
+                        <datalist id="editPlatformList">
                             <option value="">Select Platform</option>
-                        </select>
+                        </datalist>
                     </div>
                 </div>
                 

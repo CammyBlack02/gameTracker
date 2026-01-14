@@ -3070,24 +3070,9 @@ function setupDeleteGame() {
  */
 async function populatePlatformDropdowns() {
     try {
-        // First, get the admin user ID
-        const adminResponse = await fetch('api/admin.php?action=list');
-        const adminData = await adminResponse.json();
-        
-        if (!adminData.success || !adminData.users) {
-            console.error('Failed to get admin user:', adminData);
-            return;
-        }
-        
-        // Find the admin user
-        const adminUser = adminData.users.find(u => u.role === 'admin');
-        if (!adminUser) {
-            console.error('No admin user found');
-            return;
-        }
-        
-        // Fetch admin's platforms (much more efficient - no game data!)
-        const response = await fetch(`api/games.php?action=platforms&user_id=${adminUser.id}`);
+        // Get platforms from all users (not just admin) to ensure all platforms are available
+        // Pass no user_id to get all platforms across all users
+        const response = await fetch('api/games.php?action=platforms');
         
         if (!response.ok) {
             console.error('Failed to fetch platforms:', response.status, response.statusText);
@@ -3099,28 +3084,16 @@ async function populatePlatformDropdowns() {
         if (data.success && data.platforms) {
             const platforms = data.platforms;
             
-            // Populate add platform dropdown
-            const addPlatformSelect = document.getElementById('addPlatform');
-            if (addPlatformSelect) {
-                const currentValue = addPlatformSelect.value;
-                addPlatformSelect.innerHTML = '<option value="">Select Platform</option>' +
-                    platforms.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
-                // Restore value if it exists
-                if (currentValue && addPlatformSelect.querySelector(`option[value="${escapeHtml(currentValue)}"]`)) {
-                    addPlatformSelect.value = currentValue;
-                }
+            // Populate add platform datalist
+            const addPlatformList = document.getElementById('addPlatformList');
+            if (addPlatformList) {
+                addPlatformList.innerHTML = platforms.map(p => `<option value="${escapeHtml(p)}">`).join('');
             }
             
-            // Populate edit platform dropdown
-            const editPlatformSelect = document.getElementById('editPlatform');
-            if (editPlatformSelect) {
-                const currentValue = editPlatformSelect.value;
-                editPlatformSelect.innerHTML = '<option value="">Select Platform</option>' +
-                    platforms.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
-                // Restore value if it exists
-                if (currentValue && editPlatformSelect.querySelector(`option[value="${escapeHtml(currentValue)}"]`)) {
-                    editPlatformSelect.value = currentValue;
-                }
+            // Populate edit platform datalist
+            const editPlatformList = document.getElementById('editPlatformList');
+            if (editPlatformList) {
+                editPlatformList.innerHTML = platforms.map(p => `<option value="${escapeHtml(p)}">`).join('');
             }
         }
     } catch (error) {
