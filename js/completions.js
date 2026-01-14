@@ -45,23 +45,57 @@ async function loadCompletions() {
 }
 
 /**
- * Load all games for linking
+ * Load all games for linking (limited to reasonable amount for platform list)
  */
 async function loadGames() {
     try {
-        // Load all games (use high per_page to get all games)
-        const response = await fetch('api/games.php?action=list&per_page=10000');
+        // Load a reasonable number of games for platform list (not all games)
+        const response = await fetch('api/games.php?action=list&per_page=500');
         const data = await response.json();
         
         if (data.success) {
             allGames = data.games || [];
-            console.log(`Loaded ${allGames.length} games for linking`);
             updatePlatformList();
         } else {
             console.error('Failed to load games:', data.message);
         }
     } catch (error) {
         console.error('Error loading games:', error);
+    }
+}
+
+/**
+ * Search games via API (for linking completions)
+ */
+async function searchGamesForLinking(query, platform = null) {
+    try {
+        // Search via API - get more results for better matching
+        let url = `api/games.php?action=list&per_page=500`;
+        if (platform) {
+            // We'll filter by platform in the matching logic
+        }
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success && data.games) {
+            // Filter games by query on client side (more efficient than loading all)
+            const normalizedQuery = normalizeTitle(query);
+            const queryWords = normalizedQuery.split(' ').filter(w => w.length > 0);
+            
+            return data.games.filter(game => {
+                const normalizedTitle = normalizeTitle(game.title);
+                const matchingWords = queryWords.filter(word => normalizedTitle.includes(word)).length;
+                const wordMatchRatio = queryWords.length > 0 ? matchingWords / queryWords.length : 0;
+                const containsFullQuery = normalizedQuery.length >= 3 && normalizedTitle.includes(normalizedQuery);
+                
+                return wordMatchRatio >= 0.5 || containsFullQuery;
+            });
+        }
+        return [];
+    } catch (error) {
+        console.error('Error searching games:', error);
+        return [];
     }
 }
 
@@ -384,11 +418,6 @@ function normalizeTitle(title) {
  * Link completion to game
  */
 async function linkCompletion(completionId) {
-    // Ensure games are loaded
-    if (allGames.length === 0) {
-        await loadGames();
-    }
-    
     // Get the completion to use its title as default search
     const completion = allCompletions.find(c => c.id === completionId);
     const defaultQuery = completion ? completion.title : '';
@@ -397,13 +426,18 @@ async function linkCompletion(completionId) {
     const query = prompt('Enter game title to search:', defaultQuery);
     if (!query) return;
     
+    // Search games via API on-demand (more efficient than loading all)
+    console.log('Searching for games matching:', query);
+    const searchResults = await searchGamesForLinking(query, completion?.platform);
+    console.log(`Found ${searchResults.length} potential matches`);
+    
     // Normalize query for better matching
     const normalizedQuery = normalizeTitle(query);
     const queryWords = normalizedQuery.split(' ').filter(w => w.length > 0);
     const completionPlatform = completion ? completion.platform : null;
     
-    // Score and match games
-    const scoredMatches = allGames.map(game => {
+    // Score and match games from search results
+    const scoredMatches = searchResults.map(game => {
         const normalizedTitle = normalizeTitle(game.title);
         let score = 0;
         
@@ -532,16 +566,16 @@ async function linkCompletion(completionId) {
         platform: m.game.platform
     })));
     
-    // Check if the exact game exists
-    const exactMatch = allGames.find(g => {
+    // Check if the exact game exists in search results
+    const exactMatch = searchResults.find(g => {
         const normalized = normalizeTitle(g.title);
         return normalized === normalizedQuery || normalized.includes(normalizedQuery);
     });
     if (exactMatch) {
         console.log('Exact match found:', exactMatch.title);
     } else {
-        console.log('No exact match found. Total games loaded:', allGames.length);
-        console.log('Sample games:', allGames.slice(0, 10).map(g => g.title));
+        console.log('No exact match found. Searched through:', searchResults.length, 'games');
+        console.log('Sample results:', searchResults.slice(0, 10).map(g => g.title));
     }
     
     if (matches.length === 1) {
