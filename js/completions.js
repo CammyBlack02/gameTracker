@@ -366,16 +366,51 @@ async function saveCompletion() {
 }
 
 /**
+ * Normalize title for matching (remove special chars, lowercase)
+ */
+function normalizeTitle(title) {
+    if (!title) return '';
+    return title.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/**
  * Link completion to game
  */
 async function linkCompletion(completionId) {
+    // Ensure games are loaded
+    if (allGames.length === 0) {
+        await loadGames();
+    }
+    
+    // Get the completion to use its title as default search
+    const completion = allCompletions.find(c => c.id === completionId);
+    const defaultQuery = completion ? completion.title : '';
+    
     // Simple implementation: show a prompt to search and select
-    const query = prompt('Enter game title to search:');
+    const query = prompt('Enter game title to search:', defaultQuery);
     if (!query) return;
     
+    // Normalize query for better matching
+    const normalizedQuery = normalizeTitle(query);
+    const queryWords = normalizedQuery.split(' ').filter(w => w.length > 0);
+    
+    // Better matching: check if all query words appear in title (normalized)
     const matches = allGames.filter(game => {
-        const title = (game.title || '').toLowerCase();
-        return title.includes(query.toLowerCase());
+        const normalizedTitle = normalizeTitle(game.title);
+        
+        // Check if all query words appear in the title
+        const allWordsMatch = queryWords.every(word => normalizedTitle.includes(word));
+        
+        // Also check if normalized title includes normalized query (for partial matches)
+        const includesMatch = normalizedTitle.includes(normalizedQuery);
+        
+        // Also check reverse (title contains query or query contains significant parts of title)
+        const reverseMatch = normalizedQuery.length >= 3 && normalizedTitle.includes(normalizedQuery.substring(0, Math.min(10, normalizedQuery.length)));
+        
+        return allWordsMatch || includesMatch || reverseMatch;
     });
     
     if (matches.length === 0) {
