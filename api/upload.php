@@ -110,20 +110,31 @@ try {
     
     // Determine upload directory
     if ($type === 'cover') {
+        if (!defined('COVERS_DIR')) {
+            error_log("COVERS_DIR constant is not defined");
+            sendJsonResponse(['success' => false, 'message' => 'Server configuration error: upload directory not configured'], 500);
+        }
         $uploadDir = COVERS_DIR;
     } else if ($type === 'extra') {
         if (!$gameId) {
             sendJsonResponse(['success' => false, 'message' => 'Game ID is required for extra images'], 400);
+        }
+        if (!defined('EXTRAS_DIR')) {
+            error_log("EXTRAS_DIR constant is not defined");
+            sendJsonResponse(['success' => false, 'message' => 'Server configuration error: upload directory not configured'], 500);
         }
         $uploadDir = EXTRAS_DIR;
     } else {
         sendJsonResponse(['success' => false, 'message' => 'Invalid upload type'], 400);
     }
     
-    // Check if upload directory exists and is writable
+    // Check if upload directory exists, create if it doesn't
     if (!is_dir($uploadDir)) {
-        error_log("Upload directory does not exist: " . $uploadDir);
-        sendJsonResponse(['success' => false, 'message' => 'Upload directory does not exist'], 500);
+        error_log("Upload directory does not exist, attempting to create: " . $uploadDir);
+        if (!mkdir($uploadDir, 0755, true)) {
+            error_log("Failed to create upload directory: " . $uploadDir);
+            sendJsonResponse(['success' => false, 'message' => 'Failed to create upload directory'], 500);
+        }
     }
     if (!is_writable($uploadDir)) {
         error_log("Upload directory is not writable: " . $uploadDir);
