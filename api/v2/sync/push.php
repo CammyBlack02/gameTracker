@@ -73,14 +73,23 @@ function process_new(PDO $pdo, int $userId, string $table, array $cols, array $r
         $colList = implode(',', array_map(fn($c) => "`$c`", array_keys($values)));
         $placeholders = implode(',', array_fill(0, count($values), '?'));
         $stmt = $pdo->prepare("INSERT INTO $table ($colList) VALUES ($placeholders)");
-        $stmt->execute(array_values($values));
-        $newId = (int)$pdo->lastInsertId();
-        $results[] = [
-            'client_id'  => $clientId,
-            'server_id'  => $newId,
-            'updated_at' => fetchUpdatedAtUtc($pdo, $table, $newId),
-            'result'     => 'accepted',
-        ];
+        try {
+            $stmt->execute(array_values($values));
+            $newId = (int)$pdo->lastInsertId();
+            $results[] = [
+                'client_id'  => $clientId,
+                'server_id'  => $newId,
+                'updated_at' => fetchUpdatedAtUtc($pdo, $table, $newId),
+                'result'     => 'accepted',
+            ];
+        } catch (PDOException $e) {
+            error_log("v2_sync_push: insert into $table failed: " . $e->getMessage());
+            $results[] = [
+                'client_id' => $clientId,
+                'result'    => 'rejected',
+                'reason'    => 'db_error',
+            ];
+        }
     }
     return $results;
 }
@@ -140,12 +149,21 @@ function process_modified(PDO $pdo, int $userId, string $table, array $cols, arr
         $values[] = $userId;
         $upd = $pdo->prepare("UPDATE $table SET " . implode(',', $sets)
             . " WHERE id = ? AND user_id = ?");
-        $upd->execute($values);
-        $results[] = [
-            'server_id'  => $serverId,
-            'updated_at' => fetchUpdatedAtUtc($pdo, $table, $serverId),
-            'result'     => 'accepted',
-        ];
+        try {
+            $upd->execute($values);
+            $results[] = [
+                'server_id'  => $serverId,
+                'updated_at' => fetchUpdatedAtUtc($pdo, $table, $serverId),
+                'result'     => 'accepted',
+            ];
+        } catch (PDOException $e) {
+            error_log("v2_sync_push: update in $table failed: " . $e->getMessage());
+            $results[] = [
+                'server_id' => $serverId,
+                'result'    => 'rejected',
+                'reason'    => 'db_error',
+            ];
+        }
     }
     return $results;
 }
