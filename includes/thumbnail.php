@@ -61,6 +61,8 @@ function gt_generate_thumbnail(string $srcPath, string $destPath, int $maxDimens
     }
 
     $ok = imagejpeg($dst, $destPath, 80);
+    imagedestroy($src);
+    imagedestroy($dst);
     if (!$ok) {
         error_log("gt_generate_thumbnail: imagejpeg failed for $destPath");
     }
