@@ -24,6 +24,9 @@ require '$PROJECT_ROOT/includes/config.php';
 echo 'Schema initialized\n';
 "
 
+# Run migrations so all tables (api_tokens, deletions, etc.) exist before tests start.
+php -d display_errors=1 "$PROJECT_ROOT/database/migrate.php" > /dev/null
+
 # Seed: create test user with known password (test_password)
 PASSWORD_HASH=$(php -r 'echo password_hash("test_password", PASSWORD_DEFAULT);')
 mysql -u"$DB_USER" "$DB_NAME" -e "
