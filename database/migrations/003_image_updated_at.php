@@ -23,6 +23,9 @@ return function (PDO $pdo): void {
             $pdo->exec("ALTER TABLE $table ADD INDEX idx_updated_at (updated_at)");
         } catch (PDOException $e) {
             // Index already exists — ignore.
+            if (strpos($e->getMessage(), 'Duplicate key name') === false) {
+                throw $e;
+            }
         }
     }
 };
