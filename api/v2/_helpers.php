@@ -9,6 +9,19 @@
  * Bearer tokens replace cookie sessions. Most endpoints call
  * v2_require_auth($pdo) at the top, which returns the authenticated
  * user's ID and exits with a 401 on failure.
+ *
+ * IMPORTANT — load order:
+ *   This file must be required BEFORE includes/config.php. Its
+ *   ini_set('display_errors', 0) must fire before config.php's PDO
+ *   constructor, otherwise PHP 8.5's PDO::MYSQL_ATTR_INIT_COMMAND
+ *   deprecation warning leaks into the JSON response body.
+ *
+ *   Endpoint include order:
+ *     1. require_once __DIR__ . '/../_helpers.php';
+ *     2. require_once __DIR__ . '/../../../includes/config.php';
+ *     3. require_once __DIR__ . '/../../../includes/functions.php';  (if security logging is used)
+ *     4. require_once __DIR__ . '/../_auth.php';
+ *     5. $userId = v2_require_auth($pdo);
  */
 
 // Suppress browser-friendly error output; we want clean JSON.

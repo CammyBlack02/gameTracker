@@ -13,6 +13,7 @@
  */
 require_once __DIR__ . '/../_helpers.php';
 require_once __DIR__ . '/../../../includes/config.php';
+require_once __DIR__ . '/../../../includes/functions.php';
 require_once __DIR__ . '/../_auth.php';
 
 v2_require_method('POST');
