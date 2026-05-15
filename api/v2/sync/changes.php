@@ -27,10 +27,14 @@ v2_require_method('GET');
 $userId = v2_require_auth($pdo);
 
 $since = $_GET['since'] ?? '1970-01-01T00:00:00Z';
+// A bare '+' in a query string is decoded as a space by PHP's $_GET parser.
+// ISO 8601 numeric offsets (e.g. +00:00) use '+', so restore it here.
+$since = str_replace(' ', '+', $since);
 // Validate ISO 8601 by attempting to parse it.
 $sinceDt = DateTime::createFromFormat(DateTime::ATOM, $since)
         ?: DateTime::createFromFormat('Y-m-d\TH:i:s\Z', $since)
-        ?: DateTime::createFromFormat('Y-m-d\TH:i:s.u\Z', $since);
+        ?: DateTime::createFromFormat('Y-m-d\TH:i:s.u\Z', $since)
+        ?: DateTime::createFromFormat('Y-m-d\TH:i:s.uP', $since);
 if ($sinceDt === false) {
     v2_error('bad_request', 'since must be ISO 8601', 400);
 }
