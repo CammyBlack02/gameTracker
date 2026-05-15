@@ -14,6 +14,7 @@ ob_start();
 try {
     require_once __DIR__ . '/../includes/config.php';
     require_once __DIR__ . '/../includes/functions.php';
+    require_once __DIR__ . '/../includes/thumbnail.php';
     
     // Check authentication manually for API endpoints (don't redirect)
     if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
@@ -205,6 +206,8 @@ try {
         if (!convertHeicToJpeg($tmpFilePath, $targetPath)) {
             sendJsonResponse(['success' => false, 'message' => 'Failed to convert HEIC image. Please convert to JPEG first or install ImageMagick.'], 500);
         }
+        // Generate thumbnail (best-effort; failure is non-fatal)
+        gt_generate_thumbnail($targetPath, gt_thumbnail_path($targetPath), 512);
     } else {
         // Generate unique filename for regular images
         try {
@@ -217,6 +220,8 @@ try {
                 error_log("Failed to move uploaded file from $tmpFilePath to $targetPath. Error: " . ($error ? $error['message'] : 'Unknown error'));
                 sendJsonResponse(['success' => false, 'message' => 'Failed to save file. Check server logs for details.'], 500);
             }
+            // Generate thumbnail (best-effort; failure is non-fatal)
+            gt_generate_thumbnail($targetPath, gt_thumbnail_path($targetPath), 512);
         } catch (Exception $e) {
             error_log("Error generating filename or moving file: " . $e->getMessage());
             sendJsonResponse(['success' => false, 'message' => 'Error processing file: ' . $e->getMessage()], 500);
