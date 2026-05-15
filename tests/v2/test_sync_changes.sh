@@ -47,4 +47,19 @@ req GET "/api/v2/sync/changes.php?since=$NOW_ISO" "" -H "Authorization: Bearer $
 DEL_COUNT=$(echo "$RESPONSE_BODY" | jq "[.data.deletions[] | select(.table_name==\"games\" and .server_id==$GAME_ID)] | length")
 assert_eq "1" "$DEL_COUNT" "deletion tombstone present"
 
+blue "All four ISO 8601 formats are accepted"
+for FMT in \
+  "2020-01-01T00:00:00+00:00" \
+  "2020-01-01T00:00:00Z" \
+  "2020-01-01T00:00:00.000Z" \
+  "2020-01-01T00:00:00.000+00:00"; do
+  req GET "/api/v2/sync/changes.php?since=$FMT" "" -H "Authorization: Bearer $TOKEN"
+  assert_eq "200" "$HTTP_STATUS" "since=$FMT accepted"
+done
+
+blue "Invalid ISO format returns 400"
+req GET "/api/v2/sync/changes.php?since=not-a-date" "" -H "Authorization: Bearer $TOKEN"
+assert_eq "400" "$HTTP_STATUS" "since=garbage rejected"
+assert_contains '"error":"bad_request"' "$RESPONSE_BODY" "bad_request error code"
+
 summarize
