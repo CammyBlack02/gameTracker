@@ -36,7 +36,9 @@ if (!$row || empty($row['path'])) {
 }
 
 $projectRoot = realpath(__DIR__ . '/../../..');
-$fullPath = $projectRoot . '/' . ltrim($row['path'], '/');
+// Tolerate either bare filename (v1 convention) or prefixed path (defensive).
+$filename = basename($row['path']);
+$fullPath = $projectRoot . '/uploads/extras/' . $filename;
 
 if ($size === 'thumb') {
     $thumbPath = gt_thumbnail_path($fullPath);
