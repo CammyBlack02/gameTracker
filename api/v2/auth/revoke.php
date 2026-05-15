@@ -1,14 +1,12 @@
 <?php
-ini_set('display_errors', 0);
-error_reporting(E_ALL & ~E_DEPRECATED);
 /**
  * POST /api/v2/auth/revoke
  *
  * Marks the *currently used* Bearer token as revoked. The client is
  * expected to discard the token after this call.
  */
-require_once __DIR__ . '/../../../includes/config.php';
 require_once __DIR__ . '/../_helpers.php';
+require_once __DIR__ . '/../../../includes/config.php';
 require_once __DIR__ . '/../_auth.php';
 
 v2_require_method('POST');
