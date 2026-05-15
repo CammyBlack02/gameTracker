@@ -7,24 +7,25 @@
  *   error:   { "error": "code_slug", "message": "human readable" }
  *
  * Bearer tokens replace cookie sessions. Most endpoints call
- * require_v2_auth() at the top to verify the token and populate
- * $GLOBALS['v2_user_id'].
+ * v2_require_auth($pdo) at the top, which returns the authenticated
+ * user's ID and exits with a 401 on failure.
  */
 
 // Suppress browser-friendly error output; we want clean JSON.
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
-header('Content-Type: application/json');
 
 function v2_ok(array $data, int $status = 200): void {
     http_response_code($status);
+    header('Content-Type: application/json');
     echo json_encode(['data' => $data], JSON_UNESCAPED_SLASHES);
     exit;
 }
 
 function v2_error(string $code, string $message, int $status = 400): void {
     http_response_code($status);
+    header('Content-Type: application/json');
     echo json_encode(['error' => $code, 'message' => $message], JSON_UNESCAPED_SLASHES);
     exit;
 }

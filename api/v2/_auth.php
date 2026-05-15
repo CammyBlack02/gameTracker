@@ -8,8 +8,8 @@
  *
  * Usage at the top of an endpoint:
  *
- *   require_once __DIR__ . '/../_auth.php';
  *   require_once __DIR__ . '/../_helpers.php';
+ *   require_once __DIR__ . '/../_auth.php';
  *   $userId = v2_require_auth($pdo);
  */
 
