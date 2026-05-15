@@ -38,9 +38,10 @@ if (!$row || empty($row['path'])) {
     v2_error('not_found', 'Image not found', 404);
 }
 
-$relative = ltrim($row['path'], '/');
 $projectRoot = realpath(__DIR__ . '/../../..');
-$fullPath = $projectRoot . '/' . $relative;
+// Tolerate either bare filename (v1 convention) or prefixed path (defensive).
+$filename = basename($row['path']);
+$fullPath = $projectRoot . '/uploads/covers/' . $filename;
 
 if ($size === 'thumb') {
     $thumbPath = gt_thumbnail_path($fullPath);

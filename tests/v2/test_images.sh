@@ -21,7 +21,7 @@ imagejpeg($img2, "'"$PROJECT_ROOT"'/uploads/covers/thumbs/test_image.jpg", 80);
 USER_ID=$(mysql -u"${TEST_DB_USER:-root}" "${TEST_DB_NAME:-gameTracker_test}" -sNe "SELECT id FROM users WHERE username='testuser'")
 mysql -u"${TEST_DB_USER:-root}" "${TEST_DB_NAME:-gameTracker_test}" -e "
   INSERT INTO games (user_id, title, platform, front_cover_image)
-  VALUES ($USER_ID, 'Test Game', 'Test Platform', 'uploads/covers/test_image.jpg');
+  VALUES ($USER_ID, 'Test Game', 'Test Platform', 'test_image.jpg');
 "
 GAME_ID=$(mysql -u"${TEST_DB_USER:-root}" "${TEST_DB_NAME:-gameTracker_test}" -sNe "SELECT id FROM games WHERE title='Test Game'")
 
