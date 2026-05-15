@@ -48,11 +48,12 @@ $thumbPath = gt_thumbnail_path($targetPath);
 gt_generate_thumbnail($targetPath, $thumbPath, 512);
 
 // Update games row.
-$relative = 'uploads/covers/' . $filename;
-$relativeThumb = 'uploads/covers/thumbs/' . $filename;
+// Store bare filename (v1 convention) so the existing web UI still renders correctly.
+$relative = 'uploads/covers/' . $filename;       // For response only
+$relativeThumb = 'uploads/covers/thumbs/' . $filename;  // For response only
 $col = $face === 'back' ? 'back_cover_image' : 'front_cover_image';
 $upd = $pdo->prepare("UPDATE games SET $col = ? WHERE id = ? AND user_id = ?");
-$upd->execute([$relative, $gameId, $userId]);
+$upd->execute([$filename, $gameId, $userId]);    // Store BARE filename
 
 v2_ok([
     'path'       => $relative,

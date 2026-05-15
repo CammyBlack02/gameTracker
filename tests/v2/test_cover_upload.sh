@@ -41,7 +41,8 @@ THUMB_PATH=$(dirname "$PATH_RETURNED")/thumbs/$(basename "$PATH_RETURNED")
 [[ -f "$PROJECT_ROOT/$THUMB_PATH" ]] && green "  PASS: thumbnail generated" && PASS_COUNT=$((PASS_COUNT+1)) || { red "  FAIL: thumb missing: $THUMB_PATH"; FAIL_COUNT=$((FAIL_COUNT+1)); }
 
 DB_PATH=$(mysql -u"${TEST_DB_USER:-root}" "${TEST_DB_NAME:-gameTracker_test}" -sNe "SELECT front_cover_image FROM games WHERE id=$GAME_ID")
-assert_eq "$PATH_RETURNED" "$DB_PATH" "games.front_cover_image updated"
+EXPECTED_FILENAME=$(basename "$PATH_RETURNED")
+assert_eq "$EXPECTED_FILENAME" "$DB_PATH" "games.front_cover_image stores bare filename (v1 convention)"
 
 blue "POST cover-upload for another user's game returns 404"
 mysql -u"${TEST_DB_USER:-root}" "${TEST_DB_NAME:-gameTracker_test}" -e "

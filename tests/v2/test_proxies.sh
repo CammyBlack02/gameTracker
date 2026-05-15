@@ -26,4 +26,21 @@ req GET "/api/v2/pricecharting.php" "" -H "Authorization: Bearer $TOKEN"
 # Note: we don't test the success path because it requires hitting real
 # external services. That gets validated in manual smoke after deployment.
 
+blue "Proxy: external-image rejects another user's game_id"
+# Set up otheruser's game if not already
+mysql -u"${TEST_DB_USER:-root}" "${TEST_DB_NAME:-gameTracker_test}" -e "
+  INSERT IGNORE INTO users (username, password_hash, role) VALUES ('otheruser_proxy', 'x', 'user');
+  INSERT IGNORE INTO games (user_id, title, platform) VALUES (
+    (SELECT id FROM users WHERE username='otheruser_proxy'),
+    'Other Proxy Game', 'X'
+  );
+"
+OTHER_GAME=$(mysql -u"${TEST_DB_USER:-root}" "${TEST_DB_NAME:-gameTracker_test}" -sNe \
+  "SELECT id FROM games WHERE title='Other Proxy Game'")
+
+req GET "/api/v2/external-image.php?url=https://example.com/x.jpg&game_id=$OTHER_GAME" "" \
+  -H "Authorization: Bearer $TOKEN"
+assert_eq "404" "$HTTP_STATUS" "external-image rejects cross-user game_id"
+assert_contains '"error":"not_found"' "$RESPONSE_BODY" "error code is not_found"
+
 summarize
