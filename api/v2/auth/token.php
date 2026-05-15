@@ -1,6 +1,4 @@
 <?php
-ini_set('display_errors', 0);
-error_reporting(E_ALL & ~E_DEPRECATED);
 /**
  * POST /api/v2/auth/token
  *
@@ -13,8 +11,8 @@ error_reporting(E_ALL & ~E_DEPRECATED);
  * The raw token is returned to the client EXACTLY ONCE. Only its hash
  * is stored server-side.
  */
-require_once __DIR__ . '/../../../includes/config.php';
 require_once __DIR__ . '/../_helpers.php';
+require_once __DIR__ . '/../../../includes/config.php';
 require_once __DIR__ . '/../_auth.php';
 
 v2_require_method('POST');

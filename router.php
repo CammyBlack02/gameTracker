@@ -12,13 +12,6 @@ if ($uri !== '/' && file_exists(__DIR__ . $uri)) {
     return false; // Serve the file as-is
 }
 
-// Try appending .php for extension-less API URLs (e.g. /api/v2/auth/token)
-if ($uri !== '/' && file_exists(__DIR__ . $uri . '.php')) {
-    $_SERVER['SCRIPT_NAME'] = $uri . '.php';
-    require __DIR__ . $uri . '.php';
-    return true;
-}
-
 // For directory requests, try index.php
 if (is_dir(__DIR__ . $uri) && file_exists(__DIR__ . $uri . '/index.php')) {
     $_SERVER['SCRIPT_NAME'] = $uri . '/index.php';
