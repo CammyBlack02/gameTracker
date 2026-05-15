@@ -75,6 +75,30 @@ RESULT=$(echo "$RESPONSE_BODY" | jq -r '.data.games[0].result')
 assert_eq "conflict" "$RESULT" "stale modified returns conflict"
 SERVER_VER_TITLE=$(echo "$RESPONSE_BODY" | jq -r '.data.games[0].server_version.title')
 assert_eq "Web Edited" "$SERVER_VER_TITLE" "conflict includes server version"
+DB_TITLE=$(mysql -u"${TEST_DB_USER:-root}" "${TEST_DB_NAME:-gameTracker_test}" -sNe "SELECT title FROM games WHERE id=$NEW_ID")
+assert_eq "Web Edited" "$DB_TITLE" "conflict left DB unchanged (still has web version, not phone version)"
+
+blue "Push: new row missing required column returns rejected (per-row, not 500)"
+# Try to insert a game without platform (which is NOT NULL in the schema)
+JSON='{
+  "games": {
+    "new": [
+      {"client_id": "phone-uuid-bad", "title": "Missing Platform"}
+    ]
+  }
+}'
+curl -sS -o /tmp/v2_body -w "%{http_code}" \
+  -X POST "$BASE_URL/api/v2/sync/push.php" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "$JSON" > /tmp/v2_status
+HTTP_STATUS=$(cat /tmp/v2_status)
+RESPONSE_BODY=$(cat /tmp/v2_body)
+assert_eq "200" "$HTTP_STATUS" "bad row still gets 200 (per-row error, not batch fail)"
+RESULT=$(echo "$RESPONSE_BODY" | jq -r '.data.games[0].result')
+assert_eq "rejected" "$RESULT" "bad row marked rejected"
+REASON=$(echo "$RESPONSE_BODY" | jq -r '.data.games[0].reason')
+assert_eq "db_error" "$REASON" "reason is db_error"
 
 blue "Push: deletion is processed"
 JSON='{
