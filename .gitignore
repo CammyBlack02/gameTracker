@@ -52,3 +52,8 @@ php-security.ini
 
 # Config file with credentials - NEVER commit this!
 includes/config.php
+
+# v2 test artifacts
+tests/v2/.last_token
+/tmp/v2_body
+/tmp/v2_server.log
