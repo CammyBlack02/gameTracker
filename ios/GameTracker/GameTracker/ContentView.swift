@@ -1,24 +1,16 @@
-//
-//  ContentView.swift
-//  GameTracker
-//
-//  Created by Cameron Black on 21/05/2026.
-//
-
 import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        VStack(spacing: 12) {
+            Text("gameTracker")
+                .font(.largeTitle.weight(.bold))
+            Text("Configured for: \(Config.serverBaseURL.host ?? "—")")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding()
     }
 }
 
-#Preview {
-    ContentView()
-}
+#Preview { ContentView() }
