@@ -205,7 +205,10 @@ If 404: nginx isn't routing `/api/v2/` correctly — fix server-side before proc
 
 ---
 
-> **Working directory convention from Task 1 onward:** all `xcodebuild`, `git add`, and other relative-path commands assume current working directory is `gameTracker/ios/`. The `git add <foo>` paths in commit blocks resolve to `gameTracker/ios/<foo>` in the index. If the executing agent prefers absolute paths, prepend `ios/` to every `git add` target instead.
+> **Working directory + Simulator conventions (from Task 1 onward):**
+>
+> - **CWD:** All relative-path commands (`xcodebuild`, `git add GameTracker/...`) assume `gameTracker/ios/GameTracker/` (Xcode's default save wraps the project in an extra folder; we use it as-is). `git add` paths inside that cwd resolve to `gameTracker/ios/GameTracker/<foo>` in the repo index.
+> - **Simulator name:** Use `iPhone 17` (iOS 26 Simulator only ships iPhone 17 series). The plan was originally written with `iPhone 15`; substitute on the fly when copying commands.
 
 ## Task 1: Create the Xcode project under `ios/`
 
