@@ -16,4 +16,6 @@ $username = $stmt->fetchColumn();
 $_SESSION['user_id']  = $userId;
 $_SESSION['username'] = $username;
 
+// v1 emits a flat {"success": ..., ...} payload. Reshape to v2 envelope.
+v2_wrap_v1_response();
 require __DIR__ . '/../pricecharting.php';

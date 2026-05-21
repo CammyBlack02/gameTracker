@@ -29,8 +29,10 @@ final class APIClient: @unchecked Sendable {
     // MARK: - Public API
 
     func get<T: Decodable>(_ path: String,
-                           query: [String: String] = [:]) async throws -> T {
-        let req = try buildRequest(method: "GET", path: path, query: query)
+                           query: [String: String] = [:],
+                           timeout: TimeInterval? = nil) async throws -> T {
+        var req = try buildRequest(method: "GET", path: path, query: query)
+        if let timeout { req.timeoutInterval = timeout }
         return try await send(req)
     }
 
@@ -47,11 +49,13 @@ final class APIClient: @unchecked Sendable {
     }
 
     func postJSON<T: Decodable, B: Encodable>(_ path: String,
-                                              body: B) async throws -> T {
+                                              body: B,
+                                              timeout: TimeInterval? = nil) async throws -> T {
         var req = try buildRequest(method: "POST", path: path)
         let encoder = JSONEncoder()
         req.httpBody = try encoder.encode(body)
         req.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        if let timeout { req.timeoutInterval = timeout }
         return try await send(req)
     }
 
