@@ -21,10 +21,20 @@ struct GameTrackerApp: App {
 
     private var authAPI: AuthAPI { AuthAPI(client: apiClient) }
     private var syncAPI: SyncAPI { SyncAPI(client: apiClient) }
+    private var proxiesAPI: ProxiesAPI { ProxiesAPI(client: apiClient) }
+
+    /// Cover cache lives under Documents/covers/ — backed up to iCloud per spec.
+    private var imagesAPI: ImagesAPI {
+        ImagesAPI(client: apiClient, cacheRoot: ImageCachePaths.coversThumbs)
+    }
 
     var body: some Scene {
         WindowGroup {
-            RootViewContainer(authAPI: authAPI, syncAPI: syncAPI, status: status)
+            RootViewContainer(authAPI: authAPI,
+                              syncAPI: syncAPI,
+                              proxiesAPI: proxiesAPI,
+                              imagesAPI: imagesAPI,
+                              status: status)
                 .environment(authManager)
         }
         .modelContainer(container)
@@ -33,16 +43,23 @@ struct GameTrackerApp: App {
 
 /// Wraps RootView so we can grab the `modelContext` from the environment
 /// (which is only injected *after* `.modelContainer(...)`) and build the
-/// SyncEngine with it.
+/// SyncEngine + SyncTrigger with it.
 private struct RootViewContainer: View {
     @Environment(\.modelContext) private var context
     let authAPI: AuthAPI
     let syncAPI: SyncAPI
+    let proxiesAPI: ProxiesAPI
+    let imagesAPI: ImagesAPI
     @Bindable var status: SyncStatus
 
     var body: some View {
+        let engine = SyncEngine(context: context, syncAPI: syncAPI, status: status)
+        let trigger = SyncTrigger(engine: engine)
         RootView(authAPI: authAPI,
-                 syncEngine: SyncEngine(context: context, syncAPI: syncAPI, status: status),
+                 syncEngine: engine,
+                 syncTrigger: trigger,
+                 imagesAPI: imagesAPI,
+                 proxiesAPI: proxiesAPI,
                  status: status)
     }
 }

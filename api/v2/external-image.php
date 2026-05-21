@@ -32,5 +32,7 @@ $_SESSION['user_id']  = $userId;
 $_SESSION['username'] = $username;
 
 // The v1 file expects POST or GET; both work. It writes its own JSON
-// response and exits, so we just include it.
+// response and exits, so we install a buffer that re-shapes its flat
+// {"success": ...} payload into a v2 envelope before flushing.
+v2_wrap_v1_response();
 require __DIR__ . '/../download-external-image.php';
