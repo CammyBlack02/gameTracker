@@ -34,7 +34,11 @@ final class Game {
     var createdAt: Date
 
     var syncState: SyncState {
-        get { SyncState(rawValue: syncStateRaw) ?? .synced }
+        get {
+            if let s = SyncState(rawValue: syncStateRaw) { return s }
+            assertionFailure("Unknown syncStateRaw=\(syncStateRaw); falling back to .synced")
+            return .synced
+        }
         set { syncStateRaw = newValue.rawValue }
     }
 
