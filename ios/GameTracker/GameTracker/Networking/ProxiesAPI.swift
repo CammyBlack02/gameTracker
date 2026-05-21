@@ -33,7 +33,8 @@ struct ProxiesAPI {
     func externalImage(url: String, gameId: Int, face: Face) async throws -> [String: JSONValue] {
         let env: PassthroughDTO = try await client.get(
             "/api/v2/external-image.php",
-            query: ["url": url, "game_id": String(gameId), "type": face.rawValue])
+            query: ["url": url, "game_id": String(gameId), "type": face.rawValue],
+            timeout: 120)
         return env.raw
     }
 
