@@ -49,4 +49,45 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(fetched.first?.userId, 42)
         XCTAssertEqual(fetched.first?.lastSyncedAt?.timeIntervalSince1970, 1_700_000_000)
     }
+
+    // MARK: - Cross-model init defaults
+
+    func test_item_init_defaults_syncState_to_localNew() throws {
+        let (_, ctx) = try InMemoryContainer.make()
+        let i = Item(title: "Wii", category: "console")
+        ctx.insert(i)
+        try ctx.save()
+        let fetched = try ctx.fetch(FetchDescriptor<Item>())
+        XCTAssertEqual(fetched.first?.syncState, .localNew)
+        XCTAssertEqual(fetched.first?.quantity, 1)
+    }
+
+    func test_completion_init_defaults_syncState_to_localNew() throws {
+        let (_, ctx) = try InMemoryContainer.make()
+        let c = GameCompletion(title: "Halo run 1")
+        ctx.insert(c)
+        try ctx.save()
+        let fetched = try ctx.fetch(FetchDescriptor<GameCompletion>())
+        XCTAssertEqual(fetched.first?.syncState, .localNew)
+    }
+
+    func test_gameImage_init_defaults_syncState_to_localNew() throws {
+        let (_, ctx) = try InMemoryContainer.make()
+        let img = GameImage(imagePath: "abc.jpg", gameServerId: 42)
+        ctx.insert(img)
+        try ctx.save()
+        let fetched = try ctx.fetch(FetchDescriptor<GameImage>())
+        XCTAssertEqual(fetched.first?.syncState, .localNew)
+        XCTAssertEqual(fetched.first?.gameServerId, 42)
+    }
+
+    func test_itemImage_init_defaults_syncState_to_localNew() throws {
+        let (_, ctx) = try InMemoryContainer.make()
+        let img = ItemImage(imagePath: "x.jpg", itemServerId: 7)
+        ctx.insert(img)
+        try ctx.save()
+        let fetched = try ctx.fetch(FetchDescriptor<ItemImage>())
+        XCTAssertEqual(fetched.first?.syncState, .localNew)
+        XCTAssertEqual(fetched.first?.itemServerId, 7)
+    }
 }
