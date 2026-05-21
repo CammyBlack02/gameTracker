@@ -88,7 +88,7 @@ DebouncerTests.swift                   — async timing
 
 **Files:** none
 
-- [ ] **Step 0.1: Confirm Plan 2 still passes**
+- [x] **Step 0.1: Confirm Plan 2 still passes**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -96,7 +96,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 ```
 Expected: `** TEST SUCCEEDED **`. (Plan 2 left us with 48 passing tests.)
 
-- [ ] **Step 0.2: Branch off Plan 2's branch**
+- [x] **Step 0.2: Branch off Plan 2's branch**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -108,7 +108,7 @@ git branch --show-current
 ```
 Expected: `plan-3a-library-and-game-flows`.
 
-- [ ] **Step 0.3: Commit this plan doc on the new branch**
+- [x] **Step 0.3: Commit this plan doc on the new branch**
 
 ```bash
 git add docs/superpowers/plans/2026-05-21-ios-library-and-game-flows.md
@@ -125,7 +125,7 @@ git commit -m "Add Plan 3a (iOS library + game flows) implementation plan"
 
 The four endpoints are thin shells around `APIClient`. The server passes through their response bodies unchanged, so the DTOs are loose: we decode into `[String: JSONValue]` and let callers cherry-pick.
 
-- [ ] **Step 1.1: Write the failing tests**
+- [x] **Step 1.1: Write the failing tests**
 
 `ios/GameTracker/GameTrackerTests/ProxiesAPITests.swift`:
 
@@ -227,7 +227,7 @@ final class ProxiesAPITests: XCTestCase {
 }
 ```
 
-- [ ] **Step 1.2: Run tests, confirm failure**
+- [x] **Step 1.2: Run tests, confirm failure**
 
 ```bash
 cd "/Users/cameron/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -235,7 +235,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 ```
 Expected: compile error — `ProxiesAPI` doesn't exist.
 
-- [ ] **Step 1.3: Write `ProxiesAPI.swift`**
+- [x] **Step 1.3: Write `ProxiesAPI.swift`**
 
 `ios/GameTracker/GameTracker/Networking/ProxiesAPI.swift`:
 
@@ -306,14 +306,14 @@ private struct PassthroughDTO: Decodable {
 }
 ```
 
-- [ ] **Step 1.4: Tests pass**
+- [x] **Step 1.4: Tests pass**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 17' test 2>&1 | grep -E "Test Case|TEST SUCCEEDED|TEST FAILED" | head -40
 ```
 Expected: 4 new ProxiesAPI tests + 48 existing = 52 total. `** TEST SUCCEEDED **`.
 
-- [ ] **Step 1.5: Commit**
+- [x] **Step 1.5: Commit**
 
 ```bash
 cd "/Users/cameron/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -332,7 +332,7 @@ git commit -m "Add ProxiesAPI for PriceCharting, Metacritic, external-image, cov
 
 `Debouncer` is a tiny actor-isolated helper that collapses rapid `fire()` calls into a single deferred execution. `SyncTrigger` wraps it for the sync use case.
 
-- [ ] **Step 2.1: Write failing tests**
+- [x] **Step 2.1: Write failing tests**
 
 `ios/GameTracker/GameTrackerTests/DebouncerTests.swift`:
 
@@ -372,7 +372,7 @@ private actor ActorCounter {
 }
 ```
 
-- [ ] **Step 2.2: `Debouncer.swift`**
+- [x] **Step 2.2: `Debouncer.swift`**
 
 `ios/GameTracker/GameTracker/Sync/Debouncer.swift`:
 
@@ -415,7 +415,7 @@ actor Debouncer {
 }
 ```
 
-- [ ] **Step 2.3: `SyncTrigger.swift`**
+- [x] **Step 2.3: `SyncTrigger.swift`**
 
 `ios/GameTracker/GameTracker/Sync/SyncTrigger.swift`:
 
@@ -458,7 +458,7 @@ final class SyncTrigger {
 }
 ```
 
-- [ ] **Step 2.4: Tests pass + commit**
+- [x] **Step 2.4: Tests pass + commit**
 
 ```bash
 cd "/Users/cameron/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -481,7 +481,7 @@ git commit -m "Add Debouncer + SyncTrigger for post-mutation sync coalescing"
 
 A drop-in view that takes a `gameServerId` + `size` + `face` and shows the cover. Uses `ImagesAPI` (from Plan 2) so caching is automatic. While loading, shows a generic placeholder; on error, shows a grey box with an icon.
 
-- [ ] **Step 3.1: Write `CoverImage.swift`**
+- [x] **Step 3.1: Write `CoverImage.swift`**
 
 `ios/GameTracker/GameTracker/Views/Common/CoverImage.swift`:
 
@@ -554,7 +554,7 @@ struct CoverImage: View {
 }
 ```
 
-- [ ] **Step 3.2: Build check**
+- [x] **Step 3.2: Build check**
 
 ```bash
 cd "/Users/cameron/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -562,7 +562,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 ```
 Expected: `** BUILD SUCCEEDED **`.
 
-- [ ] **Step 3.3: Commit**
+- [x] **Step 3.3: Commit**
 
 ```bash
 cd "/Users/cameron/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -582,7 +582,7 @@ git commit -m "Add CoverImage SwiftUI view with ImagesAPI cache integration"
 
 After this task, logging in lands on the tab bar instead of `DebugHomeView`. Only the Library tab content gets built out in later tasks — the other four are friendly placeholders.
 
-- [ ] **Step 4.1: `PlaceholderTabView.swift`**
+- [x] **Step 4.1: `PlaceholderTabView.swift`**
 
 `ios/GameTracker/GameTracker/Views/Tabs/PlaceholderTabView.swift`:
 
@@ -608,7 +608,7 @@ struct PlaceholderTabView: View {
 }
 ```
 
-- [ ] **Step 4.2: `RootTabView.swift`**
+- [x] **Step 4.2: `RootTabView.swift`**
 
 `ios/GameTracker/GameTracker/Views/Tabs/RootTabView.swift`:
 
@@ -659,7 +659,7 @@ struct RootTabView: View {
 
 (Note: `LibraryView` doesn't exist yet — Task 5 creates it. The build will fail until then; that's fine. We commit Tasks 4 and 5 together at the end of Task 5.)
 
-- [ ] **Step 4.3: Update `RootView.swift`**
+- [x] **Step 4.3: Update `RootView.swift`**
 
 Replace `ios/GameTracker/GameTracker/RootView.swift`:
 
@@ -690,7 +690,7 @@ struct RootView: View {
 }
 ```
 
-- [ ] **Step 4.4: Update `GameTrackerApp.swift`**
+- [x] **Step 4.4: Update `GameTrackerApp.swift`**
 
 Replace `ios/GameTracker/GameTracker/GameTrackerApp.swift`:
 
@@ -759,7 +759,7 @@ private struct RootViewContainer: View {
 }
 ```
 
-- [ ] **Step 4.5: Skip build verification until Task 5 lands**
+- [x] **Step 4.5: Skip build verification until Task 5 lands**
 
 The build will currently fail because `LibraryView` doesn't exist. That's expected. Move on to Task 5 immediately; we commit Tasks 4 + 5 together at the end of Task 5 once everything compiles.
 
@@ -773,7 +773,7 @@ The build will currently fail because `LibraryView` doesn't exist. That's expect
 - Create: `GameTracker/Views/Library/GameListRow.swift`
 - Create: `GameTracker/Views/Library/GameGridCell.swift`
 
-- [ ] **Step 5.1: `LibrarySortOption.swift`**
+- [x] **Step 5.1: `LibrarySortOption.swift`**
 
 `ios/GameTracker/GameTracker/Views/Library/LibrarySortOption.swift`:
 
@@ -801,7 +801,7 @@ enum LibrarySortOption: String, CaseIterable, Identifiable {
 }
 ```
 
-- [ ] **Step 5.2: `GameListRow.swift`**
+- [x] **Step 5.2: `GameListRow.swift`**
 
 `ios/GameTracker/GameTracker/Views/Library/GameListRow.swift`:
 
@@ -852,7 +852,7 @@ struct SyncStateBadge: View {
 }
 ```
 
-- [ ] **Step 5.3: `GameGridCell.swift`**
+- [x] **Step 5.3: `GameGridCell.swift`**
 
 `ios/GameTracker/GameTracker/Views/Library/GameGridCell.swift`:
 
@@ -893,7 +893,7 @@ struct GameGridCell: View {
 }
 ```
 
-- [ ] **Step 5.4: `LibraryView.swift`**
+- [x] **Step 5.4: `LibraryView.swift`**
 
 `ios/GameTracker/GameTracker/Views/Library/LibraryView.swift`:
 
@@ -1071,7 +1071,7 @@ The navigation destination for `PersistentIdentifier` needs to be wired. Inside 
 
 (Note `proxiesAPI:` is passed in — `GameDetailView` accepts it from Task 6 onward; Task 9 makes use of it.)
 
-- [ ] **Step 5.5: `PlatformFilterSheet.swift` (referenced above)**
+- [x] **Step 5.5: `PlatformFilterSheet.swift` (referenced above)**
 
 `ios/GameTracker/GameTracker/Views/Library/PlatformFilterSheet.swift`:
 
@@ -1120,7 +1120,7 @@ struct PlatformFilterSheet: View {
 }
 ```
 
-- [ ] **Step 5.6: Skip build for now — depends on Tasks 6, 7 (GameDetailView, AddGameView)**
+- [x] **Step 5.6: Skip build for now — depends on Tasks 6, 7 (GameDetailView, AddGameView)**
 
 `LibraryView` references `GameDetailView` and `AddGameView`, which don't exist yet. Move on to Task 6 immediately.
 
@@ -1134,7 +1134,7 @@ struct PlatformFilterSheet: View {
 
 Read-only view of every field. Edit + delete buttons live in the toolbar but the actual edit form lives in Task 7.
 
-- [ ] **Step 6.1: `ExtrasGallery.swift`**
+- [x] **Step 6.1: `ExtrasGallery.swift`**
 
 `ios/GameTracker/GameTracker/Views/Detail/ExtrasGallery.swift`:
 
@@ -1223,7 +1223,7 @@ private struct ExtraFullScreen: View {
 
 (Note: `GameImage` needs `Identifiable` for `ForEach`. SwiftData @Model classes already conform to Identifiable via their `persistentModelID`, so no work needed.)
 
-- [ ] **Step 6.2: `GameDetailView.swift`**
+- [x] **Step 6.2: `GameDetailView.swift`**
 
 `ios/GameTracker/GameTracker/Views/Detail/GameDetailView.swift`:
 
@@ -1401,7 +1401,7 @@ struct GameDetailView: View {
 }
 ```
 
-- [ ] **Step 6.3: Skip build until Task 7 lands (EditGameView still missing).**
+- [x] **Step 6.3: Skip build until Task 7 lands (EditGameView still missing).**
 
 ---
 
@@ -1412,7 +1412,7 @@ struct GameDetailView: View {
 
 Bound form. Save sets `syncState = .localModified`, then triggers sync.
 
-- [ ] **Step 7.1: `EditGameView.swift`**
+- [x] **Step 7.1: `EditGameView.swift`**
 
 `ios/GameTracker/GameTracker/Views/Detail/EditGameView.swift`:
 
@@ -1543,7 +1543,7 @@ struct EditGameView: View {
 }
 ```
 
-- [ ] **Step 7.2: Still skip build until Task 8 lands (AddGameView referenced by LibraryView).**
+- [x] **Step 7.2: Still skip build until Task 8 lands (AddGameView referenced by LibraryView).**
 
 ---
 
@@ -1554,7 +1554,7 @@ struct EditGameView: View {
 
 Title + platform required. Optional: paste cover URL (server downloads), tap "Fetch metadata" (fills in pricecharting + metacritic + genre).
 
-- [ ] **Step 8.1: `AddGameView.swift`**
+- [x] **Step 8.1: `AddGameView.swift`**
 
 `ios/GameTracker/GameTracker/Views/Detail/AddGameView.swift`:
 
@@ -1713,7 +1713,7 @@ struct AddGameView: View {
 
 (Note: the cover-URL UX in AddGameView is intentionally minimal — Task 9 adds a proper "set cover from URL" button on the game detail screen after the row has a server_id. The Add form still accepts the URL field; we just don't *use* it in Plan 3a's minimum.)
 
-- [ ] **Step 8.2: Now build everything from Tasks 4-8**
+- [x] **Step 8.2: Now build everything from Tasks 4-8**
 
 ```bash
 cd "/Users/cameron/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -1721,7 +1721,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 ```
 Expected: `** BUILD SUCCEEDED **`. If there are compile errors, fix the offending file before committing.
 
-- [ ] **Step 8.3: Commit Tasks 4-8 together**
+- [x] **Step 8.3: Commit Tasks 4-8 together**
 
 These tasks are interdependent (LibraryView refers to AddGameView refers to ProxiesAPI etc.) so they ship as one commit:
 
@@ -1758,7 +1758,7 @@ Resume the implementer queue only once the owner confirms or reports a specific 
 
 Adds a "Set cover from URL" button to the detail screen (only visible once the game has a `serverId`). User pastes a URL, app calls `ProxiesAPI.externalImage(...)`, then triggers sync so the new path comes back down with the next `/sync/changes`.
 
-- [ ] **Step 9.1: Modify `GameDetailView.swift`** — add a state + sheet near the existing delete button.
+- [x] **Step 9.1: Modify `GameDetailView.swift`** — add a state + sheet near the existing delete button.
 
 Insert these `@State` properties at the top of the struct (right after `@State private var confirmDelete = false`):
 
@@ -1851,7 +1851,7 @@ Add the helper method to the struct:
 
 (`proxiesAPI` is already declared on `GameDetailView` from Task 6 and `LibraryView`'s `navigationDestination` already passes it — nothing extra to wire up in this task.)
 
-- [ ] **Step 9.2: Build + commit**
+- [x] **Step 9.2: Build + commit**
 
 ```bash
 cd "/Users/cameron/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -1888,7 +1888,7 @@ Resume once confirmed.
 
 Adds a "Upload cover photo…" button using SwiftUI's built-in `PhotosPicker`. Selected image is converted to JPEG, uploaded via `ProxiesAPI.uploadCover`, then sync is triggered.
 
-- [ ] **Step 10.1: Update `GameDetailView.swift`**
+- [x] **Step 10.1: Update `GameDetailView.swift`**
 
 At the top of the file, add:
 ```swift
@@ -1960,7 +1960,7 @@ Method:
     }
 ```
 
-- [ ] **Step 10.2: Build + commit**
+- [x] **Step 10.2: Build + commit**
 
 ```bash
 cd "/Users/cameron/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -1995,7 +1995,7 @@ Resume once confirmed.
 
 Now that `RootTabView` is live, `DebugHomeView` is unused. Plan 2's commit history preserves the original — no need to keep dead code.
 
-- [ ] **Step 11.1: Delete + verify**
+- [x] **Step 11.1: Delete + verify**
 
 ```bash
 cd "/Users/cameron/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -2005,7 +2005,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 ```
 Expected: `** TEST SUCCEEDED **` (no compile errors, all 54 tests still pass).
 
-- [ ] **Step 11.2: Commit**
+- [x] **Step 11.2: Commit**
 
 ```bash
 cd "/Users/cameron/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -2023,11 +2023,11 @@ git commit -m "Remove DebugHomeView (replaced by RootTabView)"
 
 Before pushing, run through every flow you just built on the iPhone 17 Simulator with the live server. The plan's automated tests cover the networking + sync layer; this is the equivalent for UI behaviour.
 
-- [ ] **Step 12.1: Launch the app**
+- [x] **Step 12.1: Launch the app**
 
 In Xcode: **⌘R** (iPhone 17 sim). If the simulator hangs (as it did at the end of Plan 2), reboot the Mac.
 
-- [ ] **Step 12.2: Run through this checklist**
+- [x] **Step 12.2: Run through this checklist**
 
 | # | Action | Expected |
 |---|---|---|
@@ -2052,7 +2052,7 @@ In Xcode: **⌘R** (iPhone 17 sim). If the simulator hangs (as it did at the end
 
 If any step fails, note the symptom and dig in. Don't proceed to push if the basic CRUD flow is broken.
 
-- [ ] **Step 12.3: Optional — confirm on the web app**
+- [x] **Step 12.3: Optional — confirm on the web app**
 
 Open the gameTracker web UI in a browser, log in as the same user. The game you added should appear there too. Edits round-trip both directions.
 
@@ -2062,7 +2062,7 @@ Open the gameTracker web UI in a browser, log in as the same user. The game you 
 
 **Files:** none
 
-- [ ] **Step 13.1: Verify clean working tree**
+- [x] **Step 13.1: Verify clean working tree**
 
 ```bash
 cd "/Users/cameron/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -2070,13 +2070,13 @@ git status --short
 ```
 Expected: only `js/completions.js` (pre-existing).
 
-- [ ] **Step 13.2: Push**
+- [x] **Step 13.2: Push**
 
 ```bash
 git push -u origin plan-3a-library-and-game-flows
 ```
 
-- [ ] **Step 13.3: Mark this plan complete**
+- [x] **Step 13.3: Mark this plan complete**
 
 ```bash
 sed -i '' 's/^- \[ \]/- [x]/g' docs/superpowers/plans/2026-05-21-ios-library-and-game-flows.md
