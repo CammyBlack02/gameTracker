@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/thumbnail.php';
 
 // Check authentication
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
@@ -102,6 +103,8 @@ if (!file_put_contents($targetPath, $imageData)) {
     error_log("Failed to save image to: $targetPath");
     sendJsonResponse(['success' => false, 'message' => 'Failed to save image'], 500);
 }
+// Generate thumbnail (best-effort; failure is non-fatal)
+gt_generate_thumbnail($targetPath, gt_thumbnail_path($targetPath), 512);
 
 // Update database if game ID provided
 if ($gameId) {
