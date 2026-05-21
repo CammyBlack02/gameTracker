@@ -11,9 +11,20 @@ struct GameTrackerApp: App {
         }
     }()
 
+    @State private var authManager = AuthManager()
+
+    /// Built lazily so it always reads the current token from `authManager`.
+    private var apiClient: APIClient {
+        APIClient(baseURL: Config.serverBaseURL,
+                  tokenProvider: { [authManager] in authManager.currentToken })
+    }
+
+    private var authAPI: AuthAPI { AuthAPI(client: apiClient) }
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView(authAPI: authAPI)
+                .environment(authManager)
         }
         .modelContainer(container)
     }
