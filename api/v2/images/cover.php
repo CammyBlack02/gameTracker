@@ -38,9 +38,67 @@ if (!$row || empty($row['path'])) {
     v2_error('not_found', 'Image not found', 404);
 }
 
+$path = $row['path'];
+
+// front_cover_image is MEDIUMTEXT and can hold any of three formats
+// (matching the web app's getImageUrl): a bare local filename, an
+// HTTPS URL to an external host, or a data: URI with inline bytes.
+// Bring v2 to parity with the web by handling all three.
+
+// Format 1: data: URI — decode and stream inline.
+if (strncmp($path, 'data:', 5) === 0) {
+    if (preg_match('#^data:([^;,]+)(?:;base64)?,(.+)$#s', $path, $m)) {
+        $mime = $m[1];
+        $body = strpos($path, ';base64,') !== false
+                ? base64_decode($m[2], true)
+                : urldecode($m[2]);
+        if ($body === false) {
+            v2_error('not_found', 'Invalid data URI payload', 404);
+        }
+        header_remove('Content-Type');
+        header("Content-Type: $mime");
+        header("Content-Length: " . strlen($body));
+        header("Cache-Control: private, max-age=3600");
+        echo $body;
+        exit;
+    }
+    v2_error('not_found', 'Malformed data URI', 404);
+}
+
+// Format 2: external HTTPS URL — fetch via curl and stream.
+// (http:// is intentionally not supported, matching api/image-proxy.php.)
+if (strncmp($path, 'https://', 8) === 0) {
+    $ch = curl_init($path);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS      => 5,
+        CURLOPT_TIMEOUT        => 30,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_USERAGENT      => 'GameTracker/1.0',
+    ]);
+    $data        = curl_exec($ch);
+    $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream';
+    curl_close($ch);
+
+    if ($httpCode !== 200 || $data === false || $data === '') {
+        v2_error('not_found', "Failed to fetch external image (HTTP $httpCode)", 404);
+    }
+
+    header_remove('Content-Type');
+    header("Content-Type: $contentType");
+    header("Content-Length: " . strlen($data));
+    header("Cache-Control: private, max-age=3600");
+    echo $data;
+    exit;
+}
+
+// Format 3: bare filename under uploads/covers/ (v1 convention).
 $projectRoot = realpath(__DIR__ . '/../../..');
-// Tolerate either bare filename (v1 convention) or prefixed path (defensive).
-$filename = basename($row['path']);
+// Tolerate either bare filename or accidentally prefixed path (defensive).
+$filename = basename($path);
 $fullPath = $projectRoot . '/uploads/covers/' . $filename;
 
 if ($size === 'thumb') {
