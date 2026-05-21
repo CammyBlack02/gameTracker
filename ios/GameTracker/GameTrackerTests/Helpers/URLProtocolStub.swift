@@ -1,9 +1,13 @@
 import Foundation
 
 /// Test-only URLProtocol that returns a fixed (status, body, headers) for any
-/// URL matching `predicate`. Call `register(handler:)` to install before
-/// constructing a URLSession with `URLProtocolStub` in its configuration's
-/// `protocolClasses`.
+/// URL matching `predicate`. Call `register(_:)` to install before constructing
+/// a URLSession with `URLProtocolStub` in its configuration's `protocolClasses`.
+///
+/// IMPORTANT: This class uses static mutable state (`stubs`, `recordedRequests`).
+/// Tests MUST be run serially — do not enable XCTest parallelization for any
+/// suite using this stub. Each test should call `URLProtocolStub.reset()` in
+/// its setUp to clear leftover state from the previous test.
 final class URLProtocolStub: URLProtocol {
 
     struct Stub {
