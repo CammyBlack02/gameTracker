@@ -23,13 +23,14 @@ require_once __DIR__ . '/../_helpers.php';
 require_once __DIR__ . '/../../../includes/config.php';
 require_once __DIR__ . '/../_auth.php';
 
-// Full-pull responses load every row of every synced table into memory
-// (via PDO::fetchAll), then json_encode roughly doubles peak memory to
-// build the response body. Accounts in the ~800+ games range exceed
-// the default 512M FPM cap and crash with "Allowed memory size … bytes
-// exhausted". Lift the ceiling for this endpoint specifically.
-// Long-term fix: stream rows / paginate the response.
-ini_set('memory_limit', '1024M');
+// Streaming response keeps peak memory bounded. Previously the endpoint
+// loaded every row of every synced table into PHP memory (via fetchAll),
+// then json_encode built the entire response string at once, roughly
+// doubling memory at the encode step. Large accounts (~800+ games) blew
+// past 1G that way. Now each row is fetched + encoded + emitted
+// individually, so peak memory is roughly "one row" rather than the
+// whole payload.
+ini_set('memory_limit', '256M');
 
 v2_require_method('GET');
 $userId = v2_require_auth($pdo);
@@ -50,7 +51,20 @@ if ($sinceDt === false) {
 // via CONVERT_TZ in the query so the comparison is always timezone-correct.
 $sinceUtc = $sinceDt->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
 
-function fetchChanges(PDO $pdo, string $table, int $userId, string $sinceUtc): array {
+// Unbuffered queries: rows arrive one at a time from MySQL instead of the
+// whole result set sitting in mysqlnd buffer. Only one unbuffered query
+// can be live per connection at a time; we fully drain each before
+// running the next.
+$pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
+
+header('Content-Type: application/json');
+
+/**
+ * Stream a `[ {...}, {...}, ... ]` JSON array directly to output by
+ * fetching and json_encoding one row at a time. Caller must have
+ * already emitted the array's key (`"games":`) before this runs.
+ */
+function streamTable(PDO $pdo, string $table, int $userId, string $sinceUtc): void {
     // CONVERT_TZ(updated_at, @@session.time_zone, '+00:00') converts the stored
     // local timestamp to UTC for comparison against the UTC since value.
     $stmt = $pdo->prepare("SELECT * FROM $table
@@ -58,26 +72,48 @@ function fetchChanges(PDO $pdo, string $table, int $userId, string $sinceUtc): a
           AND CONVERT_TZ(updated_at, @@session.time_zone, '+00:00') > ?
         ORDER BY updated_at ASC");
     $stmt->execute([$userId, $sinceUtc]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo '[';
+    $first = true;
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        if ($first) {
+            $first = false;
+        } else {
+            echo ',';
+        }
+        echo json_encode($row, JSON_UNESCAPED_SLASHES);
+    }
+    echo ']';
 }
 
-$data = [
-    'games'            => fetchChanges($pdo, 'games',            $userId, $sinceUtc),
-    'items'            => fetchChanges($pdo, 'items',            $userId, $sinceUtc),
-    'game_completions' => fetchChanges($pdo, 'game_completions', $userId, $sinceUtc),
-    'game_images'      => fetchChanges($pdo, 'game_images',      $userId, $sinceUtc),
-    'item_images'      => fetchChanges($pdo, 'item_images',      $userId, $sinceUtc),
-];
+// Build the v2 envelope by hand so each table can stream independently.
+echo '{"data":{';
 
-// Deletion tombstones.
+echo '"games":';             streamTable($pdo, 'games',            $userId, $sinceUtc);
+echo ',"items":';            streamTable($pdo, 'items',            $userId, $sinceUtc);
+echo ',"game_completions":'; streamTable($pdo, 'game_completions', $userId, $sinceUtc);
+echo ',"game_images":';      streamTable($pdo, 'game_images',      $userId, $sinceUtc);
+echo ',"item_images":';      streamTable($pdo, 'item_images',      $userId, $sinceUtc);
+
+// Deletions: different schema (no user-table updated_at; uses deleted_at).
+echo ',"deletions":[';
 $stmt = $pdo->prepare("SELECT table_name, server_id, deleted_at
     FROM deletions
     WHERE user_id = ?
       AND CONVERT_TZ(deleted_at, @@session.time_zone, '+00:00') > ?
     ORDER BY deleted_at ASC");
 $stmt->execute([$userId, $sinceUtc]);
-$data['deletions'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$first = true;
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    if ($first) {
+        $first = false;
+    } else {
+        echo ',';
+    }
+    echo json_encode($row, JSON_UNESCAPED_SLASHES);
+}
+echo ']';
 
-$data['server_now'] = gmdate('Y-m-d\TH:i:s\Z');
-
-v2_ok($data);
+echo ',"server_now":' . json_encode(gmdate('Y-m-d\TH:i:s\Z'));
+echo '}}';
+exit;
