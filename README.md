@@ -4,6 +4,8 @@ A secure, multi-user web application for managing personal game collections. Bui
 
 > **Note**: This application has been migrated from SQLite to MySQL and includes comprehensive security hardening for production use. See [SETUP-GUIDE.md](SETUP-GUIDE.md) for complete setup instructions.
 
+> **iOS app**: Source for the iPhone client lives under [`ios/`](ios/). Build with Xcode 17+ targeting iOS 17. See [`docs/superpowers/plans/`](docs/superpowers/plans/) for implementation plans.
+
 ## Features
 
 ### Core Functionality

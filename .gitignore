@@ -57,3 +57,21 @@ includes/config.php
 tests/v2/.last_token
 /tmp/v2_body
 /tmp/v2_server.log
+
+# iOS / Xcode (for ios/ subdirectory)
+**/xcuserdata/
+**/*.xcuserstate
+**/DerivedData/
+ios/**/build/
+*.xcscmblueprint
+*.xccheckout
+.swiftpm/
+ios/**/Pods/
+ios/**/Carthage/Build/
+*.xcresult/
+
+# Orphan Xcode workspace stub at repo root (from an initial save attempt
+# before relocating the project to ios/). iCloud re-syncs the deleted
+# files; ignoring here so they don't pollute git status. NOTE: anchored
+# with leading slash so the real ios/GameTracker/ stays tracked.
+/GameTracker/
