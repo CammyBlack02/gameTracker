@@ -52,3 +52,33 @@ php-security.ini
 
 # Config file with credentials - NEVER commit this!
 includes/config.php
+
+# v2 test artifacts
+tests/v2/.last_token
+/tmp/v2_body
+/tmp/v2_server.log
+
+# iOS / Xcode (for ios/ subdirectory)
+**/xcuserdata/
+**/*.xcuserstate
+**/DerivedData/
+ios/**/build/
+*.xcscmblueprint
+*.xccheckout
+.swiftpm/
+ios/**/Pods/
+ios/**/Carthage/Build/
+*.xcresult/
+
+# Orphan Xcode workspace stub at repo root (from an initial save attempt
+# before relocating the project to ios/). iCloud re-syncs the deleted
+# files; ignoring here so they don't pollute git status. NOTE: anchored
+# with leading slash so the real ios/GameTracker/ stays tracked.
+/GameTracker/
+
+# iCloud Drive conflict copies: when two devices touch the same file,
+# iCloud writes a sibling with " 2" (or " 3", etc.) appended before the
+# extension. With the iOS project's file-system-synchronized groups,
+# Xcode picks these up and the build breaks with duplicate-symbol
+# errors. Keep them untracked so a stray sync never lands them in git.
+**/* [0-9].swift
