@@ -31,6 +31,7 @@ struct LibraryView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 ConflictBannerView(status: status) { showConflicts = true }
+                SyncStatusBannerView(status: status)
                 content
             }
             .navigationDestination(for: PersistentIdentifier.self) { id in
@@ -62,8 +63,15 @@ struct LibraryView: View {
     private var content: some View {
         let games = filteredGames
         if games.isEmpty {
-            ContentUnavailableView("No games", systemImage: "books.vertical",
-                                   description: Text("Pull to sync, or tap + to add one."))
+            // Wrap the empty state in a List so pull-to-refresh has a
+            // scroll context to attach to even when there's no data yet.
+            List {
+                ContentUnavailableView("No games", systemImage: "books.vertical",
+                                       description: Text("Pull to sync, or tap + to add one."))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+            }
+            .listStyle(.plain)
         } else {
             switch viewMode {
             case .list:
