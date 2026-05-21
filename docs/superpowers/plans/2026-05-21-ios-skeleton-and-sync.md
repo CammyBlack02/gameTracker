@@ -153,7 +153,7 @@ gameTracker/                             ← existing repo root
 
 **Files:** none
 
-- [ ] **Step 0.1: Verify Xcode is installed and recent**
+- [x] **Step 0.1: Verify Xcode is installed and recent**
 
 Run:
 ```bash
@@ -165,13 +165,13 @@ Expected: prints a path (e.g., `/Applications/Xcode.app/Contents/Developer`) and
 
 If not installed: install from the Mac App Store (~15 GB), then run `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` and `sudo xcodebuild -license accept`.
 
-- [ ] **Step 0.2: Verify a free Apple ID is signed into Xcode**
+- [x] **Step 0.2: Verify a free Apple ID is signed into Xcode**
 
 Open Xcode → Settings (⌘,) → Accounts. Confirm the owner's Apple ID is listed. If not, click `+` → "Apple ID" → sign in.
 
 This step is GUI-only; no command. Report back when done.
 
-- [ ] **Step 0.3: Verify a working Simulator runtime is available**
+- [x] **Step 0.3: Verify a working Simulator runtime is available**
 
 Run:
 ```bash
@@ -180,7 +180,7 @@ xcrun simctl list runtimes | grep -i ios
 
 Expected: at least one entry like `iOS 17.x` or `iOS 18.x`. If none, open Xcode → Settings → Platforms and install the latest iOS runtime.
 
-- [ ] **Step 0.4: Confirm the existing repo's git state is clean**
+- [x] **Step 0.4: Confirm the existing repo's git state is clean**
 
 Run:
 ```bash
@@ -190,7 +190,7 @@ git status
 
 Expected: working tree clean (or only this plan doc as uncommitted). Stash or commit anything stale before adding the `ios/` subdirectory.
 
-- [ ] **Step 0.5: Verify the server is reachable from the work Mac**
+- [x] **Step 0.5: Verify the server is reachable from the work Mac**
 
 Decide the server base URL the iOS app will hit. The spec says DuckDNS; for now we'll use whatever the owner reports as the live server URL. Save it for Task 2.
 
@@ -220,7 +220,7 @@ If 404: nginx isn't routing `/api/v2/` correctly — fix server-side before proc
 
 This task is mostly Xcode GUI. The Xcode project is created **inside** the existing web-app repo — no separate `git init`.
 
-- [ ] **Step 1.1: Create the `ios/` subdirectory**
+- [x] **Step 1.1: Create the `ios/` subdirectory**
 
 Run:
 ```bash
@@ -229,7 +229,7 @@ mkdir -p ios
 ls ios   # should be empty
 ```
 
-- [ ] **Step 1.2: Create the Xcode project inside `ios/`**
+- [x] **Step 1.2: Create the Xcode project inside `ios/`**
 
 Open Xcode → File → New → Project. Choose:
 
@@ -261,7 +261,7 @@ gameTracker/ios/
     └── GameTrackerTests.swift
 ```
 
-- [ ] **Step 1.3: Verify the project builds for Simulator**
+- [x] **Step 1.3: Verify the project builds for Simulator**
 
 Run:
 ```bash
@@ -271,7 +271,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 
 Expected: ends with `** BUILD SUCCEEDED **`. If the scheme name differs, list with `xcodebuild -list -project GameTracker.xcodeproj`.
 
-- [ ] **Step 1.4: Append iOS/Xcode patterns to the root `.gitignore`**
+- [x] **Step 1.4: Append iOS/Xcode patterns to the root `.gitignore`**
 
 Read the current root `.gitignore` first to avoid duplicating any existing entries, then append the following block to the end (replacing entries that already exist with adjustments rather than duplicates):
 
@@ -290,7 +290,7 @@ ios/Carthage/Build/
 *.xcresult/
 ```
 
-- [ ] **Step 1.5: Add one-line pointer to the root README**
+- [x] **Step 1.5: Add one-line pointer to the root README**
 
 If the root `README.md` exists, append:
 
@@ -305,7 +305,7 @@ implementation plans.
 
 If no root `README.md` exists, skip — don't create one just for this.
 
-- [ ] **Step 1.6: Stage and commit the iOS skeleton**
+- [x] **Step 1.6: Stage and commit the iOS skeleton**
 
 Run:
 ```bash
@@ -318,7 +318,7 @@ git commit -m "Add iOS app Xcode skeleton under ios/"
 
 Expected: commit succeeds. If `git status` shows any `xcuserdata` or `DerivedData` entries, the `.gitignore` edit didn't take — fix before committing.
 
-- [ ] **Step 1.7: Push (optional — same as any web-app commit)**
+- [x] **Step 1.7: Push (optional — same as any web-app commit)**
 
 If you normally push web-app commits immediately:
 ```bash
@@ -336,7 +336,7 @@ Otherwise this can wait until the end of the plan.
 - Modify: `GameTracker/Info.plist` (created on demand) — ATS exception if server uses self-signed cert
 - Create: `GameTracker/Config.swift`
 
-- [ ] **Step 2.1: Set deployment target to iOS 17.0**
+- [x] **Step 2.1: Set deployment target to iOS 17.0**
 
 Xcode → click the project root in the left navigator → target `GameTracker` → tab "General" → Deployment Info → iOS Deployment Target → **17.0**.
 
@@ -348,7 +348,7 @@ grep -r "IPHONEOS_DEPLOYMENT_TARGET" GameTracker.xcodeproj/project.pbxproj | sor
 ```
 Expected: every result shows `IPHONEOS_DEPLOYMENT_TARGET = 17.0;`.
 
-- [ ] **Step 2.2: Decide whether ATS exception is needed**
+- [x] **Step 2.2: Decide whether ATS exception is needed**
 
 If the server uses a valid public TLS cert (Let's Encrypt on DuckDNS), no ATS exception is needed and you can skip to Step 2.3.
 
@@ -369,7 +369,7 @@ Document the resulting plist. The raw XML should contain something like:
 </dict>
 ```
 
-- [ ] **Step 2.3: Write `Config.swift`**
+- [x] **Step 2.3: Write `Config.swift`**
 
 Write `GameTracker/Config.swift`:
 
@@ -402,7 +402,7 @@ enum Config {
 
 Note: the `your-server.duckdns.org` placeholder is intentional — the executing agent should replace it with the owner-supplied hostname during execution.
 
-- [ ] **Step 2.4: Wire `Config.swift` into the project**
+- [x] **Step 2.4: Wire `Config.swift` into the project**
 
 Drag `Config.swift` into Xcode (under the `GameTracker` group). Confirm it's added to the `GameTracker` target (the target membership inspector on the right shows the box checked).
 
@@ -412,7 +412,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 ```
 Expected: `** BUILD SUCCEEDED **`.
 
-- [ ] **Step 2.5: Replace the auto-generated ContentView with a placeholder**
+- [x] **Step 2.5: Replace the auto-generated ContentView with a placeholder**
 
 Open `GameTracker/ContentView.swift` and replace its body with:
 
@@ -437,7 +437,7 @@ struct ContentView: View {
 
 Build + run in Simulator (⌘R). Verify the configured hostname is displayed.
 
-- [ ] **Step 2.6: Commit**
+- [x] **Step 2.6: Commit**
 
 ```bash
 git add GameTracker/Config.swift GameTracker/ContentView.swift GameTracker.xcodeproj
@@ -468,7 +468,7 @@ Each synced model carries three extra columns beyond what the server stores:
 - `lastSyncedAt: Date?` — server's `updated_at` when phone last received this row; powers conflict detection
 - `syncState: SyncState` — current state in the sync state machine
 
-- [ ] **Step 3.1: Write `SyncState.swift`**
+- [x] **Step 3.1: Write `SyncState.swift`**
 
 Write `GameTracker/Models/SyncState.swift`:
 
@@ -493,7 +493,7 @@ enum SyncState: String, Codable, CaseIterable {
 }
 ```
 
-- [ ] **Step 3.2: Write `Game.swift`**
+- [x] **Step 3.2: Write `Game.swift`**
 
 Write `GameTracker/Models/Game.swift`:
 
@@ -550,7 +550,7 @@ final class Game {
 }
 ```
 
-- [ ] **Step 3.3: Write `Item.swift`**
+- [x] **Step 3.3: Write `Item.swift`**
 
 Write `GameTracker/Models/Item.swift`:
 
@@ -595,7 +595,7 @@ final class Item {
 }
 ```
 
-- [ ] **Step 3.4: Write `GameCompletion.swift`**
+- [x] **Step 3.4: Write `GameCompletion.swift`**
 
 Write `GameTracker/Models/GameCompletion.swift`:
 
@@ -638,7 +638,7 @@ final class GameCompletion {
 }
 ```
 
-- [ ] **Step 3.5: Write `GameImage.swift` and `ItemImage.swift`**
+- [x] **Step 3.5: Write `GameImage.swift` and `ItemImage.swift`**
 
 Write `GameTracker/Models/GameImage.swift`:
 
@@ -710,7 +710,7 @@ final class ItemImage {
 }
 ```
 
-- [ ] **Step 3.6: Write `SyncMetadata.swift`**
+- [x] **Step 3.6: Write `SyncMetadata.swift`**
 
 A single-row store for sync-wide state (the global `last_synced_at`). Modelled as a SwiftData entity so it persists across launches without separate UserDefaults plumbing.
 
@@ -737,7 +737,7 @@ final class SyncMetadata {
 }
 ```
 
-- [ ] **Step 3.7: Write `ModelContainerFactory.swift`**
+- [x] **Step 3.7: Write `ModelContainerFactory.swift`**
 
 Write `GameTracker/Models/ModelContainerFactory.swift`:
 
@@ -773,7 +773,7 @@ enum ModelContainerFactory {
 }
 ```
 
-- [ ] **Step 3.8: Attach the container to the app**
+- [x] **Step 3.8: Attach the container to the app**
 
 Edit `GameTracker/GameTrackerApp.swift`:
 
@@ -800,7 +800,7 @@ struct GameTrackerApp: App {
 }
 ```
 
-- [ ] **Step 3.9: Write the test helper**
+- [x] **Step 3.9: Write the test helper**
 
 Make sure the `GameTrackerTests/Helpers/` group exists in Xcode (right-click `GameTrackerTests` → New Group → "Helpers"). Then write `GameTrackerTests/Helpers/InMemoryContainer.swift`:
 
@@ -820,7 +820,7 @@ enum InMemoryContainer {
 }
 ```
 
-- [ ] **Step 3.10: Write `ModelTests.swift`**
+- [x] **Step 3.10: Write `ModelTests.swift`**
 
 Write `GameTrackerTests/ModelTests.swift`:
 
@@ -879,7 +879,7 @@ final class ModelTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 3.11: Add Models to the Xcode project + run tests**
+- [x] **Step 3.11: Add Models to the Xcode project + run tests**
 
 In Xcode, drag the new `Models/` folder + `Helpers/` folder into the project navigator (or use File → Add Files To "GameTracker"…). Ensure model files belong to the `GameTracker` target; helpers belong to the `GameTrackerTests` target.
 
@@ -890,7 +890,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 
 Expected: `Test Suite 'ModelTests' passed`. All 4 tests pass.
 
-- [ ] **Step 3.12: Commit**
+- [x] **Step 3.12: Commit**
 
 ```bash
 git add GameTracker GameTrackerTests
@@ -907,7 +907,7 @@ git commit -m "Add SwiftData models for games, items, completions, images, and s
 
 These are wire-format types — not the SwiftData `@Model` classes. They're plain Swift structs that decode directly from the server's JSON.
 
-- [ ] **Step 4.1: Write the failing DTO test first**
+- [x] **Step 4.1: Write the failing DTO test first**
 
 Write `GameTrackerTests/DTOTests.swift`:
 
@@ -987,7 +987,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 
 Expected: compilation fails — none of these types exist yet.
 
-- [ ] **Step 4.2: Write `DTOs.swift`**
+- [x] **Step 4.2: Write `DTOs.swift`**
 
 Write `GameTracker/Networking/DTOs.swift`:
 
@@ -1309,7 +1309,7 @@ extension JSONDecoder.DateDecodingStrategy {
 }
 ```
 
-- [ ] **Step 4.3: Add file to Xcode + run tests**
+- [x] **Step 4.3: Add file to Xcode + run tests**
 
 Drag `Networking/` group into Xcode. Add `DTOs.swift` to the `GameTracker` target and `DTOTests.swift` to the `GameTrackerTests` target.
 
@@ -1320,7 +1320,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 
 Expected: all 4 DTO tests pass.
 
-- [ ] **Step 4.4: Commit**
+- [x] **Step 4.4: Commit**
 
 ```bash
 git add GameTracker/Networking GameTrackerTests/DTOTests.swift
@@ -1337,7 +1337,7 @@ git commit -m "Add Codable DTOs for v2 API responses"
 - Create: `GameTrackerTests/Helpers/URLProtocolStub.swift`
 - Create: `GameTrackerTests/APIClientTests.swift`
 
-- [ ] **Step 5.1: Write the URLProtocol stub helper**
+- [x] **Step 5.1: Write the URLProtocol stub helper**
 
 `URLProtocolStub` lets tests intercept `URLSession` traffic and return canned responses without a real server. Standard Apple pattern.
 
@@ -1394,7 +1394,7 @@ final class URLProtocolStub: URLProtocol {
 }
 ```
 
-- [ ] **Step 5.2: Write the failing APIClient tests**
+- [x] **Step 5.2: Write the failing APIClient tests**
 
 Write `GameTrackerTests/APIClientTests.swift`:
 
@@ -1541,7 +1541,7 @@ private extension URLRequest {
 
 Run tests — they fail (no `APIClient`, no `APIError` yet).
 
-- [ ] **Step 5.3: Write `APIError.swift`**
+- [x] **Step 5.3: Write `APIError.swift`**
 
 Write `GameTracker/Networking/APIError.swift`:
 
@@ -1579,7 +1579,7 @@ enum APIError: Error, LocalizedError {
 }
 ```
 
-- [ ] **Step 5.4: Write `APIClient.swift`**
+- [x] **Step 5.4: Write `APIClient.swift`**
 
 Write `GameTracker/Networking/APIClient.swift`:
 
@@ -1728,7 +1728,7 @@ final class APIClient: @unchecked Sendable {
 }
 ```
 
-- [ ] **Step 5.5: Run tests and verify they pass**
+- [x] **Step 5.5: Run tests and verify they pass**
 
 Drag the new files into Xcode (target memberships as before). Run:
 ```bash
@@ -1737,7 +1737,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 
 Expected: all 5 APIClient tests pass.
 
-- [ ] **Step 5.6: Commit**
+- [x] **Step 5.6: Commit**
 
 ```bash
 git add GameTracker/Networking GameTrackerTests
@@ -1752,7 +1752,7 @@ git commit -m "Add APIClient with Bearer auth, JSON envelope decoding, and typed
 - Create: `GameTracker/Networking/AuthAPI.swift`
 - Create: `GameTrackerTests/AuthAPITests.swift`
 
-- [ ] **Step 6.1: Write the failing tests**
+- [x] **Step 6.1: Write the failing tests**
 
 Write `GameTrackerTests/AuthAPITests.swift`:
 
@@ -1824,11 +1824,11 @@ final class AuthAPITests: XCTestCase {
 }
 ```
 
-- [ ] **Step 6.2: Run, verify failure**
+- [x] **Step 6.2: Run, verify failure**
 
 Tests fail — `AuthAPI` doesn't exist.
 
-- [ ] **Step 6.3: Write `AuthAPI.swift`**
+- [x] **Step 6.3: Write `AuthAPI.swift`**
 
 Write `GameTracker/Networking/AuthAPI.swift`:
 
@@ -1854,11 +1854,11 @@ struct AuthAPI {
 }
 ```
 
-- [ ] **Step 6.4: Run tests and verify they pass**
+- [x] **Step 6.4: Run tests and verify they pass**
 
 Drag `AuthAPI.swift` into Xcode (GameTracker target). Run tests; expect 3 new passes.
 
-- [ ] **Step 6.5: Commit**
+- [x] **Step 6.5: Commit**
 
 ```bash
 git add GameTracker/Networking/AuthAPI.swift GameTrackerTests/AuthAPITests.swift
@@ -1875,7 +1875,7 @@ git commit -m "Add AuthAPI for login and revoke"
 
 The Bearer token is sensitive credential material — store it in the iOS Keychain, not UserDefaults.
 
-- [ ] **Step 7.1: Write the failing tests**
+- [x] **Step 7.1: Write the failing tests**
 
 Write `GameTrackerTests/KeychainTokenStoreTests.swift`:
 
@@ -1926,11 +1926,11 @@ final class KeychainTokenStoreTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 7.2: Run, verify failure**
+- [x] **Step 7.2: Run, verify failure**
 
 Tests fail — `KeychainTokenStore` doesn't exist.
 
-- [ ] **Step 7.3: Write `KeychainTokenStore.swift`**
+- [x] **Step 7.3: Write `KeychainTokenStore.swift`**
 
 Write `GameTracker/Auth/KeychainTokenStore.swift`:
 
@@ -2007,7 +2007,7 @@ struct KeychainTokenStore {
 }
 ```
 
-- [ ] **Step 7.4: Run tests and verify they pass**
+- [x] **Step 7.4: Run tests and verify they pass**
 
 Drag `Auth/` group into Xcode. Run tests.
 
@@ -2015,7 +2015,7 @@ Expected: all 4 Keychain tests pass.
 
 Note: Keychain access requires running on Simulator or device — these tests won't pass with `xcodebuild test -destination 'platform=macOS'`. The Simulator destination already used is correct.
 
-- [ ] **Step 7.5: Commit**
+- [x] **Step 7.5: Commit**
 
 ```bash
 git add GameTracker/Auth GameTrackerTests/KeychainTokenStoreTests.swift
@@ -2033,7 +2033,7 @@ git commit -m "Add KeychainTokenStore for Bearer-token persistence"
 - Create: `GameTracker/Views/DebugHomeView.swift` (stub for this task; fleshed out in Task 15)
 - Modify: `GameTracker/GameTrackerApp.swift`
 
-- [ ] **Step 8.1: Write `AuthManager.swift`**
+- [x] **Step 8.1: Write `AuthManager.swift`**
 
 Write `GameTracker/Auth/AuthManager.swift`:
 
@@ -2101,7 +2101,7 @@ final class AuthManager {
 }
 ```
 
-- [ ] **Step 8.2: Write `LoginView.swift`**
+- [x] **Step 8.2: Write `LoginView.swift`**
 
 Write `GameTracker/Views/LoginView.swift`:
 
@@ -2182,7 +2182,7 @@ struct LoginView: View {
 }
 ```
 
-- [ ] **Step 8.3: Write the placeholder `DebugHomeView.swift`**
+- [x] **Step 8.3: Write the placeholder `DebugHomeView.swift`**
 
 This stub gets replaced in Task 15. For now it just confirms login worked.
 
@@ -2210,7 +2210,7 @@ struct DebugHomeView: View {
 }
 ```
 
-- [ ] **Step 8.4: Write `RootView.swift`**
+- [x] **Step 8.4: Write `RootView.swift`**
 
 Write `GameTracker/RootView.swift`:
 
@@ -2234,7 +2234,7 @@ struct RootView: View {
 }
 ```
 
-- [ ] **Step 8.5: Wire it together in the app entry point**
+- [x] **Step 8.5: Wire it together in the app entry point**
 
 Replace `GameTracker/GameTrackerApp.swift` with:
 
@@ -2272,7 +2272,7 @@ struct GameTrackerApp: App {
 }
 ```
 
-- [ ] **Step 8.6: Manual verification — log in to the real server**
+- [x] **Step 8.6: Manual verification — log in to the real server**
 
 Build + run in Simulator. Enter the owner's real credentials.
 
@@ -2285,7 +2285,7 @@ If login fails: check `Config.swift`'s base URL (Step 2.3); confirm server is re
 
 This is the first end-to-end touchpoint against the live server. Don't proceed if it doesn't work.
 
-- [ ] **Step 8.7: Commit**
+- [x] **Step 8.7: Commit**
 
 ```bash
 git add GameTracker/Auth/AuthManager.swift GameTracker/Views GameTracker/RootView.swift GameTracker/GameTrackerApp.swift
@@ -2300,7 +2300,7 @@ git commit -m "Add AuthManager, LoginView, RootView with auth gating"
 - Create: `GameTracker/Networking/SyncAPI.swift`
 - Create: `GameTrackerTests/SyncAPITests.swift`
 
-- [ ] **Step 9.1: Write the failing tests**
+- [x] **Step 9.1: Write the failing tests**
 
 Write `GameTrackerTests/SyncAPITests.swift`:
 
@@ -2400,11 +2400,11 @@ final class SyncAPITests: XCTestCase {
 }
 ```
 
-- [ ] **Step 9.2: Run, verify failure**
+- [x] **Step 9.2: Run, verify failure**
 
 `SyncAPI` and `PushPayload` don't exist yet.
 
-- [ ] **Step 9.3: Write `SyncAPI.swift`**
+- [x] **Step 9.3: Write `SyncAPI.swift`**
 
 Write `GameTracker/Networking/SyncAPI.swift`:
 
@@ -2465,13 +2465,13 @@ struct SyncAPI {
 }
 ```
 
-- [ ] **Step 9.4: Run tests and verify they pass**
+- [x] **Step 9.4: Run tests and verify they pass**
 
 Drag `SyncAPI.swift` into Xcode. Run tests.
 
 Expected: all 3 SyncAPI tests pass.
 
-- [ ] **Step 9.5: Commit**
+- [x] **Step 9.5: Commit**
 
 ```bash
 git add GameTracker/Networking/SyncAPI.swift GameTrackerTests/SyncAPITests.swift
@@ -2486,7 +2486,7 @@ git commit -m "Add SyncAPI for /sync/changes and /sync/push"
 - Create: `GameTracker/Networking/ImagesAPI.swift`
 - Create: `GameTrackerTests/ImagesAPITests.swift`
 
-- [ ] **Step 10.1: Write the failing tests**
+- [x] **Step 10.1: Write the failing tests**
 
 Write `GameTrackerTests/ImagesAPITests.swift`:
 
@@ -2574,11 +2574,11 @@ final class ImagesAPITests: XCTestCase {
 }
 ```
 
-- [ ] **Step 10.2: Run, verify failure**
+- [x] **Step 10.2: Run, verify failure**
 
 `ImagesAPI` doesn't exist.
 
-- [ ] **Step 10.3: Write `ImagesAPI.swift`**
+- [x] **Step 10.3: Write `ImagesAPI.swift`**
 
 Write `GameTracker/Networking/ImagesAPI.swift`:
 
@@ -2666,11 +2666,11 @@ enum ImageCachePaths {
 }
 ```
 
-- [ ] **Step 10.4: Run tests and verify they pass**
+- [x] **Step 10.4: Run tests and verify they pass**
 
 Expected: 3 ImagesAPI tests pass.
 
-- [ ] **Step 10.5: Commit**
+- [x] **Step 10.5: Commit**
 
 ```bash
 git add GameTracker/Networking/ImagesAPI.swift GameTrackerTests/ImagesAPITests.swift
@@ -2687,7 +2687,7 @@ git commit -m "Add ImagesAPI with on-disk cache"
 
 `ChangeApplier` takes a `ChangesResponseDTO` and upserts/deletes the corresponding local SwiftData rows.
 
-- [ ] **Step 11.1: Write the failing tests**
+- [x] **Step 11.1: Write the failing tests**
 
 Write `GameTrackerTests/ChangeApplierTests.swift`:
 
@@ -2788,11 +2788,11 @@ final class ChangeApplierTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 11.2: Run, verify failure**
+- [x] **Step 11.2: Run, verify failure**
 
 `ChangeApplier` doesn't exist.
 
-- [ ] **Step 11.3: Write `ChangeApplier.swift`**
+- [x] **Step 11.3: Write `ChangeApplier.swift`**
 
 Write `GameTracker/Sync/ChangeApplier.swift`:
 
@@ -3008,13 +3008,13 @@ struct ChangeApplier {
 }
 ```
 
-- [ ] **Step 11.4: Run tests and verify they pass**
+- [x] **Step 11.4: Run tests and verify they pass**
 
 Drag `Sync/` group into Xcode. Run tests.
 
 Expected: all 4 ChangeApplier tests pass.
 
-- [ ] **Step 11.5: Commit**
+- [x] **Step 11.5: Commit**
 
 ```bash
 git add GameTracker/Sync/ChangeApplier.swift GameTrackerTests/ChangeApplierTests.swift
@@ -3029,7 +3029,7 @@ git commit -m "Add ChangeApplier to upsert server changes into SwiftData"
 - Create: `GameTracker/Sync/PushBuilder.swift`
 - Create: `GameTrackerTests/PushBuilderTests.swift`
 
-- [ ] **Step 12.1: Write the failing tests**
+- [x] **Step 12.1: Write the failing tests**
 
 Write `GameTrackerTests/PushBuilderTests.swift`:
 
@@ -3108,11 +3108,11 @@ final class PushBuilderTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 12.2: Run, verify failure**
+- [x] **Step 12.2: Run, verify failure**
 
 `PushBuilder` doesn't exist.
 
-- [ ] **Step 12.3: Write `PushBuilder.swift`**
+- [x] **Step 12.3: Write `PushBuilder.swift`**
 
 Write `GameTracker/Sync/PushBuilder.swift`:
 
@@ -3350,11 +3350,11 @@ struct PushBuilder {
 }
 ```
 
-- [ ] **Step 12.4: Run tests and verify they pass**
+- [x] **Step 12.4: Run tests and verify they pass**
 
 Expected: all 5 PushBuilder tests pass.
 
-- [ ] **Step 12.5: Commit**
+- [x] **Step 12.5: Commit**
 
 ```bash
 git add GameTracker/Sync/PushBuilder.swift GameTrackerTests/PushBuilderTests.swift
@@ -3372,7 +3372,7 @@ git commit -m "Add PushBuilder to assemble sync push payload"
 
 The engine glues `SyncAPI`, `ChangeApplier`, `PushBuilder`, and the push-response handler. It also owns the on-disk `SyncMetadata` singleton (last_synced_at).
 
-- [ ] **Step 13.1: Write `SyncStatus.swift`**
+- [x] **Step 13.1: Write `SyncStatus.swift`**
 
 Write `GameTracker/Sync/SyncStatus.swift`:
 
@@ -3396,7 +3396,7 @@ final class SyncStatus {
 }
 ```
 
-- [ ] **Step 13.2: Write the failing tests**
+- [x] **Step 13.2: Write the failing tests**
 
 Write `GameTrackerTests/SyncEngineTests.swift`:
 
@@ -3536,11 +3536,11 @@ final class SyncEngineTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 13.3: Run, verify failure**
+- [x] **Step 13.3: Run, verify failure**
 
 `SyncEngine` doesn't exist.
 
-- [ ] **Step 13.4: Write `SyncEngine.swift`**
+- [x] **Step 13.4: Write `SyncEngine.swift`**
 
 Write `GameTracker/Sync/SyncEngine.swift`:
 
@@ -3763,13 +3763,13 @@ extension GameImage: SyncableModel {}
 extension ItemImage: SyncableModel {}
 ```
 
-- [ ] **Step 13.5: Run tests and verify they pass**
+- [x] **Step 13.5: Run tests and verify they pass**
 
 Drag the new files into Xcode. Run tests.
 
 Expected: 3 new SyncEngine tests pass; existing tests still pass.
 
-- [ ] **Step 13.6: Commit**
+- [x] **Step 13.6: Commit**
 
 ```bash
 git add GameTracker/Sync/SyncStatus.swift GameTracker/Sync/SyncEngine.swift GameTrackerTests/SyncEngineTests.swift
@@ -3787,7 +3787,7 @@ git commit -m "Add SyncEngine orchestrator with status observability"
 
 Per the spec's open questions, v1 ships with keep-phone / keep-server only. Field-level merge is deferred.
 
-- [ ] **Step 14.1: Write `ConflictBannerView.swift`**
+- [x] **Step 14.1: Write `ConflictBannerView.swift`**
 
 Write `GameTracker/Views/ConflictBannerView.swift`:
 
@@ -3820,7 +3820,7 @@ struct ConflictBannerView: View {
 }
 ```
 
-- [ ] **Step 14.2: Write `ConflictListView.swift`**
+- [x] **Step 14.2: Write `ConflictListView.swift`**
 
 Write `GameTracker/Views/ConflictListView.swift`:
 
@@ -3883,7 +3883,7 @@ enum ConflictRoute: Hashable {
 }
 ```
 
-- [ ] **Step 14.3: Write `ConflictDetailView.swift`**
+- [x] **Step 14.3: Write `ConflictDetailView.swift`**
 
 Write `GameTracker/Views/ConflictDetailView.swift`:
 
@@ -3995,7 +3995,7 @@ struct ConflictDetailView: View {
 }
 ```
 
-- [ ] **Step 14.4: Build (smoke check — UI doesn't have automated tests yet)**
+- [x] **Step 14.4: Build (smoke check — UI doesn't have automated tests yet)**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 15' build 2>&1 | tail -5
@@ -4003,7 +4003,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 
 Expected: `** BUILD SUCCEEDED **`. (Functional testing happens in Task 16.)
 
-- [ ] **Step 14.5: Commit**
+- [x] **Step 14.5: Commit**
 
 ```bash
 git add GameTracker/Views/ConflictBannerView.swift GameTracker/Views/ConflictListView.swift GameTracker/Views/ConflictDetailView.swift
@@ -4021,7 +4021,7 @@ git commit -m "Add conflict banner, list, and per-row keep-phone/keep-server pic
 
 This view is a temporary landing screen that exercises every sync path end-to-end. Plan 3 replaces it with the real Library tab.
 
-- [ ] **Step 15.1: Replace `DebugHomeView.swift`**
+- [x] **Step 15.1: Replace `DebugHomeView.swift`**
 
 Overwrite `GameTracker/Views/DebugHomeView.swift`:
 
@@ -4150,7 +4150,7 @@ struct DebugHomeView: View {
 }
 ```
 
-- [ ] **Step 15.2: Update `RootView.swift` to pass the sync engine + status**
+- [x] **Step 15.2: Update `RootView.swift` to pass the sync engine + status**
 
 Replace `GameTracker/RootView.swift` with:
 
@@ -4174,7 +4174,7 @@ struct RootView: View {
 }
 ```
 
-- [ ] **Step 15.3: Update `GameTrackerApp.swift` to build the sync engine**
+- [x] **Step 15.3: Update `GameTrackerApp.swift` to build the sync engine**
 
 Replace `GameTracker/GameTrackerApp.swift` with:
 
@@ -4229,7 +4229,7 @@ private struct RootViewContainer: View {
 }
 ```
 
-- [ ] **Step 15.4: Build and run on Simulator**
+- [x] **Step 15.4: Build and run on Simulator**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 15' build 2>&1 | tail -5
@@ -4237,7 +4237,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 
 Expected: `** BUILD SUCCEEDED **`.
 
-- [ ] **Step 15.5: Manual verification — pull-to-refresh sync against live server**
+- [x] **Step 15.5: Manual verification — pull-to-refresh sync against live server**
 
 Run in Simulator. Log in with real credentials. After login:
 1. The "Syncing…" indicator should appear briefly.
@@ -4247,7 +4247,7 @@ Run in Simulator. Log in with real credentials. After login:
 
 If any of these fail, debug before continuing — the rest of the plan depends on a working sync round-trip.
 
-- [ ] **Step 15.6: Commit**
+- [x] **Step 15.6: Commit**
 
 ```bash
 git add GameTracker/Views/DebugHomeView.swift GameTracker/RootView.swift GameTracker/GameTrackerApp.swift
@@ -4265,7 +4265,7 @@ This task verifies the entire stack against a real local PHP server (the same `t
 
 Because it requires the PHP server to be running, the test is **disabled by default** and is opt-in via the environment variable `GT_LIVE_TEST=1`.
 
-- [ ] **Step 16.1: Write the live integration test**
+- [x] **Step 16.1: Write the live integration test**
 
 Write `GameTrackerTests/LiveIntegrationTests.swift`:
 
@@ -4356,7 +4356,7 @@ final class LiveIntegrationTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 16.2: Run with the live env vars set**
+- [x] **Step 16.2: Run with the live env vars set**
 
 In a separate terminal in the web-app repo:
 ```bash
@@ -4371,11 +4371,11 @@ Run ⌘U.
 
 Expected: `LiveIntegrationTests.test_full_sync_round_trip` passes. All previous tests still pass (they don't require the live server because `GT_LIVE_TEST` is unset in regular runs).
 
-- [ ] **Step 16.3: Document the test in the README**
+- [x] **Step 16.3: Document the test in the README**
 
 (Skip the README update — the root README in single-repo mode covers iOS at a high level; a per-test docstring is sufficient documentation.)
 
-- [ ] **Step 16.4: Commit**
+- [x] **Step 16.4: Commit**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -4389,7 +4389,7 @@ git commit -m "Add live-server integration test (opt-in via GT_LIVE_TEST=1)"
 
 **Files:** none
 
-- [ ] **Step 17.1: Verify clean working tree**
+- [x] **Step 17.1: Verify clean working tree**
 
 Run:
 ```bash
@@ -4398,7 +4398,7 @@ git status
 ```
 Expected: `nothing to commit, working tree clean`.
 
-- [ ] **Step 17.2: Push to the existing GitHub remote**
+- [x] **Step 17.2: Push to the existing GitHub remote**
 
 Direct push:
 ```bash
@@ -4412,7 +4412,7 @@ git push -u origin plan-2-sync-engine
 gh pr create --fill
 ```
 
-- [ ] **Step 17.3: Mark the plan complete**
+- [x] **Step 17.3: Mark the plan complete**
 
 Update this plan's checkboxes from `- [ ]` to `- [x]` for every completed step, then commit:
 
