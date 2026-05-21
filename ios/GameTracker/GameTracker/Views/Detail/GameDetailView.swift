@@ -12,6 +12,10 @@ struct GameDetailView: View {
 
     @State private var showEdit = false
     @State private var confirmDelete = false
+    @State private var showCoverURL = false
+    @State private var coverURLInput = ""
+    @State private var coverURLInFlight = false
+    @State private var coverURLError: String?
 
     var body: some View {
         if let game: Game = context.model(for: gameID) as? Game {
@@ -85,7 +89,23 @@ struct GameDetailView: View {
                 }
                 .buttonStyle(.bordered)
                 .padding()
+
+                if game.serverId != nil {
+                    Button {
+                        coverURLInput = ""
+                        coverURLError = nil
+                        showCoverURL = true
+                    } label: {
+                        Label("Set cover from URL…", systemImage: "link")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .padding(.horizontal)
+                }
             }
+        }
+        .sheet(isPresented: $showCoverURL) {
+            coverURLSheet(for: game)
         }
     }
 
@@ -167,5 +187,58 @@ struct GameDetailView: View {
         try? context.save()
         syncTrigger.pingAfterMutation()
         dismiss()
+    }
+
+    // MARK: - Cover from URL
+
+    @ViewBuilder
+    private func coverURLSheet(for game: Game) -> some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("https://…", text: $coverURLInput)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                } footer: {
+                    Text("Server downloads the image, generates a thumbnail, then your next sync pulls down the new cover.")
+                }
+                if let err = coverURLError {
+                    Section { Text(err).foregroundStyle(.red) }
+                }
+            }
+            .navigationTitle("Cover URL")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showCoverURL = false } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fetch") { Task { await fetchExternal(for: game) } }
+                        .disabled(coverURLInput.isEmpty || coverURLInFlight)
+                }
+            }
+            .overlay {
+                if coverURLInFlight {
+                    ProgressView("Downloading…")
+                        .padding().background(.regularMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+            }
+        }
+    }
+
+    private func fetchExternal(for game: Game) async {
+        guard let id = game.serverId else { return }
+        coverURLInFlight = true
+        defer { coverURLInFlight = false }
+        do {
+            _ = try await proxiesAPI.externalImage(url: coverURLInput, gameId: id, face: .front)
+            // Force the next /sync/changes to repull this row (server's
+            // updated_at bumped when the games row was updated by the server)
+            game.lastSyncedAt = nil
+            try? context.save()
+            syncTrigger.pingAfterMutation()
+            showCoverURL = false
+        } catch {
+            coverURLError = error.localizedDescription
+        }
     }
 }
