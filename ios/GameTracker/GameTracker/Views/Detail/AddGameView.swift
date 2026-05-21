@@ -94,7 +94,8 @@ struct AddGameView: View {
 
             if let g = pcRes["genre"]?.stringValue, !g.isEmpty { genre = g }
             if let p = pcRes["price"]?.stringValue { pricechartingPrice = p }
-            if let score = mcRes["score"]?.intValue { metacritic = score }
+            // v1 metacritic returns `rating` (0–100), not `score`.
+            if let r = mcRes["rating"]?.intValue { metacritic = r }
         } catch {
             errorMessage = "Metadata fetch failed: \(error.localizedDescription)"
         }
