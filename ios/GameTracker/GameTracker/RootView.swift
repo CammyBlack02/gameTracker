@@ -4,6 +4,9 @@ struct RootView: View {
     @Environment(AuthManager.self) private var authManager
     let authAPI: AuthAPI
     let syncEngine: SyncEngine
+    let syncTrigger: SyncTrigger
+    let imagesAPI: ImagesAPI
+    let proxiesAPI: ProxiesAPI
     @Bindable var status: SyncStatus
 
     var body: some View {
@@ -11,7 +14,11 @@ struct RootView: View {
         case .loggedOut:
             LoginView(authAPI: authAPI)
         case .loggedIn:
-            DebugHomeView(syncEngine: syncEngine, status: status)
+            RootTabView(syncEngine: syncEngine,
+                        syncTrigger: syncTrigger,
+                        imagesAPI: imagesAPI,
+                        proxiesAPI: proxiesAPI,
+                        status: status)
         }
     }
 }
