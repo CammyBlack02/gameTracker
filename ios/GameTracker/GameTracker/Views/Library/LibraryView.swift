@@ -19,6 +19,13 @@ struct LibraryView: View {
 
     @Environment(\.modelContext) private var context
 
+    /// Reactive fetch — @Query re-runs whenever the underlying model
+    /// container reports a change (including background sync writes),
+    /// which a one-shot context.fetch in a computed property would not.
+    /// Sort + search + platform-filter are applied in memory.
+    @Query(filter: #Predicate<Game> { $0.syncStateRaw != "local_deleted" })
+    private var allGames: [Game]
+
     @State private var search = ""
     @State private var sort: LibrarySortOption = .titleAsc
     @State private var viewMode: ViewMode = .list
@@ -31,6 +38,7 @@ struct LibraryView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 ConflictBannerView(status: status) { showConflicts = true }
+                SyncStatusBannerView(status: status)
                 content
             }
             .navigationDestination(for: PersistentIdentifier.self) { id in
@@ -62,8 +70,15 @@ struct LibraryView: View {
     private var content: some View {
         let games = filteredGames
         if games.isEmpty {
-            ContentUnavailableView("No games", systemImage: "books.vertical",
-                                   description: Text("Pull to sync, or tap + to add one."))
+            // Wrap the empty state in a List so pull-to-refresh has a
+            // scroll context to attach to even when there's no data yet.
+            List {
+                ContentUnavailableView("No games", systemImage: "books.vertical",
+                                       description: Text("Pull to sync, or tap + to add one."))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+            }
+            .listStyle(.plain)
         } else {
             switch viewMode {
             case .list:
@@ -123,24 +138,16 @@ struct LibraryView: View {
 
     // MARK: - Query + filtering
 
-    /// Wraps `@Query` so the sort + search are applied. SwiftData's `@Query`
-    /// macro needs a static descriptor, so we fetch broadly and filter in
-    /// memory. With a personal collection (~hundreds of games max) this is fine.
+    /// Apply current sort + search + platform-filter to the @Query result.
+    /// In-memory work; cheap even at a few thousand rows.
     private var filteredGames: [Game] {
-        do {
-            let all = try context.fetch(FetchDescriptor<Game>(
-                predicate: #Predicate { $0.syncStateRaw != "local_deleted" },
-                sortBy: [sort.descriptor]
-            ))
-            return all.filter { g in
-                if !platformFilter.isEmpty && !platformFilter.contains(g.platform) { return false }
-                if search.isEmpty { return true }
-                let s = search.lowercased()
-                return g.title.lowercased().contains(s)
-                    || g.platform.lowercased().contains(s)
-            }
-        } catch {
-            return []
+        let sorted = allGames.sorted(using: sort.descriptor)
+        return sorted.filter { g in
+            if !platformFilter.isEmpty && !platformFilter.contains(g.platform) { return false }
+            if search.isEmpty { return true }
+            let s = search.lowercased()
+            return g.title.lowercased().contains(s)
+                || g.platform.lowercased().contains(s)
         }
     }
 

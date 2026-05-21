@@ -18,6 +18,7 @@ struct RootView: View {
                         syncTrigger: syncTrigger,
                         imagesAPI: imagesAPI,
                         proxiesAPI: proxiesAPI,
+                        authAPI: authAPI,
                         status: status)
         }
     }

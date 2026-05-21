@@ -29,6 +29,12 @@ struct PushBucket: Encodable {
 struct SyncAPI {
     let client: APIClient
 
+    /// 5-minute timeout for sync calls. The default URLSession 60 s isn't
+    /// enough for a full-pull on large accounts (hundreds of games +
+    /// completions + images can take well over a minute for the server
+    /// to query + serialize). Same ceiling applied to push.
+    private static let syncTimeout: TimeInterval = 300
+
     /// GET /api/v2/sync/changes.php?since=<ISO8601 UTC>.
     /// `since == nil` means full pull (server treats missing param as epoch).
     func fetchChanges(since: Date?) async throws -> ChangesResponseDTO {
@@ -36,12 +42,16 @@ struct SyncAPI {
         if let since {
             query["since"] = Self.iso8601UTC(since)
         }
-        return try await client.get("/api/v2/sync/changes.php", query: query)
+        return try await client.get("/api/v2/sync/changes.php",
+                                    query: query,
+                                    timeout: Self.syncTimeout)
     }
 
     /// POST /api/v2/sync/push.php with JSON body.
     func push(_ payload: PushPayload) async throws -> PushResponseDTO {
-        return try await client.postJSON("/api/v2/sync/push.php", body: payload)
+        return try await client.postJSON("/api/v2/sync/push.php",
+                                         body: payload,
+                                         timeout: Self.syncTimeout)
     }
 
     /// Format: 2026-05-21T10:30:00Z (no fractional seconds — server accepts both).

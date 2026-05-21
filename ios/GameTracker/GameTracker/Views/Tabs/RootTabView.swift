@@ -7,6 +7,7 @@ struct RootTabView: View {
     let syncTrigger: SyncTrigger
     let imagesAPI: ImagesAPI
     let proxiesAPI: ProxiesAPI
+    let authAPI: AuthAPI
     @Bindable var status: SyncStatus
 
     var body: some View {
@@ -33,9 +34,7 @@ struct RootTabView: View {
                                blurb: "Collection analytics.")
                 .tabItem { Label("Stats", systemImage: "chart.bar") }
 
-            PlaceholderTabView(title: "Settings",
-                               systemImage: "gear",
-                               blurb: "Account, sync, appearance.")
+            SettingsView(authAPI: authAPI)
                 .tabItem { Label("Settings", systemImage: "gear") }
         }
     }
