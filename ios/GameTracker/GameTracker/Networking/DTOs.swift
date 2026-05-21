@@ -287,27 +287,42 @@ enum JSONValue: Codable {
 
 // MARK: - JSONDecoder extension
 
+// Cached formatters for `iso8601WithFractional`. Building DateFormatter is
+// expensive (~1ms each); a sync/changes response with hundreds of rows
+// would thrash allocation if we built them per-decode. Build once.
+private let v2DateFormatters: [DateFormatter] = {
+    let formats = [
+        "yyyy-MM-dd'T'HH:mm:ss'Z'",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX",
+        "yyyy-MM-dd'T'HH:mm:ssXXXXX",
+    ]
+    return formats.map { fmt in
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = fmt
+        return f
+    }
+}()
+
+private let v2ISO8601Fallback: ISO8601DateFormatter = {
+    let iso = ISO8601DateFormatter()
+    iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return iso
+}()
+
 extension JSONDecoder.DateDecodingStrategy {
-    /// Accepts both `2026-05-21T10:30:00Z` and `2026-05-21T10:30:00.123+00:00`.
-    /// Matches the variants the server emits in `sync/changes` responses.
+    /// Accepts `2026-05-21T10:30:00Z`, `2026-05-21T10:30:00+00:00`, and
+    /// `2026-05-21T10:30:00.123+00:00`. Matches the variants the server
+    /// emits in `sync/changes` responses. Formatters are cached at file
+    /// scope to avoid per-decode allocation cost.
     static var iso8601WithFractional: JSONDecoder.DateDecodingStrategy {
         .custom { decoder in
             let s = try decoder.singleValueContainer().decode(String.self)
-            for fmt in [
-                "yyyy-MM-dd'T'HH:mm:ss'Z'",
-                "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX",
-                "yyyy-MM-dd'T'HH:mm:ssXXXXX",
-            ] {
-                let f = DateFormatter()
-                f.locale = Locale(identifier: "en_US_POSIX")
-                f.timeZone = TimeZone(identifier: "UTC")
-                f.dateFormat = fmt
+            for f in v2DateFormatters {
                 if let d = f.date(from: s) { return d }
             }
-            // Fall back to ISO8601DateFormatter for anything we haven't seen.
-            let iso = ISO8601DateFormatter()
-            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            if let d = iso.date(from: s) { return d }
+            if let d = v2ISO8601Fallback.date(from: s) { return d }
             throw DecodingError.dataCorruptedError(in: try decoder.singleValueContainer(),
                                                    debugDescription: "Could not parse date: \(s)")
         }
