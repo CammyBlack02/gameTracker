@@ -274,12 +274,9 @@ struct GameDetailView: View {
                 photoError = "Couldn't load image data."
                 return
             }
-            // Re-encode HEIC → JPEG so the server doesn't have to handle HEIC.
-            let jpeg: Data
-            if let ui = UIImage(data: data), let j = ui.jpegData(compressionQuality: 0.9) {
-                jpeg = j
-            } else {
-                jpeg = data
+            guard let jpeg = Self.jpegPayload(from: data) else {
+                photoError = "Couldn't decode the selected image."
+                return
             }
             _ = try await proxiesAPI.uploadCover(gameId: id,
                                                  face: .front,
@@ -292,5 +289,28 @@ struct GameDetailView: View {
         } catch {
             photoError = "Upload failed: \(error.localizedDescription)"
         }
+    }
+
+    /// Decode → downscale to ≤2048 px on the long edge → JPEG encode.
+    /// The server rejects uploads over 5 MB; raw photo-library images
+    /// (HEIC or full-res JPEG) routinely blow past that, so we always
+    /// re-encode locally first.
+    private static func jpegPayload(from data: Data) -> Data? {
+        guard let original = UIImage(data: data) else { return nil }
+        let maxEdge: CGFloat = 2048
+        let longest = max(original.size.width, original.size.height)
+        let image: UIImage
+        if longest > maxEdge {
+            let scale = maxEdge / longest
+            let newSize = CGSize(width: original.size.width * scale,
+                                 height: original.size.height * scale)
+            let renderer = UIGraphicsImageRenderer(size: newSize)
+            image = renderer.image { _ in
+                original.draw(in: CGRect(origin: .zero, size: newSize))
+            }
+        } else {
+            image = original
+        }
+        return image.jpegData(compressionQuality: 0.85)
     }
 }
