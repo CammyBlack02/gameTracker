@@ -23,6 +23,14 @@ require_once __DIR__ . '/../_helpers.php';
 require_once __DIR__ . '/../../../includes/config.php';
 require_once __DIR__ . '/../_auth.php';
 
+// Full-pull responses load every row of every synced table into memory
+// (via PDO::fetchAll), then json_encode roughly doubles peak memory to
+// build the response body. Accounts in the ~800+ games range exceed
+// the default 512M FPM cap and crash with "Allowed memory size … bytes
+// exhausted". Lift the ceiling for this endpoint specifically.
+// Long-term fix: stream rows / paginate the response.
+ini_set('memory_limit', '1024M');
+
 v2_require_method('GET');
 $userId = v2_require_auth($pdo);
 
