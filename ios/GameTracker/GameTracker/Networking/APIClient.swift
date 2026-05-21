@@ -88,7 +88,10 @@ final class APIClient: @unchecked Sendable {
     private func buildRequest(method: String,
                               path: String,
                               query: [String: String] = [:]) throws -> URLRequest {
-        var comps = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
+        guard var comps = URLComponents(url: baseURL.appendingPathComponent(path),
+                                        resolvingAgainstBaseURL: false) else {
+            throw APIError.decoding("Could not build URLComponents from \(path)")
+        }
         if !query.isEmpty {
             comps.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
         }
