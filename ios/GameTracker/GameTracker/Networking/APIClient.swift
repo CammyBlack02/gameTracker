@@ -49,11 +49,13 @@ final class APIClient: @unchecked Sendable {
     }
 
     func postJSON<T: Decodable, B: Encodable>(_ path: String,
-                                              body: B) async throws -> T {
+                                              body: B,
+                                              timeout: TimeInterval? = nil) async throws -> T {
         var req = try buildRequest(method: "POST", path: path)
         let encoder = JSONEncoder()
         req.httpBody = try encoder.encode(body)
         req.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        if let timeout { req.timeoutInterval = timeout }
         return try await send(req)
     }
 
