@@ -75,3 +75,10 @@ ios/**/Carthage/Build/
 # files; ignoring here so they don't pollute git status. NOTE: anchored
 # with leading slash so the real ios/GameTracker/ stays tracked.
 /GameTracker/
+
+# iCloud Drive conflict copies: when two devices touch the same file,
+# iCloud writes a sibling with " 2" (or " 3", etc.) appended before the
+# extension. With the iOS project's file-system-synchronized groups,
+# Xcode picks these up and the build breaks with duplicate-symbol
+# errors. Keep them untracked so a stray sync never lands them in git.
+**/* [0-9].swift
