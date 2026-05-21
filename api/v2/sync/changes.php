@@ -60,11 +60,24 @@ $pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
 header('Content-Type: application/json');
 
 /**
+ * MySQL DECIMAL columns are returned by PDO as strings (because PHP
+ * float can't represent fixed-precision decimal exactly). iOS DTOs
+ * declare these fields as Double?, which rejects strings. Cast per
+ * row before encoding so the wire format is a JSON number.
+ */
+const DECIMAL_COLUMNS = [
+    'games' => ['price_paid', 'pricecharting_price'],
+    'items' => ['price_paid', 'pricecharting_price'],
+];
+
+/**
  * Stream a `[ {...}, {...}, ... ]` JSON array directly to output by
  * fetching and json_encoding one row at a time. Caller must have
  * already emitted the array's key (`"games":`) before this runs.
  */
 function streamTable(PDO $pdo, string $table, int $userId, string $sinceUtc): void {
+    $decimalCols = DECIMAL_COLUMNS[$table] ?? [];
+
     // CONVERT_TZ(updated_at, @@session.time_zone, '+00:00') converts the stored
     // local timestamp to UTC for comparison against the UTC since value.
     $stmt = $pdo->prepare("SELECT * FROM $table
@@ -76,6 +89,11 @@ function streamTable(PDO $pdo, string $table, int $userId, string $sinceUtc): vo
     echo '[';
     $first = true;
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        foreach ($decimalCols as $col) {
+            if (array_key_exists($col, $row) && $row[$col] !== null) {
+                $row[$col] = (float)$row[$col];
+            }
+        }
         if ($first) {
             $first = false;
         } else {
