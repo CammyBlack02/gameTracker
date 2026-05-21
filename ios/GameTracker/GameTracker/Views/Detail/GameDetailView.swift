@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 struct GameDetailView: View {
     let gameID: PersistentIdentifier
@@ -16,6 +17,9 @@ struct GameDetailView: View {
     @State private var coverURLInput = ""
     @State private var coverURLInFlight = false
     @State private var coverURLError: String?
+    @State private var photoItem: PhotosPickerItem?
+    @State private var photoInFlight = false
+    @State private var photoError: String?
 
     var body: some View {
         if let game: Game = context.model(for: gameID) as? Game {
@@ -101,11 +105,27 @@ struct GameDetailView: View {
                     }
                     .buttonStyle(.bordered)
                     .padding(.horizontal)
+
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        Label("Upload cover photo…", systemImage: "photo.on.rectangle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .padding(.horizontal)
+                    .disabled(photoInFlight)
+
+                    if let err = photoError {
+                        Text(err).font(.caption).foregroundStyle(.red).padding(.horizontal)
+                    }
                 }
             }
         }
         .sheet(isPresented: $showCoverURL) {
             coverURLSheet(for: game)
+        }
+        .onChange(of: photoItem) { _, newItem in
+            guard let item = newItem else { return }
+            Task { await uploadPhoto(item, for: game) }
         }
     }
 
@@ -239,6 +259,38 @@ struct GameDetailView: View {
             showCoverURL = false
         } catch {
             coverURLError = error.localizedDescription
+        }
+    }
+
+    // MARK: - Photo-library upload
+
+    private func uploadPhoto(_ item: PhotosPickerItem, for game: Game) async {
+        guard let id = game.serverId else { return }
+        photoError = nil
+        photoInFlight = true
+        defer { photoInFlight = false; photoItem = nil }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else {
+                photoError = "Couldn't load image data."
+                return
+            }
+            // Re-encode HEIC → JPEG so the server doesn't have to handle HEIC.
+            let jpeg: Data
+            if let ui = UIImage(data: data), let j = ui.jpegData(compressionQuality: 0.9) {
+                jpeg = j
+            } else {
+                jpeg = data
+            }
+            _ = try await proxiesAPI.uploadCover(gameId: id,
+                                                 face: .front,
+                                                 imageData: jpeg,
+                                                 filename: "cover_\(id).jpg")
+            // Force a repull of this row.
+            game.lastSyncedAt = nil
+            try? context.save()
+            syncTrigger.pingAfterMutation()
+        } catch {
+            photoError = "Upload failed: \(error.localizedDescription)"
         }
     }
 }
