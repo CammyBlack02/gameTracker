@@ -1,11 +1,23 @@
 import SwiftUI
 
 /// Async-loaded cover image with a placeholder. Uses `ImagesAPI`'s
-/// on-disk cache, so subsequent renders for the same (gameServerId,
+/// on-disk cache, so subsequent renders for the same (subject,
 /// face, size) are instant.
+///
+/// Supports both game covers and item covers via two convenience
+/// inits — internally the view discriminates with the `Subject` enum
+/// and dispatches to the matching `ImagesAPI.downloadCover` overload.
 struct CoverImage: View {
 
-    let gameServerId: Int?
+    /// Which kind of resource to fetch. `nil` ID means "no image yet"
+    /// (typically the row is still `.localNew` and unpushed) — the
+    /// view renders the empty placeholder.
+    private enum Subject: Equatable {
+        case game(Int?)
+        case item(Int?)
+    }
+
+    private let subject: Subject
     let face: ImagesAPI.Face
     let size: ImagesAPI.Size
     let api: ImagesAPI
@@ -17,7 +29,17 @@ struct CoverImage: View {
          face: ImagesAPI.Face = .front,
          size: ImagesAPI.Size = .thumb,
          api: ImagesAPI) {
-        self.gameServerId = gameServerId
+        self.subject = .game(gameServerId)
+        self.face = face
+        self.size = size
+        self.api = api
+    }
+
+    init(itemServerId: Int?,
+         face: ImagesAPI.Face = .front,
+         size: ImagesAPI.Size = .thumb,
+         api: ImagesAPI) {
+        self.subject = .item(itemServerId)
         self.face = face
         self.size = size
         self.api = api
@@ -35,7 +57,7 @@ struct CoverImage: View {
                 placeholder(systemName: "photo")
             }
         }
-        .task(id: gameServerId) {
+        .task(id: subject) {
             await load()
         }
     }
@@ -52,9 +74,16 @@ struct CoverImage: View {
     }
 
     private func load() async {
-        guard let id = gameServerId else { return }
         do {
-            let url = try await api.downloadCover(gameServerId: id, face: face, size: size)
+            let url: URL
+            switch subject {
+            case .game(let id):
+                guard let id else { return }
+                url = try await api.downloadCover(gameServerId: id, face: face, size: size)
+            case .item(let id):
+                guard let id else { return }
+                url = try await api.downloadCover(itemServerId: id, face: face, size: size)
+            }
             await MainActor.run {
                 self.localURL = url
                 self.failed = false
