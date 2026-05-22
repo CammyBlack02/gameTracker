@@ -1,7 +1,9 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct AddItemView: View {
+    let imagesAPI: ImagesAPI
     let syncTrigger: SyncTrigger
 
     @Environment(\.modelContext) private var context
@@ -16,6 +18,8 @@ struct AddItemView: View {
     @State private var quantity: Int = 1
     @State private var description: String = ""
     @State private var notes: String = ""
+    @State private var pendingNewImage: UIImage? = nil
+    @State private var existingFrontImage: String? = nil   // always nil for Add; passed for symmetry
 
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
@@ -32,7 +36,11 @@ struct AddItemView: View {
                              pricechartingPrice: $pricechartingPrice,
                              quantity: $quantity,
                              description: $description,
-                             notes: $notes)
+                             notes: $notes,
+                             pendingNewImage: $pendingNewImage,
+                             existingFrontImage: $existingFrontImage,
+                             itemServerId: nil,
+                             imagesAPI: imagesAPI)
             }
             .navigationTitle("Add an item")
             .navigationBarTitleDisplayMode(.inline)
@@ -58,6 +66,10 @@ struct AddItemView: View {
         item.quantity           = quantity
         item.itemDescription    = description.isEmpty ? nil : description
         item.notes              = notes.isEmpty ? nil : notes
+        if let img = pendingNewImage,
+           let dataURI = ItemImageProcessor.dataURI(from: img) {
+            item.frontImage = dataURI
+        }
         context.insert(item)
         try? context.save()
         syncTrigger.pingAfterMutation()

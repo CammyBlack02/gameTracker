@@ -78,6 +78,20 @@ struct ImagesAPI {
         let contents = try FileManager.default.contentsOfDirectory(at: cacheRoot, includingPropertiesForKeys: nil)
         for url in contents { try FileManager.default.removeItem(at: url) }
     }
+
+    /// Purge cached item cover files for one item (both faces, both sizes).
+    /// Called by Add/Edit save paths after writing a new data URI into
+    /// `item.frontImage` so the next render fetches the new bytes instead
+    /// of returning the stale cached file.
+    func invalidateItemCover(itemServerId: Int) {
+        for face in [Face.front, Face.back] {
+            for size in [Size.thumb, Size.full] {
+                let filename = "item_\(itemServerId)_\(face.rawValue)_\(size.rawValue).jpg"
+                let dest = cacheRoot.appendingPathComponent(filename)
+                try? FileManager.default.removeItem(at: dest)
+            }
+        }
+    }
 }
 
 /// Locations on disk corresponding to the spec's four caches.
