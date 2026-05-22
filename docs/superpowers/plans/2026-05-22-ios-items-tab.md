@@ -98,7 +98,7 @@ Items/
 **Files:**
 - Create: `docs/superpowers/plans/2026-05-22-ios-items-tab.md` (this file)
 
-- [ ] **Step 0.1: Confirm current state**
+- [x] **Step 0.1: Confirm current state**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -109,7 +109,7 @@ git status --short                # only pre-existing junk (js/completions.js + 
 
 Expected: branch is `plan-3c-items-tab`; recent commits include the design spec and a corrections commit; working tree shows only pre-existing junk.
 
-- [ ] **Step 0.2: Clear iCloud Swift conflict files (if any)**
+- [x] **Step 0.2: Clear iCloud Swift conflict files (if any)**
 
 ```bash
 find ios/GameTracker -name "* [0-9].swift" -print -delete
@@ -117,7 +117,7 @@ find ios/GameTracker -name "* [0-9].swift" -print -delete
 
 Expected: prints any stragglers and deletes them, or prints nothing if clean.
 
-- [ ] **Step 0.3: Baseline test pass**
+- [x] **Step 0.3: Baseline test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -128,7 +128,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: `** TEST SUCCEEDED **`.
 
-- [ ] **Step 0.4: Commit this plan doc**
+- [x] **Step 0.4: Commit this plan doc**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -145,7 +145,7 @@ git commit -m "Add Plan 3c (iOS Items tab) implementation plan"
 
 The endpoint currently hard-codes the `games` table. Extend it to accept an optional `?type=game|item` query parameter, defaulting to `game` for back-compat. When `type=item`, query the `items` table's `front_image` / `back_image` columns instead. The downstream format dispatch (data URI / external HTTPS / bare filename) is unchanged.
 
-- [ ] **Step 1.1: Edit `api/v2/images/cover.php`**
+- [x] **Step 1.1: Edit `api/v2/images/cover.php`**
 
 Find this block near the top:
 
@@ -207,7 +207,7 @@ $stmt->execute([$id, $userId]);
 
 Everything below `$stmt->execute(...)` is unchanged — the row-fetch, `not_found` guard, data-URI/HTTPS/bare-filename dispatch, and `readfile` all operate on `$row['path']` exactly the same way for both tables.
 
-- [ ] **Step 1.2: Sanity-check the file still parses**
+- [x] **Step 1.2: Sanity-check the file still parses**
 
 ```bash
 php -l api/v2/images/cover.php
@@ -215,7 +215,7 @@ php -l api/v2/images/cover.php
 
 Expected: `No syntax errors detected in api/v2/images/cover.php`.
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 ```bash
 git add api/v2/images/cover.php
@@ -226,7 +226,7 @@ unchanged. The downstream format dispatch (data URI / HTTPS /
 bare filename) is identical for both tables."
 ```
 
-- [ ] **Step 1.4: Deploy to the live server**
+- [x] **Step 1.4: Deploy to the live server**
 
 The iOS checkpoint at the end of this plan can't verify item images until this change is live on the server. Deploy via whatever flow the owner uses (manual git pull on the server, rsync, etc.). If unsure, stop here and confirm with the owner before continuing.
 
@@ -239,7 +239,7 @@ The iOS checkpoint at the end of this plan can't verify item images until this c
 
 Add a sibling method to the existing `downloadCover(gameServerId:face:size:)` that hits the same endpoint but with `type=item`. Distinct cache filename prefix (`item_…` vs `cover_…`) prevents collisions between a game and an item with the same server ID.
 
-- [ ] **Step 2.1: Edit `ImagesAPI.swift`**
+- [x] **Step 2.1: Edit `ImagesAPI.swift`**
 
 Locate the existing `downloadCover` method:
 
@@ -283,7 +283,7 @@ func downloadCover(itemServerId: Int, face: Face, size: Size) async throws -> UR
 
 Leave the original `downloadCover(gameServerId:…)` untouched — it omits the `type` param, the server defaults to `game`, all existing callers keep working.
 
-- [ ] **Step 2.2: Build check**
+- [x] **Step 2.2: Build check**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -303,7 +303,7 @@ Expected: `** BUILD SUCCEEDED **`. (No commit yet — Tasks 2–10 are interdepe
 
 Generalize the view to load either a game cover or an item cover via a private `Subject` discriminator. Two convenience inits — `init(gameServerId:…)` (existing) and `init(itemServerId:…)` (new) — set the right subject internally. Every existing call site keeps working byte-for-byte.
 
-- [ ] **Step 3.1: Rewrite `CoverImage.swift`**
+- [x] **Step 3.1: Rewrite `CoverImage.swift`**
 
 Replace the file's entire contents with:
 
@@ -411,7 +411,7 @@ Key changes from the prior file:
 - The `.task(id:)` modifier now keys off `subject` (which conforms to `Equatable`), so a change in either the game ID or the item ID re-fetches as before.
 - `load()` switches on the subject and calls the matching `ImagesAPI.downloadCover` overload.
 
-- [ ] **Step 3.2: Build check (still compiles for every existing call site)**
+- [x] **Step 3.2: Build check (still compiles for every existing call site)**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -430,7 +430,7 @@ Expected: `** BUILD SUCCEEDED **`. (If any existing call site of `CoverImage(gam
 
 Shared enum used by every Items view: the filter chip, list rows, grid cells, form bodies, and detail view all need to map between the model's `String` category and a small typed enum with display labels + system icons.
 
-- [ ] **Step 4.1: Write `ItemCategory.swift`**
+- [x] **Step 4.1: Write `ItemCategory.swift`**
 
 ```swift
 import Foundation
@@ -471,7 +471,7 @@ enum ItemCategory: String, CaseIterable, Identifiable {
 }
 ```
 
-- [ ] **Step 4.2: Build check**
+- [x] **Step 4.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -490,7 +490,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Shared Form body used by both Add and Edit. All bindings owned by the parent view (lesson from Plan 3b: no nested sheets, parents own state and presentation).
 
-- [ ] **Step 5.1: Write `ItemFormBody.swift`**
+- [x] **Step 5.1: Write `ItemFormBody.swift`**
 
 ```swift
 import SwiftUI
@@ -553,7 +553,7 @@ struct ItemFormBody: View {
 }
 ```
 
-- [ ] **Step 5.2: Build check**
+- [x] **Step 5.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -572,7 +572,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Sheet that creates a new `Item` with `syncState = .localNew` and triggers a debounced sync.
 
-- [ ] **Step 6.1: Write `AddItemView.swift`**
+- [x] **Step 6.1: Write `AddItemView.swift`**
 
 ```swift
 import SwiftUI
@@ -643,7 +643,7 @@ struct AddItemView: View {
 }
 ```
 
-- [ ] **Step 6.2: Build check**
+- [x] **Step 6.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -662,7 +662,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Same form, bound to an existing `Item` via `PersistentIdentifier`. On save: transitions `.synced → .localModified` only (so untouched-then-synced rows don't get re-pushed).
 
-- [ ] **Step 7.1: Write `EditItemView.swift`**
+- [x] **Step 7.1: Write `EditItemView.swift`**
 
 ```swift
 import SwiftUI
@@ -750,7 +750,7 @@ struct EditItemView: View {
 }
 ```
 
-- [ ] **Step 7.2: Build check**
+- [x] **Step 7.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -769,7 +769,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Single row (list mode): cover thumb + title + caption (icon + platform + condition) + quantity badge if > 1 + sync badge. Mirrors `GameListRow`.
 
-- [ ] **Step 8.1: Write `ItemsListRow.swift`**
+- [x] **Step 8.1: Write `ItemsListRow.swift`**
 
 ```swift
 import SwiftUI
@@ -825,7 +825,7 @@ struct ItemsListRow: View {
 }
 ```
 
-- [ ] **Step 8.2: Build check**
+- [x] **Step 8.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -844,7 +844,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Square cover with title overlay, sync badge top-left, quantity badge top-right when > 1. Mirrors `GameGridCell`'s shape.
 
-- [ ] **Step 9.1: Write `ItemsGridCell.swift`**
+- [x] **Step 9.1: Write `ItemsGridCell.swift`**
 
 ```swift
 import SwiftUI
@@ -896,7 +896,7 @@ struct ItemsGridCell: View {
 }
 ```
 
-- [ ] **Step 9.2: Build check**
+- [x] **Step 9.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -915,7 +915,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Pushed onto the nav stack from `ItemsView`. Shows the front cover (tap to swap to back if both images are present), full metadata sections, and an Edit button that opens `EditItemView` as a sheet.
 
-- [ ] **Step 10.1: Write `ItemDetailView.swift`**
+- [x] **Step 10.1: Write `ItemDetailView.swift`**
 
 ```swift
 import SwiftUI
@@ -1055,7 +1055,7 @@ struct ItemDetailView: View {
 }
 ```
 
-- [ ] **Step 10.2: Build check**
+- [x] **Step 10.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -1075,7 +1075,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 The tab itself. Reactive `@Query` of every non-deleted `Item`, sorted title A→Z. Inline segmented category filter at the top of the content area. Search by title or platform. Toolbar `+` opens `AddItemView`; toolbar `ellipsis.circle` Menu hosts the list/grid toggle. Tapping a row pushes `ItemDetailView`. Swipe-to-delete soft-deletes if `serverId` is set; hard-deletes otherwise.
 
-- [ ] **Step 11.1: Write `ItemsView.swift`**
+- [x] **Step 11.1: Write `ItemsView.swift`**
 
 ```swift
 import SwiftUI
@@ -1244,7 +1244,7 @@ struct ItemsView: View {
 }
 ```
 
-- [ ] **Step 11.2: Edit `RootTabView.swift`**
+- [x] **Step 11.2: Edit `RootTabView.swift`**
 
 Find this block:
 
@@ -1267,7 +1267,7 @@ Replace it with:
 
 (Tab icon changes from `gamecontroller` — which clashes visually with the console category icon — to `shippingbox`, evoking "collection / boxed things".)
 
-- [ ] **Step 11.3: Full test pass**
+- [x] **Step 11.3: Full test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -1278,7 +1278,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: `** TEST SUCCEEDED **`. No new tests; the model + sync layer is already covered from Plan 2, and the view layer is exercised manually via the checkpoint.
 
-- [ ] **Step 11.4: Commit Tasks 2–11 together**
+- [x] **Step 11.4: Commit Tasks 2–11 together**
 
 These nine new files plus the `RootTabView` modification plus the `ImagesAPI` / `CoverImage` extensions all ship in one commit (matches Plan 3b's bundling of interdependent UI work):
 
@@ -1333,7 +1333,7 @@ Tasks 12–15 implement front-cover upload; Tasks 16–17 are the renumbered ori
 
 Without these the app crashes the first time the camera or photo library is accessed. Add them via Xcode UI (Target → Info tab) or by editing the pbxproj's build settings block directly.
 
-- [ ] **Step 12.1: Add the two keys via Xcode**
+- [x] **Step 12.1: Add the two keys via Xcode**
 
 Open `ios/GameTracker/GameTracker.xcodeproj` in Xcode. Select the `GameTracker` target → **Info** tab → under "Custom iOS Target Properties" → click `+` to add two rows:
 
@@ -1344,7 +1344,7 @@ Open `ios/GameTracker/GameTracker.xcodeproj` in Xcode. Select the `GameTracker` 
 
 (Xcode displays human-readable names; the underlying keys it writes are `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription`.)
 
-- [ ] **Step 12.2: Verify the keys landed in pbxproj**
+- [x] **Step 12.2: Verify the keys landed in pbxproj**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1353,7 +1353,7 @@ grep -E "INFOPLIST_KEY_NSCameraUsageDescription|INFOPLIST_KEY_NSPhotoLibraryUsag
 
 Expected: at least one match per key (the target has both Debug and Release configurations, so 2 hits per key = 4 total is normal).
 
-- [ ] **Step 12.3: Build check**
+- [x] **Step 12.3: Build check**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -1372,7 +1372,7 @@ Expected: `** BUILD SUCCEEDED **`. (No commit yet — Tasks 12–15 ship in one 
 
 After a user edits an item's image, the cached `item_<id>_<face>_<size>.jpg` files would otherwise be served on the next render instead of the freshly-saved data URI. This helper purges them so the next `CoverImage.task(id:)` re-fetches.
 
-- [ ] **Step 13.1: Add the helper to `ImagesAPI`**
+- [x] **Step 13.1: Add the helper to `ImagesAPI`**
 
 Find the `clearCache()` method near the bottom of the struct. Add **immediately after it**:
 
@@ -1392,7 +1392,7 @@ func invalidateItemCover(itemServerId: Int) {
 }
 ```
 
-- [ ] **Step 13.2: Build check**
+- [x] **Step 13.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 \
@@ -1413,7 +1413,7 @@ Single file containing:
 2. A static `processForUpload(_:)` helper that downscales a `UIImage` to max 1024px on the longer edge, JPEG-encodes at quality 0.7, base64-encodes, and prepends `data:image/jpeg;base64,`.
 3. The SwiftUI `ItemImagePickerSection` view — placeholder tap-zone OR preview + Change/Remove buttons, action sheet for Take Photo / Choose from Library.
 
-- [ ] **Step 14.1: Write `ItemImagePicker.swift`**
+- [x] **Step 14.1: Write `ItemImagePicker.swift`**
 
 ```swift
 import SwiftUI
@@ -1594,7 +1594,7 @@ struct ItemImagePickerSection: View {
 
 > **Note:** SwiftUI's `.photosPicker` modifier with `isPresented: .constant(false)` together with a `selection:` binding is a documented pattern: the picker presents itself when the user selects a `PhotosPickerItem` via the system flow. The action-sheet button for "Choose from Library" exists for UX clarity but the actual presentation is implicit through the binding. If this pattern produces an awkward UX in practice, replace the `confirmationDialog` with two separate `Menu` items: one wrapping a `PhotosPicker(...)` directly, one toggling `showCamera`.
 
-- [ ] **Step 14.2: Build check**
+- [x] **Step 14.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 \
@@ -1612,7 +1612,7 @@ Expected: `** BUILD SUCCEEDED **`.
 - Modify: `ios/GameTracker/GameTracker/Views/Items/AddItemView.swift`
 - Modify: `ios/GameTracker/GameTracker/Views/Items/EditItemView.swift`
 
-- [ ] **Step 15.1: Edit `ItemFormBody.swift`**
+- [x] **Step 15.1: Edit `ItemFormBody.swift`**
 
 Add four new bindings + an `imagesAPI` constant + an `itemServerId` optional to the struct, and inject `ItemImagePickerSection` at the top of the `Group`. Find the existing struct definition:
 
@@ -1669,7 +1669,7 @@ and replace with:
             Section("Title & category") {
 ```
 
-- [ ] **Step 15.2: Edit `AddItemView.swift`**
+- [x] **Step 15.2: Edit `AddItemView.swift`**
 
 The view needs an `imagesAPI` parameter (currently it doesn't have one) plus two new `@State` properties for the upload bindings. Find the property block:
 
@@ -1780,7 +1780,7 @@ So the full save body becomes:
     }
 ```
 
-- [ ] **Step 15.3: Edit `EditItemView.swift`**
+- [x] **Step 15.3: Edit `EditItemView.swift`**
 
 Add an `imagesAPI` parameter and the same two state properties; load the existing frontImage on `loadOnce`; on save, encode the new image (if any), nil out frontImage if the user removed it, and invalidate the cache.
 
@@ -1949,7 +1949,7 @@ Replace with:
     }
 ```
 
-- [ ] **Step 15.4: Update `ItemsView` to pass `imagesAPI` into `AddItemView`**
+- [x] **Step 15.4: Update `ItemsView` to pass `imagesAPI` into `AddItemView`**
 
 `AddItemView` now takes an `imagesAPI` parameter. Find its instantiation in `ItemsView.swift`:
 
@@ -1967,7 +1967,7 @@ Replace with:
             }
 ```
 
-- [ ] **Step 15.5: Update `ItemDetailView` to pass `imagesAPI` into `EditItemView`**
+- [x] **Step 15.5: Update `ItemDetailView` to pass `imagesAPI` into `EditItemView`**
 
 `EditItemView` now takes an `imagesAPI` parameter. Find its instantiation in `ItemDetailView.swift`:
 
@@ -1985,7 +1985,7 @@ Replace with:
         }
 ```
 
-- [ ] **Step 15.6: Full test pass**
+- [x] **Step 15.6: Full test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -1995,7 +1995,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 
 Expected: `** TEST SUCCEEDED **`.
 
-- [ ] **Step 15.7: Commit Tasks 12–15 together**
+- [x] **Step 15.7: Commit Tasks 12–15 together**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -2032,9 +2032,9 @@ If anything fails, resume the implementer queue only after the owner reports a s
 
 If the user-checkpoint above covered every flow they care about (which the precedent from Plans 3a and 3b suggests it usually does), this task is a no-op — confirm with them and move to Task 17. Otherwise, walk the table below.
 
-- [ ] **Step 16.1: ⌘R the app**
+- [x] **Step 16.1: ⌘R the app**
 
-- [ ] **Step 16.2: Optional checklist (skip if checkpoint coverage was sufficient)**
+- [x] **Step 16.2: Optional checklist (skip if checkpoint coverage was sufficient)**
 
 | # | Action | Expected |
 |---|---|---|
@@ -2048,7 +2048,7 @@ If the user-checkpoint above covered every flow they care about (which the prece
 
 **Files:** none
 
-- [ ] **Step 17.1: Verify clean working tree**
+- [x] **Step 17.1: Verify clean working tree**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -2057,7 +2057,7 @@ git status --short
 
 Expected: only pre-existing junk (`js/completions.js`, iCloud `.sh`/`.php` conflict copies).
 
-- [ ] **Step 17.2: Push**
+- [x] **Step 17.2: Push**
 
 ```bash
 git push origin plan-3c-items-tab
@@ -2065,7 +2065,7 @@ git push origin plan-3c-items-tab
 
 (Branch is already tracking origin from the earlier push during the checkpoint.)
 
-- [ ] **Step 17.3: Mark this plan complete**
+- [x] **Step 17.3: Mark this plan complete**
 
 ```bash
 sed -i '' 's/^- \[ \]/- [x]/g' docs/superpowers/plans/2026-05-22-ios-items-tab.md
@@ -2074,7 +2074,7 @@ git commit -m "Mark Plan 3c (iOS Items tab) complete"
 git push
 ```
 
-- [ ] **Step 17.4: Open PR**
+- [x] **Step 17.4: Open PR**
 
 ```bash
 gh pr create --base main --head plan-3c-items-tab \
@@ -2126,12 +2126,12 @@ EOF
 
 ## Self-review checklist (run before declaring done)
 
-- [ ] Every referenced symbol exists: `Item`, `ItemImage`, `SyncState`, `SyncStatus`, `SyncEngine`, `SyncTrigger`, `ImagesAPI`, `APIClient`, `CoverImage`, `ConflictBannerView`, `ConflictListView`, `SyncStateBadge`, `SyncStatusBannerView`, `PlaceholderTabView`. (All landed via Plan 2 / 3a / 3b.)
-- [ ] No file is referenced by two different names across tasks.
-- [ ] `ItemFormBody` has the same property order and types when called by `AddItemView` (Task 6) and `EditItemView` (Task 7).
-- [ ] `ItemsView` filter, sort, and search compose correctly: query is sorted by title; filter narrows in memory by category; search narrows further by title or platform substring.
-- [ ] Every existing `CoverImage(gameServerId: …)` call site still compiles after the Task 3 rewrite. (LibraryView, GameDetailView, CompletionsView, CompletionFormBody, CompletionsListRow, GamePickerSheet.)
-- [ ] Server-side `cover.php` extension keeps `?type=game` as default — existing iOS clients (every current call site of `downloadCover(gameServerId:…)`) keep working without modification.
-- [ ] Cache filename namespace: `cover_<id>_…` for games (unchanged) vs `item_<id>_…` for items (new). No collision possible.
-- [ ] All commit messages cover the visible behaviour and bundle interdependent files together (matches Plan 3b's style).
-- [ ] No "TBD" or "implement later" left anywhere.
+- [x] Every referenced symbol exists: `Item`, `ItemImage`, `SyncState`, `SyncStatus`, `SyncEngine`, `SyncTrigger`, `ImagesAPI`, `APIClient`, `CoverImage`, `ConflictBannerView`, `ConflictListView`, `SyncStateBadge`, `SyncStatusBannerView`, `PlaceholderTabView`. (All landed via Plan 2 / 3a / 3b.)
+- [x] No file is referenced by two different names across tasks.
+- [x] `ItemFormBody` has the same property order and types when called by `AddItemView` (Task 6) and `EditItemView` (Task 7).
+- [x] `ItemsView` filter, sort, and search compose correctly: query is sorted by title; filter narrows in memory by category; search narrows further by title or platform substring.
+- [x] Every existing `CoverImage(gameServerId: …)` call site still compiles after the Task 3 rewrite. (LibraryView, GameDetailView, CompletionsView, CompletionFormBody, CompletionsListRow, GamePickerSheet.)
+- [x] Server-side `cover.php` extension keeps `?type=game` as default — existing iOS clients (every current call site of `downloadCover(gameServerId:…)`) keep working without modification.
+- [x] Cache filename namespace: `cover_<id>_…` for games (unchanged) vs `item_<id>_…` for items (new). No collision possible.
+- [x] All commit messages cover the visible behaviour and bundle interdependent files together (matches Plan 3b's style).
+- [x] No "TBD" or "implement later" left anywhere.
