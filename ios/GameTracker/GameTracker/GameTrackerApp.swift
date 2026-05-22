@@ -16,6 +16,10 @@ struct GameTrackerApp: App {
 
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
 
+    private var theme: Theme {
+        ThemeRegistry.theme(for: appearanceMode)
+    }
+
     private var apiClient: APIClient {
         APIClient(baseURL: Config.serverBaseURL,
                   tokenProvider: { [authManager] in authManager.currentToken })
@@ -32,13 +36,26 @@ struct GameTrackerApp: App {
 
     var body: some Scene {
         WindowGroup {
+            // Theme background + flourish are applied per-screen by
+            // `.themedBackground()` on each tab / sheet root. We can't
+            // host them at the WindowGroup level because SwiftUI's
+            // TabView container is opaque and would cover them.
             RootViewContainer(authAPI: authAPI,
                               syncAPI: syncAPI,
                               proxiesAPI: proxiesAPI,
                               imagesAPI: imagesAPI,
                               status: status)
                 .environment(authManager)
-                .preferredColorScheme(appearanceMode.colorScheme)
+                .environment(\.theme, theme)
+            .preferredColorScheme(theme.colorScheme)
+            .tint(theme.accent)
+            .fontDesign(theme.fontDesign)
+            .onAppear {
+                applyAppKitAppearance(for: theme, mode: appearanceMode)
+            }
+            .onChange(of: appearanceMode) { _, newMode in
+                applyAppKitAppearance(for: ThemeRegistry.theme(for: newMode), mode: newMode)
+            }
         }
         .modelContainer(container)
     }

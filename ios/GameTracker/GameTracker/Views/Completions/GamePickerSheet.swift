@@ -58,6 +58,7 @@ struct GamePickerSheet: View {
                     Button("Cancel") { dismiss() }
                 }
             }
+            .themedBackground()
         }
     }
 }

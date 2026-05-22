@@ -45,6 +45,7 @@ struct AddCompletionView: View {
             .sheet(isPresented: $showGamePicker) {
                 GamePickerSheet(onPick: { pickedGame = $0 }, imagesAPI: imagesAPI)
             }
+            .themedBackground()
         }
     }
 

@@ -90,6 +90,7 @@ struct AddGameView: View {
                         .disabled(!canSave)
                 }
             }
+            .themedBackground()
         }
     }
 
