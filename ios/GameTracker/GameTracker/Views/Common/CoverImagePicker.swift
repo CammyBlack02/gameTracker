@@ -180,12 +180,16 @@ struct CoverImagePickerSection: View {
             }
         }
         .confirmationDialog("Add an image", isPresented: $showSourceSheet, titleVisibility: .visible) {
-            Button("Take Photo") { activeSheet = .camera }
-            Button("Choose from Library") { showLibrary = true }
+            Button("Take Photo") {
+                DispatchQueue.main.async { activeSheet = .camera }
+            }
+            Button("Choose from Library") {
+                DispatchQueue.main.async { showLibrary = true }
+            }
             Button("Paste URL") {
                 urlInput = ""
                 urlFetchError = nil
-                activeSheet = .urlDialog
+                DispatchQueue.main.async { activeSheet = .urlDialog }
             }
             Button("Cancel", role: .cancel) {}
         }
