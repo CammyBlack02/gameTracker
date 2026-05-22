@@ -1,8 +1,10 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct EditItemView: View {
     let itemID: PersistentIdentifier
+    let imagesAPI: ImagesAPI
     let syncTrigger: SyncTrigger
 
     @Environment(\.modelContext) private var context
@@ -17,10 +19,16 @@ struct EditItemView: View {
     @State private var quantity: Int = 1
     @State private var description: String = ""
     @State private var notes: String = ""
+    @State private var pendingNewImage: UIImage? = nil
+    @State private var existingFrontImage: String? = nil
     @State private var loaded = false
 
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private var currentItemServerId: Int? {
+        (context.model(for: itemID) as? Item)?.serverId
     }
 
     var body: some View {
@@ -34,7 +42,11 @@ struct EditItemView: View {
                              pricechartingPrice: $pricechartingPrice,
                              quantity: $quantity,
                              description: $description,
-                             notes: $notes)
+                             notes: $notes,
+                             pendingNewImage: $pendingNewImage,
+                             existingFrontImage: $existingFrontImage,
+                             itemServerId: currentItemServerId,
+                             imagesAPI: imagesAPI)
             }
             .navigationTitle("Edit item")
             .navigationBarTitleDisplayMode(.inline)
@@ -61,6 +73,7 @@ struct EditItemView: View {
         quantity           = max(1, i.quantity)
         description        = i.itemDescription ?? ""
         notes              = i.notes ?? ""
+        existingFrontImage = i.frontImage
         loaded = true
     }
 
@@ -75,8 +88,26 @@ struct EditItemView: View {
         i.quantity           = quantity
         i.itemDescription    = description.isEmpty ? nil : description
         i.notes              = notes.isEmpty ? nil : notes
+
+        // Image upload: if a new photo was picked this session, encode +
+        // overwrite the model's frontImage. If the user removed (both
+        // bindings nilled), clear it. Otherwise leave the original
+        // string untouched (legacy bare-filename / HTTPS values).
+        if let img = pendingNewImage,
+           let dataURI = ItemImageProcessor.dataURI(from: img) {
+            i.frontImage = dataURI
+        } else if pendingNewImage == nil && existingFrontImage == nil && i.frontImage != nil {
+            i.frontImage = nil
+        }
+
         if i.syncState == .synced { i.syncState = .localModified }
         try? context.save()
+
+        // Purge cached cover files so the next render re-fetches the new bytes.
+        if let serverId = i.serverId {
+            imagesAPI.invalidateItemCover(itemServerId: serverId)
+        }
+
         syncTrigger.pingAfterMutation()
         dismiss()
     }
