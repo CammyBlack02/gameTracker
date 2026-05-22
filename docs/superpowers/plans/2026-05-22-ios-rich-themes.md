@@ -78,7 +78,7 @@ ios/GameTracker/GameTrackerTests/ThemeRegistryTests.swift
 **Files:**
 - Create: `docs/superpowers/plans/2026-05-22-ios-rich-themes.md` (this file)
 
-- [ ] **Step 0.1: Confirm current state**
+- [x] **Step 0.1: Confirm current state**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -89,13 +89,13 @@ git status --short                # only pre-existing junk
 
 Expected: branch is `plan-4b-rich-themes`; spec commit (`17093fa`) sits on top of the 4a merge (`1a62134`).
 
-- [ ] **Step 0.2: Clear iCloud Swift conflict files**
+- [x] **Step 0.2: Clear iCloud Swift conflict files**
 
 ```bash
 find ios/GameTracker -name "* [0-9].swift" -print -delete
 ```
 
-- [ ] **Step 0.3: Baseline test pass**
+- [x] **Step 0.3: Baseline test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -106,7 +106,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: `** TEST SUCCEEDED **`.
 
-- [ ] **Step 0.4: Commit this plan doc**
+- [x] **Step 0.4: Commit this plan doc**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -125,7 +125,7 @@ git commit -m "Add Plan 4b (iOS rich themes) implementation plan"
 
 This is the foundation. Adds the new cases, the theme model, the registry, the environment key, and the `Color(hex:)` helper — all in one cohesive unit.
 
-- [ ] **Step 1.1: Write the failing tests**
+- [x] **Step 1.1: Write the failing tests**
 
 Write `ios/GameTracker/GameTrackerTests/ThemeRegistryTests.swift`:
 
@@ -204,7 +204,7 @@ final class ThemeRegistryTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 1.2: Run tests — expect compile failure**
+- [x] **Step 1.2: Run tests — expect compile failure**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -215,7 +215,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: BUILD FAILED — `ThemeRegistry`, `Theme`, and the new `AppearanceMode` cases are not found. Correct; next steps create them.
 
-- [ ] **Step 1.3: Extend `AppearanceMode`**
+- [x] **Step 1.3: Extend `AppearanceMode`**
 
 Overwrite `ios/GameTracker/GameTracker/Settings/AppearanceMode.swift`:
 
@@ -261,7 +261,7 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 }
 ```
 
-- [ ] **Step 1.4: Create `Theme.swift`**
+- [x] **Step 1.4: Create `Theme.swift`**
 
 Write `ios/GameTracker/GameTracker/Settings/Theme.swift`:
 
@@ -428,7 +428,7 @@ extension EnvironmentValues {
 }
 ```
 
-- [ ] **Step 1.5: Run tests — expect pass**
+- [x] **Step 1.5: Run tests — expect pass**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -450,7 +450,7 @@ Game Boy theme needs a pixel font. Press Start 2P is OFL-licensed via Google Fon
 
 This project uses `GENERATE_INFOPLIST_FILE = YES` with `INFOPLIST_KEY_*` build settings (no explicit Info.plist file). The standard way to register bundled fonts is to add `INFOPLIST_KEY_UIAppFonts` to the target's build settings, which Xcode then folds into the auto-generated Info.plist.
 
-- [ ] **Step 2.1: Create the Fonts directory and download the TTF**
+- [x] **Step 2.1: Create the Fonts directory and download the TTF**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -463,7 +463,7 @@ ls -lh ios/GameTracker/GameTracker/Resources/Fonts/PressStart2P-Regular.ttf
 
 Expected: `file` reports a TrueType Font file. Size is roughly 22 KB. If `curl` fails or returns HTML, STOP — flag as BLOCKED.
 
-- [ ] **Step 2.2: Add `INFOPLIST_KEY_UIAppFonts` to project.pbxproj**
+- [x] **Step 2.2: Add `INFOPLIST_KEY_UIAppFonts` to project.pbxproj**
 
 The project has two `XCBuildConfiguration` blocks for the `GameTracker` target — one for Debug, one for Release — each containing the `INFOPLIST_KEY_*` lines. Add `INFOPLIST_KEY_UIAppFonts` to BOTH.
 
@@ -492,7 +492,7 @@ Example anchor (single occurrence — adapt for each config):
 
 This anchor appears twice (Debug + Release). Use `replace_all: true` so both get the addition in one edit.
 
-- [ ] **Step 2.3: Verify the edit landed in both configs**
+- [x] **Step 2.3: Verify the edit landed in both configs**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -501,7 +501,7 @@ grep -c "INFOPLIST_KEY_UIAppFonts" ios/GameTracker/GameTracker.xcodeproj/project
 
 Expected: `2` (one for Debug, one for Release).
 
-- [ ] **Step 2.4: Build check — verify the font registers in the bundle**
+- [x] **Step 2.4: Build check — verify the font registers in the bundle**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -523,7 +523,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Matrix's signature flourish: falling glyphs in phosphor green. SwiftUI `Canvas` + `TimelineView(.animation)` capped at 30fps.
 
-- [ ] **Step 3.1: Write `ThemeFlourishes.swift` with `CodeRainView`**
+- [x] **Step 3.1: Write `ThemeFlourishes.swift` with `CodeRainView`**
 
 Write `ios/GameTracker/GameTracker/Settings/ThemeFlourishes.swift`:
 
@@ -584,7 +584,7 @@ struct CodeRainView: View {
 }
 ```
 
-- [ ] **Step 3.2: Build check**
+- [x] **Step 3.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -603,7 +603,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Static overlay — repeating horizontal dark lines every 4pt, 30% opacity. Sits in `.overlay(...)` with hit testing disabled.
 
-- [ ] **Step 4.1: Append `ScanlineOverlayView` to `ThemeFlourishes.swift`**
+- [x] **Step 4.1: Append `ScanlineOverlayView` to `ThemeFlourishes.swift`**
 
 Append to `ios/GameTracker/GameTracker/Settings/ThemeFlourishes.swift`:
 
@@ -629,7 +629,7 @@ struct ScanlineOverlayView: View {
 }
 ```
 
-- [ ] **Step 4.2: Build check**
+- [x] **Step 4.2: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -649,7 +649,7 @@ Section headers don't get a SwiftUI tint API that gives us beveled gradient back
 
 Actually for this plan's scope, we apply the appearance proxy globally and skip per-section modifiers — the spec calls for the nav-bar treatment. Section headers in Forms remain SwiftUI-styled and will inherit the theme's text color but not a gradient background. This is a known acceptable compromise.
 
-- [ ] **Step 5.1: Append `applyAppKitAppearance` helper**
+- [x] **Step 5.1: Append `applyAppKitAppearance` helper**
 
 Append to `ios/GameTracker/GameTracker/Settings/ThemeFlourishes.swift`:
 
@@ -706,7 +706,7 @@ private func platinumGradientImage() -> UIImage {
 }
 ```
 
-- [ ] **Step 5.2: Build check**
+- [x] **Step 5.2: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -719,7 +719,7 @@ Expected: **BUILD SUCCEEDED**.
 
 A `[[ stitchable ]]` Metal fragment function that takes a pixel's RGBA, converts to luminance, applies ordered-Bayer-4 dithering, and outputs one of the four Game Boy palette colors.
 
-- [ ] **Step 6.1: Create the metal shader**
+- [x] **Step 6.1: Create the metal shader**
 
 Write `ios/GameTracker/GameTracker/Settings/GameBoyDither.metal`:
 
@@ -772,7 +772,7 @@ using namespace metal;
 }
 ```
 
-- [ ] **Step 6.2: Build check**
+- [x] **Step 6.2: Build check**
 
 Expected: **BUILD SUCCEEDED**. Xcode's Metal compiler should pick up the `.metal` file automatically (file-system synchronized root group includes Metal sources in the `Compile Sources` phase).
 
@@ -787,7 +787,7 @@ If the build fails with "Metal toolchain not installed" or similar, you may need
 
 The big plumbing step. Reads the theme from the registry, injects it into the environment, and chains every root modifier the spec requires.
 
-- [ ] **Step 7.1: Read current `GameTrackerApp.swift`**
+- [x] **Step 7.1: Read current `GameTrackerApp.swift`**
 
 Use the Read tool to load `ios/GameTracker/GameTracker/GameTrackerApp.swift`. You'll see (post 4a):
 
@@ -808,7 +808,7 @@ var body: some Scene {
 }
 ```
 
-- [ ] **Step 7.2: Replace the `body` and add a computed `theme` property**
+- [x] **Step 7.2: Replace the `body` and add a computed `theme` property**
 
 Find the `@AppStorage("appearanceMode")` line. Just after it, add:
 
@@ -855,7 +855,7 @@ Rationale:
 - `.tint`, `.fontDesign` propagate visually.
 - `.onAppear` + `.onChange` keep `UINavigationBar.appearance()` in sync (UIKit doesn't observe SwiftUI state).
 
-- [ ] **Step 7.3: Build check**
+- [x] **Step 7.3: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -868,11 +868,11 @@ Expected: **BUILD SUCCEEDED**.
 
 `CoverImage` already exists (see Plan 3e — the file with `.task(id: LoadKey(...))`). We add a `.colorEffect(...)` only when the active theme calls for it AND the size is `.full` (thumb-size renders stay unchanged for grid performance).
 
-- [ ] **Step 8.1: Read current `CoverImage.swift`**
+- [x] **Step 8.1: Read current `CoverImage.swift`**
 
 Use the Read tool to load `ios/GameTracker/GameTracker/Views/Common/CoverImage.swift`. Note the `body` returns a `Group` containing an `Image(uiImage:)` or a placeholder.
 
-- [ ] **Step 8.2: Add `@Environment(\.theme)` and conditional `.colorEffect`**
+- [x] **Step 8.2: Add `@Environment(\.theme)` and conditional `.colorEffect`**
 
 After the existing `@State private var failed = false` line, add:
 
@@ -942,7 +942,7 @@ private struct GameBoyDitherIfApplicable: ViewModifier {
 }
 ```
 
-- [ ] **Step 8.3: Build check**
+- [x] **Step 8.3: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -962,11 +962,11 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 
 The Library tab already shows some empty-state view when the user has no games. Add a `CodeRainView()` as that view's background when `theme.flourish == .codeRain`.
 
-- [ ] **Step 9.1: Locate the empty state in `LibraryView.swift`**
+- [x] **Step 9.1: Locate the empty state in `LibraryView.swift`**
 
 Use the Read tool on `ios/GameTracker/GameTracker/Views/Library/LibraryView.swift`. Search for `ContentUnavailableView` or `if games.isEmpty` — whichever pattern is used. The empty state was added by Plan 3a; the exact code shape may vary.
 
-- [ ] **Step 9.2: Add `@Environment(\.theme)` to `LibraryView`**
+- [x] **Step 9.2: Add `@Environment(\.theme)` to `LibraryView`**
 
 Near the top of the `LibraryView` struct, after the other `@Environment` / `@State` declarations, add:
 
@@ -974,7 +974,7 @@ Near the top of the `LibraryView` struct, after the other `@Environment` / `@Sta
     @Environment(\.theme) private var theme
 ```
 
-- [ ] **Step 9.3: Wrap the empty state in a conditional background**
+- [x] **Step 9.3: Wrap the empty state in a conditional background**
 
 Find the existing empty-state view (likely a `ContentUnavailableView("...")` or similar). Wrap it with a conditional `.background(...)`:
 
@@ -996,7 +996,7 @@ Find the existing empty-state view (likely a `ContentUnavailableView("...")` or 
 
 If the existing empty state has a different shape (e.g. a custom VStack), apply the same `.background { if theme.flourish == .codeRain { CodeRainView() } }` modifier on the outermost view of the empty branch. Read the actual code and adapt — don't fight the existing structure.
 
-- [ ] **Step 9.4: Build check**
+- [x] **Step 9.4: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -1009,7 +1009,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Apply `ScanlineOverlayView()` as an `.overlay(...)` over the Stats tab's content when the active theme has `.scanlines`.
 
-- [ ] **Step 10.1: Add `@Environment(\.theme)` to `StatsView`**
+- [x] **Step 10.1: Add `@Environment(\.theme)` to `StatsView`**
 
 Read `ios/GameTracker/GameTracker/Views/Stats/StatsView.swift`. Near the top of the struct, after existing `@Environment` declarations, add:
 
@@ -1017,7 +1017,7 @@ Read `ios/GameTracker/GameTracker/Views/Stats/StatsView.swift`. Near the top of 
     @Environment(\.theme) private var theme
 ```
 
-- [ ] **Step 10.2: Wrap the body in a conditional overlay**
+- [x] **Step 10.2: Wrap the body in a conditional overlay**
 
 Find the existing `var body: some View { ... }`. The body's outermost expression is likely a `NavigationStack { ... }` or `ScrollView { ... }`. Apply this modifier to it:
 
@@ -1032,7 +1032,7 @@ Find the existing `var body: some View { ... }`. The body's outermost expression
 
 If the existing body has multiple branches (different views for empty vs populated state), apply the overlay to the outermost wrapper that exists in both branches — typically the NavigationStack.
 
-- [ ] **Step 10.3: Build check**
+- [x] **Step 10.3: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -1045,7 +1045,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Picker grows from 3 cases to 7 with a divider. A new row below the picker renders a 120pt-tall live preview of the selected theme.
 
-- [ ] **Step 11.1: Read current `SettingsView.swift`**
+- [x] **Step 11.1: Read current `SettingsView.swift`**
 
 Use the Read tool on `ios/GameTracker/GameTracker/Views/Settings/SettingsView.swift`. Locate the `appearanceSection` computed property — it currently renders:
 
@@ -1064,7 +1064,7 @@ Use the Read tool on `ios/GameTracker/GameTracker/Views/Settings/SettingsView.sw
 
 `AppearanceMode.allCases` now includes the four new cases (per Task 1), so the picker will already show 7 entries. We add a divider before the rich themes and a live-preview tile below.
 
-- [ ] **Step 11.2: Replace `appearanceSection` with the divider + preview version**
+- [x] **Step 11.2: Replace `appearanceSection` with the divider + preview version**
 
 Replace the entire `appearanceSection` computed property with:
 
@@ -1096,7 +1096,7 @@ Replace the entire `appearanceSection` computed property with:
 
 (`Divider()` inside `Picker(.menu)` renders as a horizontal rule between System/Light/Dark and the rich themes — supported by SwiftUI's menu picker since iOS 16.)
 
-- [ ] **Step 11.3: Add a `ThemePreviewTile` view at the bottom of `SettingsView.swift`**
+- [x] **Step 11.3: Add a `ThemePreviewTile` view at the bottom of `SettingsView.swift`**
 
 After the closing `}` of `SettingsView` (so it's a sibling type in the same file), add:
 
@@ -1151,7 +1151,7 @@ private struct ThemePreviewTile: View {
 }
 ```
 
-- [ ] **Step 11.4: Build check**
+- [x] **Step 11.4: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -1161,14 +1161,14 @@ Expected: **BUILD SUCCEEDED**.
 
 **Files:** none modified in this task.
 
-- [ ] **Step 12.1: Clear iCloud conflict files**
+- [x] **Step 12.1: Clear iCloud conflict files**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
 find ios/GameTracker -name "* [0-9].swift" -print -delete
 ```
 
-- [ ] **Step 12.2: Full test pass**
+- [x] **Step 12.2: Full test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -1181,7 +1181,7 @@ Expected: `** TEST SUCCEEDED **`. Allow up to 8 minutes.
 
 If first run says `** TEST FAILED **` with no `error:` lines, retry once — simulator flake.
 
-- [ ] **Step 12.3: Pre-commit sanity check**
+- [x] **Step 12.3: Pre-commit sanity check**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1194,7 +1194,7 @@ Expected listing:
 - Modified: `Settings/AppearanceMode.swift`, `GameTrackerApp.swift`, `Views/Common/CoverImage.swift`, `Views/Library/LibraryView.swift`, `Views/Stats/StatsView.swift`, `Views/Settings/SettingsView.swift`, `GameTracker.xcodeproj/project.pbxproj`
 - Pre-existing junk to NOT commit: `js/completions.js`, `* 2.sh`, `* 2.php`, `Helpers 2/`
 
-- [ ] **Step 12.4: Bundle commit Tasks 1–11**
+- [x] **Step 12.4: Bundle commit Tasks 1–11**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1240,7 +1240,7 @@ Resume only after owner confirms or reports a specific failure per theme.
 
 **Files:** none.
 
-- [ ] **Step 13.1: Verify clean working tree**
+- [x] **Step 13.1: Verify clean working tree**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1249,13 +1249,13 @@ git status --short
 
 Expected: only pre-existing junk.
 
-- [ ] **Step 13.2: Push**
+- [x] **Step 13.2: Push**
 
 ```bash
 git push -u origin plan-4b-rich-themes
 ```
 
-- [ ] **Step 13.3: Mark this plan complete**
+- [x] **Step 13.3: Mark this plan complete**
 
 ```bash
 sed -i '' 's/^- \[ \]/- [x]/g' docs/superpowers/plans/2026-05-22-ios-rich-themes.md
@@ -1264,7 +1264,7 @@ git commit -m "Mark Plan 4b (iOS rich themes) complete"
 git push
 ```
 
-- [ ] **Step 13.4: Open PR**
+- [x] **Step 13.4: Open PR**
 
 ```bash
 gh pr create --base main --head plan-4b-rich-themes \
@@ -1308,10 +1308,10 @@ EOF
 
 ## Self-review checklist (run before declaring done)
 
-- [ ] Every referenced symbol exists: `Theme`, `CoverEffect`, `Flourish`, `ThemeRegistry`, `Color(hex:)`, `EnvironmentValues.theme`, `CodeRainView`, `ScanlineOverlayView`, `applyAppKitAppearance(for:mode:)`, `ShaderLibrary.gameBoyDither`, `ImagesAPI.Size`. (All landed via Tasks 1 / 3 / 4 / 5 / 6 of this plan, or pre-existed.)
-- [ ] `AppearanceMode` raw values for `system`/`light`/`dark` are LITERALLY unchanged (no quote-mark drift) so Plan 4a preferences continue to decode correctly.
-- [ ] The Metal shader function is named `gameBoyDither` everywhere — in the `.metal` file, in `ShaderLibrary.gameBoyDither()`, and in the `CoverEffect.gameBoyDither` case (which is a Swift enum case, NOT the same symbol, but the naming consistency makes intent clear).
-- [ ] Every theme listed in `ThemeRegistry.theme(for:)` has a corresponding `static let` on `extension Theme`. Swift's exhaustive switch will catch any miss at compile time, but worth a manual count: 7 cases, 7 statics.
-- [ ] `@Environment(\.theme)` is read in `CoverImage`, `LibraryView`, `StatsView`, and `ThemePreviewTile` — four sites, all listed in the file structure table.
-- [ ] No reference to ChicagoKare / Chicago / Chicago-FLF outside the "Deviation from spec" header — the deviation must be applied throughout.
-- [ ] No "TBD" / "implement later" anywhere.
+- [x] Every referenced symbol exists: `Theme`, `CoverEffect`, `Flourish`, `ThemeRegistry`, `Color(hex:)`, `EnvironmentValues.theme`, `CodeRainView`, `ScanlineOverlayView`, `applyAppKitAppearance(for:mode:)`, `ShaderLibrary.gameBoyDither`, `ImagesAPI.Size`. (All landed via Tasks 1 / 3 / 4 / 5 / 6 of this plan, or pre-existed.)
+- [x] `AppearanceMode` raw values for `system`/`light`/`dark` are LITERALLY unchanged (no quote-mark drift) so Plan 4a preferences continue to decode correctly.
+- [x] The Metal shader function is named `gameBoyDither` everywhere — in the `.metal` file, in `ShaderLibrary.gameBoyDither()`, and in the `CoverEffect.gameBoyDither` case (which is a Swift enum case, NOT the same symbol, but the naming consistency makes intent clear).
+- [x] Every theme listed in `ThemeRegistry.theme(for:)` has a corresponding `static let` on `extension Theme`. Swift's exhaustive switch will catch any miss at compile time, but worth a manual count: 7 cases, 7 statics.
+- [x] `@Environment(\.theme)` is read in `CoverImage`, `LibraryView`, `StatsView`, and `ThemePreviewTile` — four sites, all listed in the file structure table.
+- [x] No reference to ChicagoKare / Chicago / Chicago-FLF outside the "Deviation from spec" header — the deviation must be applied throughout.
+- [x] No "TBD" / "implement later" anywhere.
