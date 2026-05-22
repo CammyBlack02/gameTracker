@@ -48,6 +48,7 @@ struct EditCompletionView: View {
                 GamePickerSheet(onPick: { pickedGame = $0 }, imagesAPI: imagesAPI)
             }
             .task { loadOnce() }
+            .themedBackground()
         }
     }
 

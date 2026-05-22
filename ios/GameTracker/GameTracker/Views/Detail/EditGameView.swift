@@ -102,6 +102,7 @@ struct EditGameView: View {
                 }
             }
             .task { loadOnce() }
+            .themedBackground()
         }
     }
 

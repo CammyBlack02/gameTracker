@@ -61,6 +61,7 @@ struct LibraryView: View {
             }
             .task { try? await syncEngine.runOnce() }
             .refreshable { try? await syncEngine.runOnce() }
+            .themedBackground()
         }
     }
 
