@@ -63,6 +63,7 @@ struct EditItemView: View {
                 }
             }
             .task { loadOnce() }
+            .themedBackground()
         }
     }
 

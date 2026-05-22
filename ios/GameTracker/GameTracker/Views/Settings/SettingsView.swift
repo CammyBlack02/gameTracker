@@ -98,6 +98,7 @@ struct SettingsView: View {
                 Text("Wipes \(ImageCacheSizeCalculator.formatted(cacheBytes)) of downloaded covers. They re-download as you browse. Your library and items are not affected.")
             }
             .sheet(isPresented: $showConflicts) { ConflictListView() }
+            .themedBackground()
         }
     }
 
@@ -179,11 +180,24 @@ struct SettingsView: View {
     private var appearanceSection: some View {
         Section("Appearance") {
             Picker("Theme", selection: $appearanceMode) {
-                ForEach(AppearanceMode.allCases) { mode in
-                    Text(mode.displayName).tag(mode)
+                Group {
+                    Text(AppearanceMode.system.displayName).tag(AppearanceMode.system)
+                    Text(AppearanceMode.light.displayName).tag(AppearanceMode.light)
+                    Text(AppearanceMode.dark.displayName).tag(AppearanceMode.dark)
+                }
+                Divider()
+                Group {
+                    Text(AppearanceMode.matrix.displayName).tag(AppearanceMode.matrix)
+                    Text(AppearanceMode.retroMac.displayName).tag(AppearanceMode.retroMac)
+                    Text(AppearanceMode.gameBoy.displayName).tag(AppearanceMode.gameBoy)
+                    Text(AppearanceMode.crtAmber.displayName).tag(AppearanceMode.crtAmber)
                 }
             }
             .pickerStyle(.menu)
+
+            ThemePreviewTile(mode: appearanceMode)
+                .frame(height: 120)
+                .listRowInsets(EdgeInsets())
         }
     }
 
@@ -278,5 +292,54 @@ struct SettingsView: View {
 
         // 4. Clear keychain + UserDefaults + flip auth state.
         authManager.clearLocalSession()
+    }
+}
+
+/// A compact preview that re-renders whenever the user changes
+/// theme selection. Shows the theme's background, accent, and (if
+/// applicable) a sample of the flourish that would appear in-app.
+private struct ThemePreviewTile: View {
+    let mode: AppearanceMode
+
+    private var theme: Theme { ThemeRegistry.theme(for: mode) }
+
+    var body: some View {
+        ZStack {
+            (theme.background ?? Color(.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            // Flourish layer
+            Group {
+                switch theme.flourish {
+                case .codeRain:
+                    CodeRainView()
+                        .environment(\.theme, theme)
+                case .scanlines:
+                    ScanlineOverlayView()
+                case .platinumBevel:
+                    LinearGradient(
+                        colors: [Color(white: 0.93), Color(white: 0.80), Color(white: 0.67)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    .frame(height: 24)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                case .none:
+                    EmptyView()
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .allowsHitTesting(false)
+
+            // Sample content — three cover-sized rectangles in the
+            // theme's accent color.
+            HStack(spacing: 8) {
+                ForEach(0..<3, id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(theme.accent.opacity(0.85))
+                        .frame(width: 50, height: 70)
+                }
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
