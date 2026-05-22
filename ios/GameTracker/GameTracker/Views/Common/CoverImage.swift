@@ -32,6 +32,7 @@ struct CoverImage: View {
 
     @State private var localURL: URL?
     @State private var failed = false
+    @Environment(\.theme) private var theme
 
     init(gameServerId: Int?,
          face: ImagesAPI.Face = .front,
@@ -65,6 +66,7 @@ struct CoverImage: View {
                 placeholder(systemName: "photo")
             }
         }
+        .modifier(GameBoyDitherIfApplicable(theme: theme, size: size))
         .task(id: LoadKey(subject: subject, face: face)) {
             await load()
         }
@@ -98,6 +100,21 @@ struct CoverImage: View {
             }
         } catch {
             await MainActor.run { self.failed = true }
+        }
+    }
+}
+
+/// Applies the Game Boy 4-color dither shader on `.full` size renders
+/// when the active theme requests it. No-op otherwise.
+private struct GameBoyDitherIfApplicable: ViewModifier {
+    let theme: Theme
+    let size: ImagesAPI.Size
+
+    func body(content: Content) -> some View {
+        if theme.coverEffect == .gameBoyDither && size == .full {
+            content.colorEffect(ShaderLibrary.gameBoyDither())
+        } else {
+            content
         }
     }
 }
