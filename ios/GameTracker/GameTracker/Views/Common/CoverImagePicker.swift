@@ -149,11 +149,15 @@ struct CoverImagePickerSection: View {
     let imagesAPI: ImagesAPI
     let sectionTitle: String
 
+    private enum ActiveSheet: Identifiable {
+        case camera, urlDialog
+        var id: Self { self }
+    }
+
     @State private var showSourceSheet = false
-    @State private var showCamera = false
+    @State private var activeSheet: ActiveSheet?
     @State private var showLibrary = false
     @State private var libraryPickerItem: PhotosPickerItem?
-    @State private var showURLDialog = false
     @State private var urlInput: String = ""
     @State private var urlFetchInFlight: Bool = false
     @State private var urlFetchError: String?
@@ -176,20 +180,25 @@ struct CoverImagePickerSection: View {
             }
         }
         .confirmationDialog("Add an image", isPresented: $showSourceSheet, titleVisibility: .visible) {
-            Button("Take Photo") { showCamera = true }
+            Button("Take Photo") { activeSheet = .camera }
             Button("Choose from Library") { showLibrary = true }
             Button("Paste URL") {
                 urlInput = ""
                 urlFetchError = nil
-                showURLDialog = true
+                activeSheet = .urlDialog
             }
             Button("Cancel", role: .cancel) {}
         }
-        .sheet(isPresented: $showCamera) {
-            CameraPickerView { img in
-                pendingNewImage = img
+        .sheet(item: $activeSheet) { which in
+            switch which {
+            case .camera:
+                CameraPickerView { img in
+                    pendingNewImage = img
+                }
+                .ignoresSafeArea()
+            case .urlDialog:
+                urlDialog
             }
-            .ignoresSafeArea()
         }
         .photosPicker(isPresented: $showLibrary,
                       selection: $libraryPickerItem,
@@ -203,9 +212,6 @@ struct CoverImagePickerSection: View {
                 }
                 await MainActor.run { libraryPickerItem = nil }
             }
-        }
-        .sheet(isPresented: $showURLDialog) {
-            urlDialog
         }
     }
 
@@ -281,7 +287,7 @@ struct CoverImagePickerSection: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { showURLDialog = false }
+                    Button("Cancel") { activeSheet = nil }
                 }
             }
         }
@@ -295,7 +301,7 @@ struct CoverImagePickerSection: View {
             let img = try await CoverImageURLFetcher.fetchImage(from: urlInput)
             await MainActor.run {
                 pendingNewImage = img
-                showURLDialog = false
+                activeSheet = nil
             }
         } catch {
             await MainActor.run {

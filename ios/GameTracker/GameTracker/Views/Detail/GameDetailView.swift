@@ -56,7 +56,9 @@ struct GameDetailView: View {
                            face: showingBack ? .back : .front,
                            size: .full,
                            api: imagesAPI)
+                    .frame(maxWidth: .infinity)
                     .frame(maxHeight: 320)
+                    .contentShape(Rectangle())
                     .onTapGesture {
                         showingBack.toggle()
                     }
