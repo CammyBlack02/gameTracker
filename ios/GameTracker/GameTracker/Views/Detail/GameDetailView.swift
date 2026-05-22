@@ -70,8 +70,8 @@ struct GameDetailView: View {
                     if game.isPhysical == 0 {
                         field("Store", game.digitalStore)
                     }
-                    field("Price paid", game.pricePaid.map { String(format: "$%.2f", $0) })
-                    field("Pricecharting", game.pricechartingPrice.map { String(format: "$%.2f", $0) })
+                    field("Price paid", game.pricePaid.map { formatGBP($0) })
+                    field("Pricecharting", game.pricechartingPrice.map { formatGBP(usdToGBP($0)) })
                     field("Released", game.releaseDate.map { d in
                         d.formatted(date: .abbreviated, time: .omitted)
                     })
