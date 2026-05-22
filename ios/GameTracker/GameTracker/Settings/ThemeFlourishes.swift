@@ -151,23 +151,24 @@ extension View {
 private struct ThemedBackground: ViewModifier {
     @Environment(\.theme) private var theme
 
-    /// When the theme has an app-wide flourish (codeRain / scanlines)
-    /// rendered at the WindowGroup root, painting `theme.background`
-    /// on each tab would cover the flourish layer. Use `.clear` in
-    /// that case so the underlying flourish + root background show
-    /// through.
-    private var paintedBackground: Color {
-        switch theme.flourish {
-        case .codeRain, .scanlines:
-            return .clear
-        case .platinumBevel, .none:
-            return theme.background ?? Color(.systemBackground)
-        }
-    }
-
     func body(content: Content) -> some View {
         content
             .scrollContentBackground(.hidden)
-            .background(paintedBackground.ignoresSafeArea())
+            .background {
+                ZStack {
+                    (theme.background ?? Color(.systemBackground))
+                        .ignoresSafeArea()
+                    switch theme.flourish {
+                    case .codeRain:
+                        CodeRainView()
+                            .ignoresSafeArea()
+                    case .scanlines:
+                        ScanlineOverlayView()
+                            .ignoresSafeArea()
+                    case .platinumBevel, .none:
+                        EmptyView()
+                    }
+                }
+            }
     }
 }

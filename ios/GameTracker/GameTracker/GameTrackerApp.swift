@@ -36,34 +36,17 @@ struct GameTrackerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                if let bg = theme.background {
-                    bg.ignoresSafeArea()
-                }
-                // App-wide flourish layer — sits between background
-                // and content. Apps using a flourish with full-bleed
-                // semantics (codeRain / scanlines) get it everywhere;
-                // platinumBevel stays chrome-only (handled via UIKit
-                // appearance proxy in applyAppKitAppearance).
-                switch theme.flourish {
-                case .codeRain:
-                    CodeRainView()
-                        .ignoresSafeArea()
-                        .environment(\.theme, theme)
-                case .scanlines:
-                    ScanlineOverlayView()
-                        .ignoresSafeArea()
-                case .platinumBevel, .none:
-                    EmptyView()
-                }
-                RootViewContainer(authAPI: authAPI,
-                                  syncAPI: syncAPI,
-                                  proxiesAPI: proxiesAPI,
-                                  imagesAPI: imagesAPI,
-                                  status: status)
-                    .environment(authManager)
-                    .environment(\.theme, theme)
-            }
+            // Theme background + flourish are applied per-screen by
+            // `.themedBackground()` on each tab / sheet root. We can't
+            // host them at the WindowGroup level because SwiftUI's
+            // TabView container is opaque and would cover them.
+            RootViewContainer(authAPI: authAPI,
+                              syncAPI: syncAPI,
+                              proxiesAPI: proxiesAPI,
+                              imagesAPI: imagesAPI,
+                              status: status)
+                .environment(authManager)
+                .environment(\.theme, theme)
             .preferredColorScheme(theme.colorScheme)
             .tint(theme.accent)
             .fontDesign(theme.fontDesign)
