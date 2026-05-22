@@ -90,8 +90,8 @@ struct AddGameView: View {
                         .disabled(!canSave)
                 }
             }
+            .themedBackground()
         }
-        .themedBackground()
     }
 
     // MARK: - Metadata fetch

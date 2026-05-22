@@ -98,6 +98,7 @@ struct SettingsView: View {
                 Text("Wipes \(ImageCacheSizeCalculator.formatted(cacheBytes)) of downloaded covers. They re-download as you browse. Your library and items are not affected.")
             }
             .sheet(isPresented: $showConflicts) { ConflictListView() }
+            .themedBackground()
         }
     }
 
