@@ -20,6 +20,7 @@ struct GameDetailView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var photoInFlight = false
     @State private var photoError: String?
+    @State private var showingBack = false
 
     var body: some View {
         if let game: Game = context.model(for: gameID) as? Game {
@@ -51,8 +52,16 @@ struct GameDetailView: View {
     private func content(for game: Game) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                CoverImage(gameServerId: game.serverId, face: .front, size: .full, api: imagesAPI)
+                CoverImage(gameServerId: game.serverId,
+                           face: showingBack ? .back : .front,
+                           size: .full,
+                           api: imagesAPI)
+                    .frame(maxWidth: .infinity)
                     .frame(maxHeight: 320)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        showingBack.toggle()
+                    }
 
                 ExtrasGallery(extras: extras(for: game), imagesAPI: imagesAPI)
 

@@ -17,6 +17,14 @@ struct CoverImage: View {
         case item(Int?)
     }
 
+    /// Composite key for `.task(id:)`. Triggers a reload whenever
+    /// either the subject (game vs item, server id) or the face
+    /// (front vs back) changes.
+    private struct LoadKey: Equatable {
+        let subject: Subject
+        let face: ImagesAPI.Face
+    }
+
     private let subject: Subject
     let face: ImagesAPI.Face
     let size: ImagesAPI.Size
@@ -57,7 +65,7 @@ struct CoverImage: View {
                 placeholder(systemName: "photo")
             }
         }
-        .task(id: subject) {
+        .task(id: LoadKey(subject: subject, face: face)) {
             await load()
         }
     }

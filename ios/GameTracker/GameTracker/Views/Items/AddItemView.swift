@@ -18,8 +18,10 @@ struct AddItemView: View {
     @State private var quantity: Int = 1
     @State private var description: String = ""
     @State private var notes: String = ""
-    @State private var pendingNewImage: UIImage? = nil
-    @State private var existingFrontImage: String? = nil   // always nil for Add; passed for symmetry
+    @State private var pendingNewFrontImage: UIImage? = nil
+    @State private var pendingNewBackImage: UIImage? = nil
+    @State private var existingFrontImage: String? = nil   // always nil for Add
+    @State private var existingBackImage: String? = nil    // always nil for Add
 
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
@@ -37,8 +39,10 @@ struct AddItemView: View {
                              quantity: $quantity,
                              description: $description,
                              notes: $notes,
-                             pendingNewImage: $pendingNewImage,
+                             pendingNewFrontImage: $pendingNewFrontImage,
                              existingFrontImage: $existingFrontImage,
+                             pendingNewBackImage: $pendingNewBackImage,
+                             existingBackImage: $existingBackImage,
                              itemServerId: nil,
                              imagesAPI: imagesAPI)
             }
@@ -66,9 +70,13 @@ struct AddItemView: View {
         item.quantity           = quantity
         item.itemDescription    = description.isEmpty ? nil : description
         item.notes              = notes.isEmpty ? nil : notes
-        if let img = pendingNewImage,
-           let dataURI = ItemImageProcessor.dataURI(from: img) {
+        if let img = pendingNewFrontImage,
+           let dataURI = CoverImageProcessor.dataURI(from: img) {
             item.frontImage = dataURI
+        }
+        if let img = pendingNewBackImage,
+           let dataURI = CoverImageProcessor.dataURI(from: img) {
+            item.backImage = dataURI
         }
         context.insert(item)
         try? context.save()
