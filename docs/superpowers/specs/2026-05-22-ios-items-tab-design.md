@@ -34,8 +34,12 @@ Tab bar after Plan 3c: **Library / Items / Completions / Stats / Settings**. Sta
 | Image strategy | **Real images via server parity** — extend `cover.php` to take `?type=game\|item` |
 | Detail page | **Yes — `ItemDetailView`** pushed onto the nav stack on row tap |
 | Image-upload from iOS | **Deferred to a later plan**; edit preserves existing strings, no new upload UI |
-| Sort default | **`createdAt` DESC** (matches Library's default) |
-| Grid vs list default | **Grid** (matches Library's default) |
+| Sort default | **Title A→Z**, hardcoded (matches LibraryView's default; no sort menu in v1) |
+| Grid vs list default | **List** (matches LibraryView's default) |
+| Grid/list persistence | **Per-session `@State`** (matches LibraryView) |
+| Category filter placement | **Inline segmented `Picker` above the search field**; 3 options fits a chip, not worth a sheet |
+| Pricing on the list row | **Detail-only**; keeps the row scannable |
+| View-mode toggle placement | **Toolbar `ellipsis.circle` Menu** (matches LibraryView's pattern) |
 | Quantity widget | **`Stepper` with minimum 1**, plus `×N` badge on the row when N > 1 |
 
 ---
@@ -97,15 +101,17 @@ Items/
 
 ### 3.1 `ItemsView`
 
-Reactive `@Query` of every non-deleted `Item`. Two display modes (grid / list), toggled from the toolbar. Top filter chip (`All / Consoles / Accessories`) and `.searchable` matching title or platform substring.
+Reactive `@Query` of every non-deleted `Item`. Two display modes (list / grid), toggled from the toolbar `Menu`. Inline category filter and `.searchable` match title or platform substring.
 
-**Sort:** primary key `createdAt` DESC. (Matches `LibraryView`'s default. If a future plan adds user-selectable sort modes for Library, Items inherits the same pattern.)
+**Sort:** hardcoded title A→Z. (Matches `LibraryView`'s default sort. No user-facing sort menu in v1.)
 
-**Filter logic:** category filter narrows `allItems` by `category == "console"` or `category == "accessory"`. "All" shows everything. Filter chip is implemented with a `Picker(style: .segmented)` in the toolbar OR a `LabeledContent` row at the top of the list — final placement decided in the plan; visually it sits above the search field.
+**View mode default:** `.list` (matches `LibraryView`).
 
-**Toolbar:**
-- Leading: grid/list toggle (`square.grid.2x2` / `list.bullet`).
-- Trailing: `+` button → presents `AddItemView` as a sheet.
+**Filter logic:** category filter narrows `allItems` by `category == "console"` or `category == "accessory"`. "All" shows everything. UI: a segmented `Picker` directly above the `.searchable` field, hosted in the content `VStack` (not the toolbar) so it stays visible without expanding a menu.
+
+**Toolbar (trailing):**
+- `+` button → presents `AddItemView` as a sheet.
+- `ellipsis.circle` `Menu` containing the view-mode `Picker` (List / Grid). No sort menu in v1.
 
 **Row tap:** pushes `ItemDetailView(itemID: persistentModelID, …)` onto the NavigationStack via `.navigationDestination(for: PersistentIdentifier.self)` (same pattern as `LibraryView`).
 
@@ -272,8 +278,10 @@ The only "non-trivial" work outside iOS is the ~10-line `cover.php` extension, i
 
 ---
 
-## Open questions (for the plan-writing phase)
+## Open questions resolved during plan writing
 
-1. Where to host the category filter chip exactly — inline at the top of the content area (like LibraryView's platform filter sheet's trigger) vs in the toolbar as a segmented control. Decide during plan writing; visually we want it visible without scrolling.
-2. Whether to surface `pricePaid` on the list row, or keep the row terse and only show price on the detail view. Lean toward "detail only" to keep the row scannable; finalize during plan writing.
-3. Whether the grid/list toggle should be remembered (UserDefaults) or per-session. LibraryView's choice sets the precedent — match whatever it does.
+1. **Category filter placement** → inline segmented `Picker` above the search field. 3 options is small enough that a sheet (LibraryView's choice for 30+ platforms) is overkill.
+2. **Price on the list row** → detail-only. Row stays scannable.
+3. **Grid/list persistence** → per-session `@State`. Matches LibraryView exactly.
+4. **Sort menu** → none in v1. Hardcode title A→Z (matches LibraryView's default). Sort menu can be added in a follow-up plan if needed.
+5. **View-mode toggle** → toolbar `ellipsis.circle` `Menu`, matching LibraryView's existing pattern.
