@@ -13,6 +13,7 @@ struct AddCompletionView: View {
     @State private var hasDate: Bool = true
     @State private var timeTaken: String = ""
     @State private var notes: String = ""
+    @State private var showGamePicker = false
 
     private var canSave: Bool { pickedGame != nil }
 
@@ -24,7 +25,8 @@ struct AddCompletionView: View {
                                    hasDate: $hasDate,
                                    timeTaken: $timeTaken,
                                    notes: $notes,
-                                   imagesAPI: imagesAPI)
+                                   imagesAPI: imagesAPI,
+                                   onTapGame: { showGamePicker = true })
             }
             .navigationTitle("Log a completion")
             .navigationBarTitleDisplayMode(.inline)
@@ -35,6 +37,9 @@ struct AddCompletionView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }.disabled(!canSave)
                 }
+            }
+            .sheet(isPresented: $showGamePicker) {
+                GamePickerSheet(onPick: { pickedGame = $0 }, imagesAPI: imagesAPI)
             }
         }
     }

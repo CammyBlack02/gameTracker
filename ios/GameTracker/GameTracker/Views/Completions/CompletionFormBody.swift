@@ -1,7 +1,11 @@
 import SwiftUI
 
 /// Shared form fields for Add/Edit completion. The owning view supplies
-/// bindings plus an `imagesAPI` for the picker's cover thumbs.
+/// bindings, an `imagesAPI` for the picker's cover thumbs, and an
+/// `onTapGame` callback. The game-picker sheet itself is presented by
+/// the owning view — anchoring it here (on a Group inside the Form)
+/// caused both sheets to dismiss when the picker's search/scroll
+/// retriggered SwiftUI layout.
 struct CompletionFormBody: View {
     @Binding var pickedGame: Game?
     @Binding var dateCompleted: Date
@@ -9,14 +13,13 @@ struct CompletionFormBody: View {
     @Binding var timeTaken: String
     @Binding var notes: String
     let imagesAPI: ImagesAPI
-
-    @State private var showGamePicker = false
+    let onTapGame: () -> Void
 
     var body: some View {
         Group {
             Section("Game") {
                 Button {
-                    showGamePicker = true
+                    onTapGame()
                 } label: {
                     HStack {
                         if let g = pickedGame {
@@ -52,9 +55,6 @@ struct CompletionFormBody: View {
                 TextField("Time taken (e.g. 20h 30m)", text: $timeTaken)
                 TextField("Notes", text: $notes, axis: .vertical).lineLimit(3...10)
             }
-        }
-        .sheet(isPresented: $showGamePicker) {
-            GamePickerSheet(onPick: { pickedGame = $0 }, imagesAPI: imagesAPI)
         }
     }
 }
