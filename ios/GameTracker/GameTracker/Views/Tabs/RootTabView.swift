@@ -31,9 +31,11 @@ struct RootTabView: View {
                             status: status)
                 .tabItem { Label("Completions", systemImage: "checkmark.seal") }
 
-            PlaceholderTabView(title: "Stats",
-                               systemImage: "chart.bar",
-                               blurb: "Collection analytics.")
+            StatsView(syncEngine: syncEngine,
+                      syncTrigger: syncTrigger,
+                      imagesAPI: imagesAPI,
+                      proxiesAPI: proxiesAPI,
+                      status: status)
                 .tabItem { Label("Stats", systemImage: "chart.bar") }
 
             SettingsView(authAPI: authAPI)
