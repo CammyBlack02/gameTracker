@@ -103,6 +103,7 @@ struct EditGameView: View {
             }
             .task { loadOnce() }
         }
+        .themedBackground()
     }
 
     private func loadOnce() {

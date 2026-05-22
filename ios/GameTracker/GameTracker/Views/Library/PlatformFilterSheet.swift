@@ -28,6 +28,7 @@ struct PlatformFilterSheet: View {
                 }
             }
         }
+        .themedBackground()
     }
 }
 
