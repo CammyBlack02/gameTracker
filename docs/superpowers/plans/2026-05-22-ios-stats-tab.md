@@ -90,7 +90,7 @@ Common/
 **Files:**
 - Create: `docs/superpowers/plans/2026-05-22-ios-stats-tab.md` (this file)
 
-- [ ] **Step 0.1: Confirm current state**
+- [x] **Step 0.1: Confirm current state**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -101,7 +101,7 @@ git status --short                # only pre-existing junk
 
 Expected: branch is `plan-3d-stats-tab`; the design spec commit (`341537b`) sits on top of the 3c merge (`98ae904`).
 
-- [ ] **Step 0.2: Clear iCloud Swift conflict files**
+- [x] **Step 0.2: Clear iCloud Swift conflict files**
 
 ```bash
 find ios/GameTracker -name "* [0-9].swift" -print -delete
@@ -109,7 +109,7 @@ find ios/GameTracker -name "* [0-9].swift" -print -delete
 
 Expected: prints any stragglers and deletes them, or prints nothing if clean.
 
-- [ ] **Step 0.3: Baseline test pass**
+- [x] **Step 0.3: Baseline test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -120,7 +120,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: `** TEST SUCCEEDED **`.
 
-- [ ] **Step 0.4: Commit this plan doc**
+- [x] **Step 0.4: Commit this plan doc**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -137,7 +137,7 @@ git commit -m "Add Plan 3d (iOS Stats tab) implementation plan"
 
 Shared, used by Tasks 2, 3, and 7. Two free functions plus a clearly-documented constant — no struct or class because the calls are stateless.
 
-- [ ] **Step 1.1: Write `Money.swift`**
+- [x] **Step 1.1: Write `Money.swift`**
 
 ```swift
 import Foundation
@@ -165,7 +165,7 @@ func formatGBP(_ amount: Double) -> String {
 }
 ```
 
-- [ ] **Step 1.2: Build check**
+- [x] **Step 1.2: Build check**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -185,7 +185,7 @@ Expected: `** BUILD SUCCEEDED **`. (No commit yet — Tasks 1–8 ship as one bu
 
 Two lines change. `pricePaid` is what the user entered (assumed £) — just relabel. `pricechartingPrice` is server-fetched USD — convert.
 
-- [ ] **Step 2.1: Edit `GameDetailView.swift`**
+- [x] **Step 2.1: Edit `GameDetailView.swift`**
 
 Find:
 
@@ -201,7 +201,7 @@ Replace with:
                     field("Pricecharting", game.pricechartingPrice.map { formatGBP(usdToGBP($0)) })
 ```
 
-- [ ] **Step 2.2: Build check**
+- [x] **Step 2.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -220,7 +220,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 `pricePaid` here is already correctly labelled `£` (Plan 3c). Only `pricechartingPrice` needs converting.
 
-- [ ] **Step 3.1: Edit `ItemDetailView.swift`**
+- [x] **Step 3.1: Edit `ItemDetailView.swift`**
 
 Find the `pricing` computed view's two `row(...)` lines:
 
@@ -256,7 +256,7 @@ Replace with:
 
 (The local `format(_ value: Double) -> String` helper at the bottom of the file is no longer used by `pricing`. Leave it — it's small and may be called by future detail-view sections. Removing it can happen in a later cleanup.)
 
-- [ ] **Step 3.2: Build check**
+- [x] **Step 3.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -275,7 +275,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Reusable card view: header (small), big primary value, optional caption. Used by all four headline cards in the Stats KPI strip.
 
-- [ ] **Step 4.1: Write `KPICard.swift`**
+- [x] **Step 4.1: Write `KPICard.swift`**
 
 ```swift
 import SwiftUI
@@ -310,7 +310,7 @@ struct KPICard: View {
 }
 ```
 
-- [ ] **Step 4.2: Build check**
+- [x] **Step 4.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -329,7 +329,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Bar chart of completions per year. Accepts pre-aggregated data so the chart itself stays dumb and testable. Current year rendered in `Color.accentColor`, prior years in `Color.gray`.
 
-- [ ] **Step 5.1: Write `CompletionsByYearChart.swift`**
+- [x] **Step 5.1: Write `CompletionsByYearChart.swift`**
 
 ```swift
 import SwiftUI
@@ -364,7 +364,7 @@ struct CompletionsByYearChart: View {
 }
 ```
 
-- [ ] **Step 5.2: Build check**
+- [x] **Step 5.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -383,7 +383,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Horizontal bar chart of games per platform. Accepts pre-aggregated data already capped at top 8 + "Other". Height scales so few platforms doesn't waste space.
 
-- [ ] **Step 6.1: Write `GamesByPlatformChart.swift`**
+- [x] **Step 6.1: Write `GamesByPlatformChart.swift`**
 
 ```swift
 import SwiftUI
@@ -417,7 +417,7 @@ struct GamesByPlatformChart: View {
 }
 ```
 
-- [ ] **Step 6.2: Build check**
+- [x] **Step 6.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -436,7 +436,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 The biggest file in this plan. Holds three `@Query` properties (one per model), computed properties for each KPI and chart's data, and the body layout (KPI grid → completions chart → platform chart → recent additions). Navigation pushes `GameDetailView` for tile taps — mirrors `LibraryView`'s pattern.
 
-- [ ] **Step 7.1: Write `StatsView.swift`**
+- [x] **Step 7.1: Write `StatsView.swift`**
 
 ```swift
 import SwiftUI
@@ -616,7 +616,7 @@ struct StatsView: View {
 }
 ```
 
-- [ ] **Step 7.2: Build check**
+- [x] **Step 7.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -635,7 +635,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 `RootTabView` already holds `proxiesAPI` as a property, so plumbing it into `StatsView` is one extra argument on the swap.
 
-- [ ] **Step 8.1: Edit `RootTabView.swift`**
+- [x] **Step 8.1: Edit `RootTabView.swift`**
 
 Find this block:
 
@@ -657,7 +657,7 @@ Replace with:
                 .tabItem { Label("Stats", systemImage: "chart.bar") }
 ```
 
-- [ ] **Step 8.2: Full test pass**
+- [x] **Step 8.2: Full test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -668,7 +668,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: `** TEST SUCCEEDED **`. (No new unit tests; existing suite still passes.)
 
-- [ ] **Step 8.3: Commit Tasks 1–8 together**
+- [x] **Step 8.3: Commit Tasks 1–8 together**
 
 Six new files plus three modifications all ship in one commit (mirrors Plan 3c's bundling pattern):
 
@@ -710,7 +710,7 @@ Resume the implementer queue only after the owner confirms or reports a specific
 
 The checkpoint above covers the usual flows. If the owner is comfortable folding the smoke pass into the checkpoint (Plan 3a / 3b / 3c precedent), this task is a no-op — confirm and move to Task 10. Otherwise walk this table.
 
-- [ ] **Step 9.1: Optional checklist (skip if checkpoint coverage was sufficient)**
+- [x] **Step 9.1: Optional checklist (skip if checkpoint coverage was sufficient)**
 
 | # | Action | Expected |
 |---|---|---|
@@ -728,7 +728,7 @@ The checkpoint above covers the usual flows. If the owner is comfortable folding
 
 **Files:** none
 
-- [ ] **Step 10.1: Verify clean working tree**
+- [x] **Step 10.1: Verify clean working tree**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -737,13 +737,13 @@ git status --short
 
 Expected: only pre-existing junk (`js/completions.js`, iCloud `.sh`/`.php` conflict copies).
 
-- [ ] **Step 10.2: Push**
+- [x] **Step 10.2: Push**
 
 ```bash
 git push -u origin plan-3d-stats-tab
 ```
 
-- [ ] **Step 10.3: Mark this plan complete**
+- [x] **Step 10.3: Mark this plan complete**
 
 ```bash
 sed -i '' 's/^- \[ \]/- [x]/g' docs/superpowers/plans/2026-05-22-ios-stats-tab.md
@@ -752,7 +752,7 @@ git commit -m "Mark Plan 3d (iOS Stats tab) complete"
 git push
 ```
 
-- [ ] **Step 10.4: Open PR**
+- [x] **Step 10.4: Open PR**
 
 ```bash
 gh pr create --base main --head plan-3d-stats-tab \
@@ -797,11 +797,11 @@ EOF
 
 ## Self-review checklist (run before declaring done)
 
-- [ ] Every referenced symbol exists: `Game`, `Item`, `GameCompletion`, `SyncEngine`, `SyncTrigger`, `ImagesAPI`, `ProxiesAPI`, `SyncStatus`, `ConflictBannerView`, `ConflictListView`, `SyncStatusBannerView`, `GameDetailView`, `GameGridCell`, `ItemCategory`. (All landed via Plan 2 / 3a / 3b / 3c.)
-- [ ] No file is referenced by two different names across tasks.
-- [ ] The `Money.swift` utility's `usdToGBP` + `formatGBP` are called identically in Tasks 2, 3, and 7. No name drift.
-- [ ] `KPICard` accepts `title: String, primary: String, caption: String?` consistently — `StatsView`'s four call sites in Task 7 use these names.
-- [ ] `CompletionsByYearChart` accepts `data: [(year: Int, count: Int)], currentYear: Int` — matches the `completionsByYear` computed property's tuple shape in `StatsView`.
-- [ ] `GamesByPlatformChart` accepts `data: [(platform: String, count: Int)]` — matches the `gamesByPlatform` computed property in `StatsView`.
-- [ ] All commit messages cover the visible behaviour and bundle interdependent files together (matches Plan 3c's style).
-- [ ] No "TBD" or "implement later" left anywhere.
+- [x] Every referenced symbol exists: `Game`, `Item`, `GameCompletion`, `SyncEngine`, `SyncTrigger`, `ImagesAPI`, `ProxiesAPI`, `SyncStatus`, `ConflictBannerView`, `ConflictListView`, `SyncStatusBannerView`, `GameDetailView`, `GameGridCell`, `ItemCategory`. (All landed via Plan 2 / 3a / 3b / 3c.)
+- [x] No file is referenced by two different names across tasks.
+- [x] The `Money.swift` utility's `usdToGBP` + `formatGBP` are called identically in Tasks 2, 3, and 7. No name drift.
+- [x] `KPICard` accepts `title: String, primary: String, caption: String?` consistently — `StatsView`'s four call sites in Task 7 use these names.
+- [x] `CompletionsByYearChart` accepts `data: [(year: Int, count: Int)], currentYear: Int` — matches the `completionsByYear` computed property's tuple shape in `StatsView`.
+- [x] `GamesByPlatformChart` accepts `data: [(platform: String, count: Int)]` — matches the `gamesByPlatform` computed property in `StatsView`.
+- [x] All commit messages cover the visible behaviour and bundle interdependent files together (matches Plan 3c's style).
+- [x] No "TBD" or "implement later" left anywhere.
