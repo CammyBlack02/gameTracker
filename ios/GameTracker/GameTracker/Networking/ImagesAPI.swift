@@ -92,6 +92,19 @@ struct ImagesAPI {
             }
         }
     }
+
+    /// Purge cached game cover files for one game (both faces, both sizes).
+    /// Called by Add/Edit save paths after writing a new data URI into
+    /// `game.frontCoverImage` / `game.backCoverImage`.
+    func invalidateGameCover(gameServerId: Int) {
+        for face in [Face.front, Face.back] {
+            for size in [Size.thumb, Size.full] {
+                let filename = "cover_\(gameServerId)_\(face.rawValue)_\(size.rawValue).jpg"
+                let dest = cacheRoot.appendingPathComponent(filename)
+                try? FileManager.default.removeItem(at: dest)
+            }
+        }
+    }
 }
 
 /// Locations on disk corresponding to the spec's four caches.
