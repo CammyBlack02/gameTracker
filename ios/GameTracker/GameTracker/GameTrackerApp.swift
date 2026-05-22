@@ -40,6 +40,22 @@ struct GameTrackerApp: App {
                 if let bg = theme.background {
                     bg.ignoresSafeArea()
                 }
+                // App-wide flourish layer — sits between background
+                // and content. Apps using a flourish with full-bleed
+                // semantics (codeRain / scanlines) get it everywhere;
+                // platinumBevel stays chrome-only (handled via UIKit
+                // appearance proxy in applyAppKitAppearance).
+                switch theme.flourish {
+                case .codeRain:
+                    CodeRainView()
+                        .ignoresSafeArea()
+                        .environment(\.theme, theme)
+                case .scanlines:
+                    ScanlineOverlayView()
+                        .ignoresSafeArea()
+                case .platinumBevel, .none:
+                    EmptyView()
+                }
                 RootViewContainer(authAPI: authAPI,
                                   syncAPI: syncAPI,
                                   proxiesAPI: proxiesAPI,

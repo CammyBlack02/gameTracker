@@ -10,7 +10,6 @@ struct StatsView: View {
     @Bindable var status: SyncStatus
 
     @Environment(\.modelContext) private var context
-    @Environment(\.theme) private var theme
 
     @Query(filter: #Predicate<Game> { $0.syncStateRaw != "local_deleted" })
     private var allGames: [Game]
@@ -44,12 +43,6 @@ struct StatsView: View {
             .sheet(isPresented: $showConflicts) { ConflictListView() }
             .task { try? await syncEngine.runOnce() }
             .refreshable { try? await syncEngine.runOnce() }
-            .overlay {
-                if theme.flourish == .scanlines {
-                    ScanlineOverlayView()
-                        .ignoresSafeArea()
-                }
-            }
         }
     }
 
