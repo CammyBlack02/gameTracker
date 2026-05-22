@@ -1,0 +1,56 @@
+import SwiftUI
+import SwiftData
+
+struct AddCompletionView: View {
+    let imagesAPI: ImagesAPI
+    let syncTrigger: SyncTrigger
+
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var pickedGame: Game?
+    @State private var dateCompleted: Date = Date()
+    @State private var hasDate: Bool = true
+    @State private var timeTaken: String = ""
+    @State private var notes: String = ""
+
+    private var canSave: Bool { pickedGame != nil }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                CompletionFormBody(pickedGame: $pickedGame,
+                                   dateCompleted: $dateCompleted,
+                                   hasDate: $hasDate,
+                                   timeTaken: $timeTaken,
+                                   notes: $notes,
+                                   imagesAPI: imagesAPI)
+            }
+            .navigationTitle("Log a completion")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { save() }.disabled(!canSave)
+                }
+            }
+        }
+    }
+
+    private func save() {
+        guard let game = pickedGame else { return }
+        let c = GameCompletion(title: game.title, syncState: .localNew)
+        c.gameServerId   = game.serverId
+        c.platform       = game.platform
+        c.dateCompleted  = hasDate ? dateCompleted : nil
+        c.completionYear = hasDate ? Calendar.current.component(.year, from: dateCompleted) : nil
+        c.timeTaken      = timeTaken.isEmpty ? nil : timeTaken
+        c.notes          = notes.isEmpty ? nil : notes
+        context.insert(c)
+        try? context.save()
+        syncTrigger.pingAfterMutation()
+        dismiss()
+    }
+}
