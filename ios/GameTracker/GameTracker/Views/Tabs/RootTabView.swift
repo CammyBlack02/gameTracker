@@ -24,10 +24,11 @@ struct RootTabView: View {
                                blurb: "Consoles and accessories will live here.")
                 .tabItem { Label("Items", systemImage: "gamecontroller") }
 
-            PlaceholderTabView(title: "Spin",
-                               systemImage: "dial.medium",
-                               blurb: "Random game picker.")
-                .tabItem { Label("Spin", systemImage: "dial.medium") }
+            CompletionsView(syncEngine: syncEngine,
+                            syncTrigger: syncTrigger,
+                            imagesAPI: imagesAPI,
+                            status: status)
+                .tabItem { Label("Completions", systemImage: "checkmark.seal") }
 
             PlaceholderTabView(title: "Stats",
                                systemImage: "chart.bar",
