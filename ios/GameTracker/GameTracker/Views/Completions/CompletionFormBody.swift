@@ -8,6 +8,8 @@ import SwiftUI
 /// retriggered SwiftUI layout.
 struct CompletionFormBody: View {
     @Binding var pickedGame: Game?
+    @Binding var dateStarted: Date
+    @Binding var hasStartDate: Bool
     @Binding var dateCompleted: Date
     @Binding var hasDate: Bool
     @Binding var timeTaken: String
@@ -43,6 +45,12 @@ struct CompletionFormBody: View {
             }
 
             Section("When") {
+                Toggle("Set a start date", isOn: $hasStartDate)
+                if hasStartDate {
+                    DatePicker("Started",
+                               selection: $dateStarted,
+                               displayedComponents: .date)
+                }
                 Toggle("Set a completion date", isOn: $hasDate)
                 if hasDate {
                     DatePicker("Completed",
