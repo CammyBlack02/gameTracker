@@ -14,6 +14,8 @@ struct GameTrackerApp: App {
     @State private var authManager = AuthManager()
     @State private var status = SyncStatus()
 
+    @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
+
     private var apiClient: APIClient {
         APIClient(baseURL: Config.serverBaseURL,
                   tokenProvider: { [authManager] in authManager.currentToken })
@@ -36,6 +38,7 @@ struct GameTrackerApp: App {
                               imagesAPI: imagesAPI,
                               status: status)
                 .environment(authManager)
+                .preferredColorScheme(appearanceMode.colorScheme)
         }
         .modelContainer(container)
     }
