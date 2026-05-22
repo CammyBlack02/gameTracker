@@ -47,6 +47,7 @@ struct ConflictListView: View {
                 ConflictDetailView(route: route)
             }
         }
+        .themedBackground()
     }
 }
 

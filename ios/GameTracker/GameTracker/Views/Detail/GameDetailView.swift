@@ -252,6 +252,7 @@ struct GameDetailView: View {
                 }
             }
         }
+        .themedBackground()
     }
 
     private func fetchExternal(for game: Game) async {

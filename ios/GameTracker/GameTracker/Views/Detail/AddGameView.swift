@@ -91,6 +91,7 @@ struct AddGameView: View {
                 }
             }
         }
+        .themedBackground()
     }
 
     // MARK: - Metadata fetch

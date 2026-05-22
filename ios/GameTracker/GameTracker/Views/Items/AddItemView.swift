@@ -57,6 +57,7 @@ struct AddItemView: View {
                 }
             }
         }
+        .themedBackground()
     }
 
     private func save() {
