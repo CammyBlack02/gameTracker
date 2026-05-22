@@ -72,7 +72,7 @@ struct ItemsView: View {
             .searchable(text: $search, prompt: "Search title or platform")
             .toolbar { toolbarContent }
             .sheet(isPresented: $showAdd) {
-                AddItemView(syncTrigger: syncTrigger)
+                AddItemView(imagesAPI: imagesAPI, syncTrigger: syncTrigger)
             }
             .sheet(isPresented: $showConflicts) { ConflictListView() }
             .task { try? await syncEngine.runOnce() }

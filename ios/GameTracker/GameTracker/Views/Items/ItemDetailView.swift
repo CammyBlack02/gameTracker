@@ -40,7 +40,7 @@ struct ItemDetailView: View {
             }
         }
         .sheet(isPresented: $showEdit) {
-            EditItemView(itemID: itemID, syncTrigger: syncTrigger)
+            EditItemView(itemID: itemID, imagesAPI: imagesAPI, syncTrigger: syncTrigger)
         }
     }
 
