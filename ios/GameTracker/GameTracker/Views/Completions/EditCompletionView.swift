@@ -15,6 +15,7 @@ struct EditCompletionView: View {
     @State private var timeTaken: String = ""
     @State private var notes: String = ""
     @State private var loaded = false
+    @State private var showGamePicker = false
 
     private var canSave: Bool { pickedGame != nil }
 
@@ -26,7 +27,8 @@ struct EditCompletionView: View {
                                    hasDate: $hasDate,
                                    timeTaken: $timeTaken,
                                    notes: $notes,
-                                   imagesAPI: imagesAPI)
+                                   imagesAPI: imagesAPI,
+                                   onTapGame: { showGamePicker = true })
             }
             .navigationTitle("Edit completion")
             .navigationBarTitleDisplayMode(.inline)
@@ -37,6 +39,9 @@ struct EditCompletionView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }.disabled(!canSave)
                 }
+            }
+            .sheet(isPresented: $showGamePicker) {
+                GamePickerSheet(onPick: { pickedGame = $0 }, imagesAPI: imagesAPI)
             }
             .task { loadOnce() }
         }
