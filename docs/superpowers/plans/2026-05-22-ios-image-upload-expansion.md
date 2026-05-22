@@ -87,7 +87,7 @@ Views/Items/ItemImagePicker.swift       — replaced by Views/Common/CoverImageP
 **Files:**
 - Create: `docs/superpowers/plans/2026-05-22-ios-image-upload-expansion.md` (this file)
 
-- [ ] **Step 0.1: Confirm current state**
+- [x] **Step 0.1: Confirm current state**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -98,7 +98,7 @@ git status --short                # only pre-existing junk
 
 Expected: branch is `plan-3e-image-upload-expansion`; spec commit (`cb3edda`) sits on top of the 3d merge (`37987ff`).
 
-- [ ] **Step 0.2: Clear iCloud Swift conflict files**
+- [x] **Step 0.2: Clear iCloud Swift conflict files**
 
 ```bash
 find ios/GameTracker -name "* [0-9].swift" -print -delete
@@ -106,7 +106,7 @@ find ios/GameTracker -name "* [0-9].swift" -print -delete
 
 Expected: prints any stragglers and deletes them, or prints nothing if clean.
 
-- [ ] **Step 0.3: Baseline test pass**
+- [x] **Step 0.3: Baseline test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -117,7 +117,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: `** TEST SUCCEEDED **`.
 
-- [ ] **Step 0.4: Commit this plan doc**
+- [x] **Step 0.4: Commit this plan doc**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -135,7 +135,7 @@ git commit -m "Add Plan 3e (iOS image upload expansion) implementation plan"
 
 The new file generalises the old one with three additions: a `CoverKind` enum (game/item), a `face` parameter, and a third action-sheet source (Paste URL) backed by a client-side `URLSession` fetch.
 
-- [ ] **Step 1.1: Write the new `CoverImagePicker.swift`**
+- [x] **Step 1.1: Write the new `CoverImagePicker.swift`**
 
 Write the file at `ios/GameTracker/GameTracker/Views/Common/CoverImagePicker.swift`:
 
@@ -449,14 +449,14 @@ struct CoverImagePickerSection: View {
 }
 ```
 
-- [ ] **Step 1.2: Delete the old `ItemImagePicker.swift`**
+- [x] **Step 1.2: Delete the old `ItemImagePicker.swift`**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
 rm ios/GameTracker/GameTracker/Views/Items/ItemImagePicker.swift
 ```
 
-- [ ] **Step 1.3: Build check (expected: errors from existing call sites)**
+- [x] **Step 1.3: Build check (expected: errors from existing call sites)**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -478,7 +478,7 @@ If you see errors *other* than those three lookups, stop and check the new file 
 
 `ItemFormBody`'s parameter list gains 4 new bindings (2 per face). The single existing `ItemImagePickerSection` is replaced with two `CoverImagePickerSection`s.
 
-- [ ] **Step 2.1: Replace the file's contents**
+- [x] **Step 2.1: Replace the file's contents**
 
 ```swift
 import SwiftUI
@@ -564,7 +564,7 @@ struct ItemFormBody: View {
 }
 ```
 
-- [ ] **Step 2.2: Build check (still expected to fail at AddItemView / EditItemView call sites)**
+- [x] **Step 2.2: Build check (still expected to fail at AddItemView / EditItemView call sites)**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -581,7 +581,7 @@ Expected: still **BUILD FAILED** — `AddItemView` and `EditItemView` haven't be
 **Files:**
 - Modify: `ios/GameTracker/GameTracker/Views/Items/AddItemView.swift`
 
-- [ ] **Step 3.1: Replace the property block and the `ItemFormBody(...)` call**
+- [x] **Step 3.1: Replace the property block and the `ItemFormBody(...)` call**
 
 Find this property block:
 
@@ -637,7 +637,7 @@ Replace with:
                              imagesAPI: imagesAPI)
 ```
 
-- [ ] **Step 3.2: Update `save()` to encode both faces**
+- [x] **Step 3.2: Update `save()` to encode both faces**
 
 Find the existing save logic that references `pendingNewImage`:
 
@@ -661,7 +661,7 @@ Replace with:
         }
 ```
 
-- [ ] **Step 3.3: Build check**
+- [x] **Step 3.3: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -678,7 +678,7 @@ Expected: still **BUILD FAILED** — only `EditItemView` left to migrate. Fixed 
 **Files:**
 - Modify: `ios/GameTracker/GameTracker/Views/Items/EditItemView.swift`
 
-- [ ] **Step 4.1: Replace the property block**
+- [x] **Step 4.1: Replace the property block**
 
 Find:
 
@@ -698,7 +698,7 @@ Replace with:
     @State private var loaded = false
 ```
 
-- [ ] **Step 4.2: Update the `ItemFormBody(...)` call**
+- [x] **Step 4.2: Update the `ItemFormBody(...)` call**
 
 Find:
 
@@ -738,7 +738,7 @@ Replace with:
                              imagesAPI: imagesAPI)
 ```
 
-- [ ] **Step 4.3: Update `loadOnce()` to load the back image**
+- [x] **Step 4.3: Update `loadOnce()` to load the back image**
 
 Find:
 
@@ -755,7 +755,7 @@ Replace with:
         loaded = true
 ```
 
-- [ ] **Step 4.4: Update `save()` to encode both faces + handle removal of either**
+- [x] **Step 4.4: Update `save()` to encode both faces + handle removal of either**
 
 Find the existing image-handling block in `save()`:
 
@@ -796,7 +796,7 @@ Replace with:
 
 (`invalidateItemCover` already covers both faces and both sizes — no change needed.)
 
-- [ ] **Step 4.5: Build check**
+- [x] **Step 4.5: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -813,7 +813,7 @@ Expected: **BUILD SUCCEEDED**. Items side is fully migrated; Games side hasn't b
 **Files:**
 - Modify: `ios/GameTracker/GameTracker/Views/Detail/AddGameView.swift`
 
-- [ ] **Step 5.1: Remove the inert `coverURL` property and Section**
+- [x] **Step 5.1: Remove the inert `coverURL` property and Section**
 
 Find this property:
 
@@ -837,7 +837,7 @@ Find this Section in the body:
 
 Delete the entire Section block (including the closing `}`).
 
-- [ ] **Step 5.2: Add new image-state properties**
+- [x] **Step 5.2: Add new image-state properties**
 
 Find the remaining `@State` block (after the `@State private var saveInFlight = false` line). Add at the end of the block:
 
@@ -850,7 +850,7 @@ Find the remaining `@State` block (after the `@State private var saveInFlight = 
 
 You'll also need to add `import UIKit` at the top of the file if it's not already there (it isn't in Plan 3a's version — add it next to the existing `import SwiftUI` / `import SwiftData`).
 
-- [ ] **Step 5.3: Insert two `CoverImagePickerSection`s where the old Section used to be**
+- [x] **Step 5.3: Insert two `CoverImagePickerSection`s where the old Section used to be**
 
 Find the location where the old `Section("Cover image")` was — between `Section("Required")` and the metadata-fetch `Section`. Insert:
 
@@ -872,7 +872,7 @@ Find the location where the old `Section("Cover image")` was — between `Sectio
                                         sectionTitle: "Back cover")
 ```
 
-- [ ] **Step 5.4: Update `save()` to encode both faces into the new game's columns**
+- [x] **Step 5.4: Update `save()` to encode both faces into the new game's columns**
 
 Find this block in `save()` (after `context.insert(game)` and before `syncTrigger.pingAfterMutation()`):
 
@@ -904,7 +904,7 @@ Replace with:
 
 (The earlier `try context.save()` already inserted the row; this second save commits the data-URI fields onto the same row before sync picks it up.)
 
-- [ ] **Step 5.5: Build check**
+- [x] **Step 5.5: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -923,7 +923,7 @@ Expected: **BUILD SUCCEEDED**.
 
 `EditGameView` currently has no image UI. We add two `CoverImagePickerSection`s at the top of the form, plus loading + saving logic.
 
-- [ ] **Step 6.1: Add `import UIKit` + an `imagesAPI` parameter**
+- [x] **Step 6.1: Add `import UIKit` + an `imagesAPI` parameter**
 
 Find the top of the file:
 
@@ -955,7 +955,7 @@ Then update every call site of `EditGameView(...)` to pass `imagesAPI`. There's 
 
 The lines following it close the call. Insert `imagesAPI: imagesAPI,` on the line after `gameID:`. (Read `GameDetailView.swift`'s existing call to see the exact argument order.)
 
-- [ ] **Step 6.2: Add image-state properties**
+- [x] **Step 6.2: Add image-state properties**
 
 Find the `@State` block at the top of `EditGameView`'s body. After the `@State private var review = ""` (or whichever is the last existing `@State`), add:
 
@@ -977,7 +977,7 @@ Add a computed lookup property after the `@State` block:
     }
 ```
 
-- [ ] **Step 6.3: Insert two `CoverImagePickerSection`s at the top of the Form**
+- [x] **Step 6.3: Insert two `CoverImagePickerSection`s at the top of the Form**
 
 Find the `Form {` opening at the top of the `body` content. Right after the `Form {` line, insert (before any existing Section):
 
@@ -999,7 +999,7 @@ Find the `Form {` opening at the top of the `body` content. Right after the `For
                                         sectionTitle: "Back cover")
 ```
 
-- [ ] **Step 6.4: Load the existing image strings on `loadOnce`**
+- [x] **Step 6.4: Load the existing image strings on `loadOnce`**
 
 Find the existing `loadOnce()` (or equivalent — the function that pulls field values out of the Game model into `@State` when the sheet first appears). Add at the end of the function body:
 
@@ -1024,7 +1024,7 @@ If `EditGameView` doesn't already gate loading with `loaded = true`, wrap the lo
 
 And ensure the body has `.task { loadOnce() }` after the toolbar.
 
-- [ ] **Step 6.5: Encode + write images in `save()`, plus cache invalidation**
+- [x] **Step 6.5: Encode + write images in `save()`, plus cache invalidation**
 
 Find the `save()` function. Near the end, before `try? context.save()`, add:
 
@@ -1059,7 +1059,7 @@ After `try? context.save()`, before any `syncTrigger.pingAfterMutation()` call, 
 
 (`invalidateGameCover` is added by Task 8 — the call site compiles after Task 8 lands.)
 
-- [ ] **Step 6.6: Build check (expected: FAIL until Task 8 lands)**
+- [x] **Step 6.6: Build check (expected: FAIL until Task 8 lands)**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -1078,7 +1078,7 @@ Expected: **BUILD FAILED** — `invalidateGameCover` not found on `ImagesAPI`. T
 
 Add a single `@State` flag and a `.onTapGesture` on the cover image so users can flip between front and back. The existing PhotosPicker upload button and "Set cover from URL…" button stay below the cover unchanged.
 
-- [ ] **Step 7.1: Add `showingBack` state**
+- [x] **Step 7.1: Add `showingBack` state**
 
 Find the existing `@State` block at the top of `GameDetailView`. Add at the end of the block:
 
@@ -1086,7 +1086,7 @@ Find the existing `@State` block at the top of `GameDetailView`. Add at the end 
     @State private var showingBack = false
 ```
 
-- [ ] **Step 7.2: Apply tap-to-flip on the cover image**
+- [x] **Step 7.2: Apply tap-to-flip on the cover image**
 
 Find the cover rendering — in `GameDetailView`'s body there's a `CoverImage(gameServerId: game.serverId, ...)` somewhere near the top. It currently uses `face: .front` (or no explicit face — `.front` is the default). Find that block and update it. The exact existing call depends on Plan 3a's layout; read the file's body to locate it.
 
@@ -1110,7 +1110,7 @@ CoverImage(gameServerId: game.serverId,
 
 (Add `.onTapGesture` either inside the same modifier chain as the existing `.frame`/`.clipShape` modifiers, or directly after the `CoverImage(...)` call — whichever fits the existing style.)
 
-- [ ] **Step 7.3: Build check (expected: still FAIL until Task 8)**
+- [x] **Step 7.3: Build check (expected: still FAIL until Task 8)**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -1129,7 +1129,7 @@ Expected: still **BUILD FAILED** due to `invalidateGameCover` in `EditGameView`.
 
 Add a helper parallel to the existing `invalidateItemCover`. Game-cover cache filenames use the `cover_<id>_<face>_<size>.jpg` format (the format used by `downloadCover(gameServerId:…)`).
 
-- [ ] **Step 8.1: Add the helper**
+- [x] **Step 8.1: Add the helper**
 
 Find the existing `invalidateItemCover` method:
 
@@ -1168,7 +1168,7 @@ Insert this new method **immediately before** the closing `}` of the `ImagesAPI`
     }
 ```
 
-- [ ] **Step 8.2: Build check**
+- [x] **Step 8.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -1184,14 +1184,14 @@ Expected: **BUILD SUCCEEDED**.
 
 **Files:** none changed in this task.
 
-- [ ] **Step 9.1: Clear iCloud conflict files (just in case)**
+- [x] **Step 9.1: Clear iCloud conflict files (just in case)**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
 find ios/GameTracker -name "* [0-9].swift" -print -delete
 ```
 
-- [ ] **Step 9.2: Full test pass**
+- [x] **Step 9.2: Full test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -1202,7 +1202,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: **`** TEST SUCCEEDED **`**.
 
-- [ ] **Step 9.3: Pre-commit sanity check**
+- [x] **Step 9.3: Pre-commit sanity check**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1216,7 +1216,7 @@ Expected listing:
 - Untracked: `Views/Common/CoverImagePicker.swift`
 - Pre-existing junk: `js/completions.js`, iCloud `* 2.sh` / `* 2.php` conflict files
 
-- [ ] **Step 9.4: Bundle commit Tasks 1–8**
+- [x] **Step 9.4: Bundle commit Tasks 1–8**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1261,7 +1261,7 @@ Resume the implementer queue only after the owner confirms or reports a specific
 
 If the checkpoint above covered every flow the owner cares about (Plans 3a-3d precedent), this task is a no-op — confirm and move to Task 11.
 
-- [ ] **Step 10.1: Optional walkthrough (skip if checkpoint coverage was sufficient)**
+- [x] **Step 10.1: Optional walkthrough (skip if checkpoint coverage was sufficient)**
 
 | # | Action | Expected |
 |---|---|---|
@@ -1275,7 +1275,7 @@ If the checkpoint above covered every flow the owner cares about (Plans 3a-3d pr
 
 **Files:** none.
 
-- [ ] **Step 11.1: Verify clean working tree**
+- [x] **Step 11.1: Verify clean working tree**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1284,13 +1284,13 @@ git status --short
 
 Expected: only pre-existing junk.
 
-- [ ] **Step 11.2: Push**
+- [x] **Step 11.2: Push**
 
 ```bash
 git push -u origin plan-3e-image-upload-expansion
 ```
 
-- [ ] **Step 11.3: Mark this plan complete**
+- [x] **Step 11.3: Mark this plan complete**
 
 ```bash
 sed -i '' 's/^- \[ \]/- [x]/g' docs/superpowers/plans/2026-05-22-ios-image-upload-expansion.md
@@ -1299,7 +1299,7 @@ git commit -m "Mark Plan 3e (iOS image upload expansion) complete"
 git push
 ```
 
-- [ ] **Step 11.4: Open PR**
+- [x] **Step 11.4: Open PR**
 
 ```bash
 gh pr create --base main --head plan-3e-image-upload-expansion \
@@ -1341,11 +1341,11 @@ EOF
 
 ## Self-review checklist (run before declaring done)
 
-- [ ] Every referenced symbol exists: `CoverKind`, `CameraPickerView`, `CoverImageProcessor`, `CoverImageURLFetcher`, `CoverImagePickerSection`, `ImagesAPI.invalidateItemCover`, `ImagesAPI.invalidateGameCover`, `CoverImage(gameServerId:)`, `CoverImage(itemServerId:)`, `Game.frontCoverImage`, `Game.backCoverImage`, `Item.frontImage`, `Item.backImage`, `ItemCategory`, `SyncTrigger.pingAfterMutation()`. (All landed via prior plans + Task 1 + Task 8 of this plan.)
-- [ ] No file is referenced by two different names across tasks.
-- [ ] `CoverImagePickerSection`'s parameter list `(pendingNewImage:, existingImageString:, kind:, serverId:, face:, imagesAPI:, sectionTitle:)` is identical across every call site in Tasks 2, 3, 4, 5, 6.
-- [ ] `CoverImageProcessor.dataURI(from:)` is the function name used in every save path in Tasks 3, 4, 5, 6 — not `ItemImageProcessor.dataURI` (the old name).
-- [ ] `ItemFormBody`'s new bindings `pendingNewFrontImage`, `pendingNewBackImage`, `existingFrontImage`, `existingBackImage` are named identically in the struct (Task 2) and in the call sites (Tasks 3, 4).
-- [ ] Game-cover cache filenames use `cover_<id>_…` prefix (Task 8) — matches the format used by `ImagesAPI.downloadCover(gameServerId:…)` in prior plans.
-- [ ] All commit messages cover the visible behaviour and bundle interdependent files (Plan 3c precedent).
-- [ ] No "TBD" or "implement later" anywhere except the meta-line in this self-review checklist.
+- [x] Every referenced symbol exists: `CoverKind`, `CameraPickerView`, `CoverImageProcessor`, `CoverImageURLFetcher`, `CoverImagePickerSection`, `ImagesAPI.invalidateItemCover`, `ImagesAPI.invalidateGameCover`, `CoverImage(gameServerId:)`, `CoverImage(itemServerId:)`, `Game.frontCoverImage`, `Game.backCoverImage`, `Item.frontImage`, `Item.backImage`, `ItemCategory`, `SyncTrigger.pingAfterMutation()`. (All landed via prior plans + Task 1 + Task 8 of this plan.)
+- [x] No file is referenced by two different names across tasks.
+- [x] `CoverImagePickerSection`'s parameter list `(pendingNewImage:, existingImageString:, kind:, serverId:, face:, imagesAPI:, sectionTitle:)` is identical across every call site in Tasks 2, 3, 4, 5, 6.
+- [x] `CoverImageProcessor.dataURI(from:)` is the function name used in every save path in Tasks 3, 4, 5, 6 — not `ItemImageProcessor.dataURI` (the old name).
+- [x] `ItemFormBody`'s new bindings `pendingNewFrontImage`, `pendingNewBackImage`, `existingFrontImage`, `existingBackImage` are named identically in the struct (Task 2) and in the call sites (Tasks 3, 4).
+- [x] Game-cover cache filenames use `cover_<id>_…` prefix (Task 8) — matches the format used by `ImagesAPI.downloadCover(gameServerId:…)` in prior plans.
+- [x] All commit messages cover the visible behaviour and bundle interdependent files (Plan 3c precedent).
+- [x] No "TBD" or "implement later" anywhere except the meta-line in this self-review checklist.
