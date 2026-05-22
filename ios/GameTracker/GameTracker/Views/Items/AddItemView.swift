@@ -56,8 +56,8 @@ struct AddItemView: View {
                     Button("Save") { save() }.disabled(!canSave)
                 }
             }
+            .themedBackground()
         }
-        .themedBackground()
     }
 
     private func save() {

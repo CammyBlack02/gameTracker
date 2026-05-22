@@ -27,8 +27,8 @@ struct PlatformFilterSheet: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .themedBackground()
         }
-        .themedBackground()
     }
 }
 

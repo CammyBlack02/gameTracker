@@ -294,8 +294,8 @@ struct CoverImagePickerSection: View {
                     Button("Cancel") { activeSheet = nil }
                 }
             }
+            .themedBackground()
         }
-        .themedBackground()
     }
 
     private func fetchURL() async {
