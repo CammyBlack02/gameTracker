@@ -76,7 +76,7 @@ Completions/
 
 **Files:** none
 
-- [ ] **Step 0.1: Confirm main is current and tests pass**
+- [x] **Step 0.1: Confirm main is current and tests pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -89,7 +89,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 
 Expected: `** TEST SUCCEEDED **`. (Plan 3a left us at 54 passing tests.)
 
-- [ ] **Step 0.2: Create the branch**
+- [x] **Step 0.2: Create the branch**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -99,7 +99,7 @@ git branch --show-current
 
 Expected: `plan-3b-completions-tab`.
 
-- [ ] **Step 0.3: Commit this plan doc on the new branch**
+- [x] **Step 0.3: Commit this plan doc on the new branch**
 
 ```bash
 git add docs/superpowers/plans/2026-05-21-ios-completions-tab.md
@@ -115,7 +115,7 @@ git commit -m "Add Plan 3b (iOS completions tab) implementation plan"
 
 A modal `NavigationStack` showing a searchable list of every non-deleted `Game` in the local store. Tapping a row calls the supplied `onPick` closure with the selected `Game` and dismisses the sheet. Reused by both the Add and Edit completion forms.
 
-- [ ] **Step 1.1: Write `GamePickerSheet.swift`**
+- [x] **Step 1.1: Write `GamePickerSheet.swift`**
 
 ```swift
 import SwiftUI
@@ -183,7 +183,7 @@ struct GamePickerSheet: View {
 }
 ```
 
-- [ ] **Step 1.2: Build check**
+- [x] **Step 1.2: Build check**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -203,7 +203,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Shared `Form` content used by both Add and Edit views. Holds the bindable fields, the game picker trigger, and the date/time/notes editors. Keeping it in one place means Add/Edit can never drift apart.
 
-- [ ] **Step 2.1: Write `CompletionFormBody.swift`**
+- [x] **Step 2.1: Write `CompletionFormBody.swift`**
 
 The body wraps its three `Section`s in a `Group` so the `.sheet` modifier (used for the game picker) attaches cleanly to the whole body rather than to a single section. The picker's presentation state is private to this view.
 
@@ -270,7 +270,7 @@ struct CompletionFormBody: View {
 }
 ```
 
-- [ ] **Step 2.2: Build check**
+- [x] **Step 2.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 | tail -3
@@ -287,7 +287,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Sheet that creates a new `GameCompletion` with `syncState = .localNew`, links it to a chosen game's `serverId` (or `nil` if the game itself is still local), and triggers a debounced sync.
 
-- [ ] **Step 3.1: Write `AddCompletionView.swift`**
+- [x] **Step 3.1: Write `AddCompletionView.swift`**
 
 ```swift
 import SwiftUI
@@ -350,7 +350,7 @@ struct AddCompletionView: View {
 }
 ```
 
-- [ ] **Step 3.2: Build check**
+- [x] **Step 3.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 | tail -3
@@ -367,7 +367,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Mirrors `AddCompletionView` but binds against an existing `GameCompletion` identified by `PersistentIdentifier`. On save, marks the row `.localModified` (if it was `.synced`) and pings sync.
 
-- [ ] **Step 4.1: Write `EditCompletionView.swift`**
+- [x] **Step 4.1: Write `EditCompletionView.swift`**
 
 ```swift
 import SwiftUI
@@ -450,7 +450,7 @@ struct EditCompletionView: View {
 }
 ```
 
-- [ ] **Step 4.2: Build check**
+- [x] **Step 4.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 | tail -3
@@ -467,7 +467,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 Single row layout: cover thumb on the left, title + platform on top, date + time-taken on middle line, notes preview on bottom, sync-state badge on the right (reuses `SyncStateBadge` from Plan 3a's `GameListRow.swift`).
 
-- [ ] **Step 5.1: Write `CompletionsListRow.swift`**
+- [x] **Step 5.1: Write `CompletionsListRow.swift`**
 
 ```swift
 import SwiftUI
@@ -522,7 +522,7 @@ struct CompletionsListRow: View {
 }
 ```
 
-- [ ] **Step 5.2: Build check**
+- [x] **Step 5.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 | tail -3
@@ -539,7 +539,7 @@ Expected: `** BUILD SUCCEEDED **`.
 
 The main tab. Reactive `@Query` of every non-deleted `GameCompletion`, sorted by `dateCompleted` descending (nils last). Search filters by title or notes substring. `+` opens `AddCompletionView`. Tapping a row opens `EditCompletionView`. Swipe-to-delete marks `.localDeleted` (or hard-deletes if `serverId == nil`). Pull-to-refresh triggers `syncEngine.runOnce()`. Empty state mirrors Plan 3a's pattern (wrapped in a `List` so the gesture still binds).
 
-- [ ] **Step 6.1: Write `CompletionsView.swift`**
+- [x] **Step 6.1: Write `CompletionsView.swift`**
 
 ```swift
 import SwiftUI
@@ -663,7 +663,7 @@ extension PersistentIdentifier: @retroactive Identifiable {
 
 Note on `@retroactive Identifiable`: Swift 5.10+ requires the `@retroactive` annotation when adding a protocol conformance to a type you don't own. If the project targets earlier Swift, drop the annotation.
 
-- [ ] **Step 6.2: Build check**
+- [x] **Step 6.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 | tail -3
@@ -678,7 +678,7 @@ Expected: `** BUILD SUCCEEDED **`. (If the `@retroactive` line errors, remove it
 **Files:**
 - Modify: `GameTracker/Views/Tabs/RootTabView.swift` (replace the Spin `PlaceholderTabView` with `CompletionsView`)
 
-- [ ] **Step 7.1: Apply the swap**
+- [x] **Step 7.1: Apply the swap**
 
 Open `ios/GameTracker/GameTracker/Views/Tabs/RootTabView.swift`. Find the Spin placeholder block:
 
@@ -699,7 +699,7 @@ Replace it with:
                 .tabItem { Label("Completions", systemImage: "checkmark.seal") }
 ```
 
-- [ ] **Step 7.2: Full build + tests**
+- [x] **Step 7.2: Full build + tests**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -708,7 +708,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'plat
 
 Expected: `** TEST SUCCEEDED **`. (No new tests; existing 54 still pass.)
 
-- [ ] **Step 7.3: Commit Tasks 1-7 together**
+- [x] **Step 7.3: Commit Tasks 1-7 together**
 
 These six new files plus the RootTabView modification ship in one commit (matches Plan 3a's bundling of interdependent UI work):
 
@@ -745,11 +745,11 @@ Resume the implementer queue only after the owner confirms or reports a specific
 
 Run through every flow built above in the sim with the real server, end-to-end. This is the equivalent of Plan 3a's Task 12.
 
-- [ ] **Step 8.1: ⌘R the app**
+- [x] **Step 8.1: ⌘R the app**
 
 If the sim hangs, reboot the Mac.
 
-- [ ] **Step 8.2: Run through the checklist**
+- [x] **Step 8.2: Run through the checklist**
 
 | # | Action | Expected |
 |---|---|---|
@@ -774,7 +774,7 @@ If any step fails, note the symptom and dig in. Don't push if Add/Edit/Delete ro
 
 **Files:** none
 
-- [ ] **Step 9.1: Verify clean working tree**
+- [x] **Step 9.1: Verify clean working tree**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -783,13 +783,13 @@ git status --short
 
 Expected: only `js/completions.js` (pre-existing).
 
-- [ ] **Step 9.2: Push**
+- [x] **Step 9.2: Push**
 
 ```bash
 git push -u origin plan-3b-completions-tab
 ```
 
-- [ ] **Step 9.3: Mark this plan complete**
+- [x] **Step 9.3: Mark this plan complete**
 
 ```bash
 sed -i '' 's/^- \[ \]/- [x]/g' docs/superpowers/plans/2026-05-21-ios-completions-tab.md
@@ -798,7 +798,7 @@ git commit -m "Mark Plan 3b (iOS completions tab) complete"
 git push
 ```
 
-- [ ] **Step 9.4: Open PR**
+- [x] **Step 9.4: Open PR**
 
 ```bash
 gh pr create --base main --head plan-3b-completions-tab \
@@ -835,10 +835,10 @@ EOF
 
 ## Self-review checklist (run before declaring done)
 
-- [ ] Every referenced symbol exists: `Game`, `GameCompletion`, `SyncState`, `SyncStatus`, `SyncEngine`, `SyncTrigger`, `ImagesAPI`, `CoverImage`, `ConflictBannerView`, `ConflictListView`, `SyncStateBadge`, `SyncStatusBannerView`. (All landed via Plan 2 / Plan 3a.)
-- [ ] No file is referenced by two different names across tasks.
-- [ ] `CompletionFormBody` is used identically by `AddCompletionView` and `EditCompletionView` (same property order and types).
-- [ ] `editingID` binding in `CompletionsView` matches the `Identifiable` extension on `PersistentIdentifier`.
-- [ ] Both Add and Edit set `completionYear` from `dateCompleted` consistently (year-int matches the calendar year of the date when present, `nil` otherwise).
-- [ ] All commit messages cover the visible behaviour and bundle interdependent files together (matches Plan 3a's style).
-- [ ] No "TBD" or "implement later" left anywhere.
+- [x] Every referenced symbol exists: `Game`, `GameCompletion`, `SyncState`, `SyncStatus`, `SyncEngine`, `SyncTrigger`, `ImagesAPI`, `CoverImage`, `ConflictBannerView`, `ConflictListView`, `SyncStateBadge`, `SyncStatusBannerView`. (All landed via Plan 2 / Plan 3a.)
+- [x] No file is referenced by two different names across tasks.
+- [x] `CompletionFormBody` is used identically by `AddCompletionView` and `EditCompletionView` (same property order and types).
+- [x] `editingID` binding in `CompletionsView` matches the `Identifiable` extension on `PersistentIdentifier`.
+- [x] Both Add and Edit set `completionYear` from `dateCompleted` consistently (year-int matches the calendar year of the date when present, `nil` otherwise).
+- [x] All commit messages cover the visible behaviour and bundle interdependent files together (matches Plan 3a's style).
+- [x] No "TBD" or "implement later" left anywhere.
