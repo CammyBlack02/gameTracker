@@ -1,9 +1,10 @@
 <?php
 /**
- * GET /api/v2/images/cover.php?id=<game_id>&size=thumb|full[&face=front|back]
+ * GET /api/v2/images/cover.php?id=<row_id>[&type=game|item][&face=front|back][&size=thumb|full]
  *
- * Streams the cover image for the given game, if it belongs to the
- * authenticated user. Defaults: face=front, size=full.
+ * Streams the cover image for the given game or item row, if it
+ * belongs to the authenticated user. Defaults: type=game (back-compat),
+ * face=front, size=full.
  *
  * On success, sends raw image bytes with appropriate Content-Type.
  * Errors are returned as JSON.
@@ -15,11 +16,12 @@ require_once __DIR__ . '/../_auth.php';
 
 $userId = v2_require_auth($pdo);
 
-$gameId = (int)($_GET['id'] ?? 0);
-$size   = $_GET['size'] ?? 'full';
-$face   = $_GET['face'] ?? 'front';
+$id   = (int)($_GET['id'] ?? 0);
+$size = $_GET['size'] ?? 'full';
+$face = $_GET['face'] ?? 'front';
+$type = $_GET['type'] ?? 'game';   // 'game' (default, back-compat) or 'item'
 
-if ($gameId <= 0) {
+if ($id <= 0) {
     v2_error('bad_request', 'id is required', 400);
 }
 if (!in_array($size, ['thumb', 'full'], true)) {
@@ -28,10 +30,19 @@ if (!in_array($size, ['thumb', 'full'], true)) {
 if (!in_array($face, ['front', 'back'], true)) {
     v2_error('bad_request', 'face must be front or back', 400);
 }
+if (!in_array($type, ['game', 'item'], true)) {
+    v2_error('bad_request', 'type must be game or item', 400);
+}
 
-$col = $face === 'back' ? 'back_cover_image' : 'front_cover_image';
-$stmt = $pdo->prepare("SELECT $col AS path FROM games WHERE id = ? AND user_id = ?");
-$stmt->execute([$gameId, $userId]);
+// Resolve which table + columns to look up.
+if ($type === 'item') {
+    $col = $face === 'back' ? 'back_image' : 'front_image';
+    $stmt = $pdo->prepare("SELECT $col AS path FROM items WHERE id = ? AND user_id = ?");
+} else {
+    $col = $face === 'back' ? 'back_cover_image' : 'front_cover_image';
+    $stmt = $pdo->prepare("SELECT $col AS path FROM games WHERE id = ? AND user_id = ?");
+}
+$stmt->execute([$id, $userId]);
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$row || empty($row['path'])) {
