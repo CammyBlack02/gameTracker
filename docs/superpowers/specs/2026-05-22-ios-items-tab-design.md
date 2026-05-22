@@ -20,11 +20,13 @@ Tab bar after Plan 3c: **Library / Items / Completions / Stats / Settings**. Sta
 
 ## Non-goals (out of scope for Plan 3c)
 
-- **Image upload from iOS** (camera / photo library / multipart POST). Existing image strings round-trip via sync on edit; new uploads stay web-only.
+- ~~**Image upload from iOS**~~ — **front-cover upload was folded in during checkpoint**; see Section 9 below. Back-cover upload stays deferred.
 - **The `item_images` extras gallery** on the detail view. Single front/back cover only in v1.
 - **Stats tab.** Separate plan (3d candidate).
 - **Per-game "add completion" button** on `GameDetailView`. Still deferred.
 - **Per-item "linked games"** UI (e.g., "games for this console"). Out of scope.
+- **Image upload for games** (only items for now). Games already have a working web upload UX; iOS image upload for games can be added later.
+- **Cache invalidation when an item is edited on the web app** between iOS syncs. Single-user app for now; future plan can handle this if needed.
 
 ## Key Decisions (from brainstorming Q&A)
 
@@ -33,7 +35,9 @@ Tab bar after Plan 3c: **Library / Items / Completions / Stats / Settings**. Sta
 | Category UX | **Single list with a category filter chip** (All / Consoles / Accessories) |
 | Image strategy | **Real images via server parity** — extend `cover.php` to take `?type=game\|item` |
 | Detail page | **Yes — `ItemDetailView`** pushed onto the nav stack on row tap |
-| Image-upload from iOS | **Deferred to a later plan**; edit preserves existing strings, no new upload UI |
+| Image-upload from iOS | **Front cover, in scope** (folded in during checkpoint). Data-URI base64 written to `item.frontImage`, sync push delivers it; `cover.php`'s existing data-URI dispatch serves it back. Zero new server work. |
+| Image capture sources | **Camera** (UIImagePickerController via Representable) **+ Photo Library** (SwiftUI PhotosPicker), surfaced via action sheet |
+| Compression | **1024px max longer edge, JPEG quality 0.7** — ~150–400KB per upload |
 | Sort default | **Title A→Z**, hardcoded (matches LibraryView's default; no sort menu in v1) |
 | Grid vs list default | **List** (matches LibraryView's default) |
 | Grid/list persistence | **Per-session `@State`** (matches LibraryView) |
@@ -251,8 +255,12 @@ The `frontImage` / `backImage` strings round-trip as opaque payloads. The iOS ap
 7. Edit button → sheet pre-filled; save → row updates; badge clears.
 8. Front/back cover swap on the detail view if both images are present.
 9. Swipe-to-delete; pull-to-refresh leaves it gone.
-10. Web app shows same changes round-tripping in both directions.
-11. Library / Completions tabs still behave; Stats placeholder still says "Coming soon"; Settings still has working sign-out.
+10. **Image upload — Add path:** `+` → Add sheet → tap "Add a photo" → action sheet shows Take Photo / Choose from Library. Pick library, choose an image, preview shows in the form. Save. New row appears with the uploaded image as its thumbnail; ~6s later the `new` badge clears (synced).
+11. **Image upload — Edit replace path:** Open an existing item with a broken / dangling image (placeholder shown). Edit → "Change". Library or camera. Save. List thumbnail + detail full-size update to the new image. Web app shows the same image after refresh.
+12. **Image upload — Camera path:** `+` → "Take Photo" → camera opens (sim falls back to a "Cancel" if no camera; on a real device this captures). Snap → preview → Save with item. Image appears.
+13. **Image upload — Remove path:** Open item with image. Edit → "Remove". Save. Preview reverts to placeholder; list thumbnail does same after re-render.
+14. Web app shows same changes round-tripping in both directions.
+15. Library / Completions tabs still behave; Stats placeholder still says "Coming soon"; Settings still has working sign-out.
 
 If the checkpoint surfaces missing scope (Plan 3b precedent: dateStarted), it gets folded in via additional commits on the same branch and noted in the PR body.
 
@@ -265,6 +273,10 @@ If the checkpoint surfaces missing scope (Plan 3b precedent: dateStarted), it ge
 | Image cache filename collision between games and items with the same server ID | Medium | New filename format namespaced by kind: `item_<id>_<face>_<size>.jpg` vs `cover_<id>_<face>_<size>.jpg` (preserve the existing game format for back-compat). |
 | Items with no images render an ugly empty box | Low | `CoverImage` already shows a `photo` placeholder when `localURL` is nil — same behaviour Items inherits. |
 | Items tab grows the sheet-presentation surface | Low | No nested sheets in this plan (Plan 3b learning). Add/Edit sheets stand alone; no game-picker analog needed. |
+| Missing privacy strings → crash on first camera/library access | High | Add `NSCameraUsageDescription` + `NSPhotoLibraryUsageDescription` to the GameTracker target's Info.plist (or build settings) as an explicit early task. |
+| Data URI payload too large → sync push timeout / 413 | Medium | Compress to 1024px max longer edge + JPEG quality 0.7 = ~150–400KB. Worst-case 50-item batch ~10MB; default PHP `post_max_size` is 8MB so document the per-batch limit and rely on `pingAfterMutation` (small batches). |
+| Cached thumb shows old image after local upload | Medium | After save, `imagesAPI.invalidateItemCover(itemServerId:)` deletes the cache files at `item_<id>_<face>_<size>.jpg` for both thumb and full sizes. Next render re-fetches. |
+| Web-side edit during iOS session shows stale cached image | Low | Documented out of scope. Single-user app; user can delete + reinstall app if they care. |
 
 ## Section 8: Plan-3c-prep work (none expected)
 
@@ -275,6 +287,95 @@ The merged Plan 3b leaves main in a state where this plan can branch off cleanly
 - `Game` and `GameCompletion` flows continue to work; their UI is untouched.
 
 The only "non-trivial" work outside iOS is the ~10-line `cover.php` extension, included in this plan's scope as a single early task.
+
+---
+
+## Section 9: Front-cover image upload (folded in during checkpoint)
+
+### Why this is in scope now
+
+The original plan deferred image upload to Plan 3d. During the user checkpoint it became clear that:
+
+- Some `front_image` rows on the live database point at filenames that are missing from disk (dangling references). Re-photographing from iOS is the cleanest way to overwrite them.
+- Capturing the collection from phone is the user's stated workflow.
+- The upload path is **simpler than expected** because `cover.php` already handles inline data URIs server-side — no new endpoint, no schema change, no multipart upload helper, no thumbnail generation. iOS just writes a data-URI string into `item.frontImage` and the existing sync layer carries it.
+
+### Storage approach
+
+A captured photo becomes a single `String` of the form `data:image/jpeg;base64,...` written to `item.frontImage`. The sync `PushBuilder.itemToModifiedRow` already sends this column opaquely; the server's `items.front_image` column (MEDIUMTEXT) accepts the full string; `cover.php`'s data-URI dispatch (line 49-66) decodes and streams it back as image bytes. Round-trip works with zero new server code.
+
+### Capture pipeline (background queue)
+
+1. User taps the image section in the form → action sheet with two choices.
+2. **"Take Photo"** → `UIImagePickerController` (camera source) presented via a SwiftUI `UIViewControllerRepresentable` wrapper. Returns a `UIImage`.
+3. **"Choose from Library"** → SwiftUI `PhotosPicker` (iOS 16+). Returns `PhotosPickerItem` → `Data` → `UIImage`.
+4. Downscale to **max 1024px on the longer edge** via `UIGraphicsImageRenderer`.
+5. JPEG-encode at **quality 0.7** → `Data`.
+6. Base64-encode and prepend `data:image/jpeg;base64,` → `String`.
+7. Assign to a `@State pendingNewImage: UIImage?` in the parent (Add/Edit) view and a parallel `@State pendingNewImageDataURI: String?`. The UIImage is for in-form preview; the data URI is what saves into the model.
+
+### Form integration
+
+`ItemFormBody` gains a new `Section("Image")` above `Section("Title & category")`:
+
+```
+┌────────────────────────────────┐
+│ ┌────┐                         │
+│ │IMG │ [Change]  [Remove]      │   ← when an image is present
+│ └────┘                         │
+└────────────────────────────────┘
+
+         OR
+
+┌────────────────────────────────┐
+│  [+ Add a photo]               │   ← when no image
+└────────────────────────────────┘
+```
+
+Preview source:
+- If `pendingNewImage != nil` → render the freshly-picked `UIImage`.
+- Else if `existingFrontImage` (the original `item.frontImage` string) is non-nil → render via `CoverImage(itemServerId: item.serverId, …)` (works for data URIs, HTTPS URLs, and bare filenames; for `AddItemView` the item has no `serverId` yet so this branch is skipped).
+- Else → placeholder tap-zone.
+
+### Save semantics
+
+- **AddItemView:** if `pendingNewImageDataURI` is set, assign it to `newItem.frontImage` before `context.insert`. Sync push will deliver the data URI on the next round.
+- **EditItemView:**
+  - If `pendingNewImageDataURI` is set → overwrite `item.frontImage` with it; transition `.synced → .localModified`.
+  - If the user tapped "Remove" → set `item.frontImage = nil`; transition `.synced → .localModified`.
+  - Otherwise → leave `frontImage` untouched (preserves legacy bare-filename / HTTPS values).
+  - After save, call `imagesAPI.invalidateItemCover(itemServerId: item.serverId)` if `serverId` is non-nil. Purges the cache files at `item_<id>_front_thumb.jpg` and `item_<id>_front_full.jpg` so the next render re-fetches.
+
+### Info.plist additions (mandatory)
+
+Without these, the app crashes the first time the camera or photo library is requested:
+
+| Key | Value |
+|---|---|
+| `NSCameraUsageDescription` | "GameTracker uses the camera to photograph your consoles and accessories." |
+| `NSPhotoLibraryUsageDescription` | "GameTracker uses your photo library to pick existing photos of your collection." |
+
+Plan-writing decision: Info.plist edits land as one of the first tasks of the upload sub-plan so the runtime crash risk surfaces immediately, not after all the UI work.
+
+### Files this section touches
+
+New:
+- `Views/Items/ItemImagePicker.swift` — single file containing the `UIImagePickerController` Representable wrapper, the SwiftUI action-sheet + preview view, and the static image-processing helper (`downscale` + `dataURI(from:)`). Roughly ~150 lines.
+
+Modified:
+- `Views/Items/ItemFormBody.swift` — add the new "Image" section + bindings for `pendingNewImage`, `pendingNewImageDataURI`, `existingFrontImage`, `removeRequested`.
+- `Views/Items/AddItemView.swift` — add the @State, pass the bindings, persist data URI on save.
+- `Views/Items/EditItemView.swift` — add the @State, pass the bindings, load `existingFrontImage` from item, persist + invalidate cache on save.
+- `Networking/ImagesAPI.swift` — add `invalidateItemCover(itemServerId:)` helper.
+- `GameTracker.xcodeproj` build settings — add the two Info.plist privacy strings via the target's "Info" tab (these are stored in the pbxproj as `INFOPLIST_KEY_NSCameraUsageDescription` and `INFOPLIST_KEY_NSPhotoLibraryUsageDescription` for synthesized-Info.plist projects).
+
+### Explicit out of scope
+
+- Back-cover upload from iOS.
+- Photo upload for games (covers + extras).
+- Multi-image gallery (`item_images` extras table).
+- In-app image editing (crop, rotate, brightness).
+- Quick-replace from `ItemDetailView` (replacement happens via Edit only).
 
 ---
 
