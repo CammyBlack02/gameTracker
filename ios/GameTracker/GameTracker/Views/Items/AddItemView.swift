@@ -8,7 +8,7 @@ struct AddItemView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var title: String = ""
-    @State private var category: ItemCategory = .console
+    @State private var category: ItemCategory = .systems
     @State private var platform: String = ""
     @State private var condition: String = ""
     @State private var pricePaid: String = ""

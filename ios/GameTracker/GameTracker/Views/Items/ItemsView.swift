@@ -10,13 +10,13 @@ struct ItemsView: View {
     }
 
     enum CategoryFilter: String, CaseIterable, Identifiable {
-        case all, console, accessory
+        case all, consoles, accessories
         var id: String { rawValue }
         var displayName: String {
             switch self {
-            case .all:       return "All"
-            case .console:   return "Consoles"
-            case .accessory: return "Accessories"
+            case .all:         return "All"
+            case .consoles:    return "Consoles"
+            case .accessories: return "Accessories"
             }
         }
     }
@@ -42,9 +42,12 @@ struct ItemsView: View {
     private var filtered: [Item] {
         var rows = allItems
         switch categoryFilter {
-        case .all:       break
-        case .console:   rows = rows.filter { $0.category == "console" }
-        case .accessory: rows = rows.filter { $0.category == "accessory" }
+        case .all:
+            break
+        case .consoles:
+            rows = rows.filter { ItemCategory.isConsole(rawString: $0.category) }
+        case .accessories:
+            rows = rows.filter { !ItemCategory.isConsole(rawString: $0.category) }
         }
         guard !search.isEmpty else { return rows }
         let s = search.lowercased()

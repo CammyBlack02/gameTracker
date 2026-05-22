@@ -23,7 +23,7 @@ struct ItemFormBody: View {
                         Label(c.displayName, systemImage: c.systemImage).tag(c)
                     }
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
             }
 
             Section("Platform & condition") {
