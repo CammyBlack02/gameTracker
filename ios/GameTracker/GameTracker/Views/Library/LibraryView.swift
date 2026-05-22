@@ -18,7 +18,6 @@ struct LibraryView: View {
     @Bindable var status: SyncStatus
 
     @Environment(\.modelContext) private var context
-    @Environment(\.theme) private var theme
 
     /// Reactive fetch — @Query re-runs whenever the underlying model
     /// container reports a change (including background sync writes),
@@ -80,12 +79,6 @@ struct LibraryView: View {
                     .listRowBackground(Color.clear)
             }
             .listStyle(.plain)
-            .background {
-                if theme.flourish == .codeRain {
-                    CodeRainView()
-                        .ignoresSafeArea()
-                }
-            }
         } else {
             switch viewMode {
             case .list:
