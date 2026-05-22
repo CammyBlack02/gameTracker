@@ -108,6 +108,15 @@ func applyAppKitAppearance(for theme: Theme, mode: AppearanceMode) {
     nav.standardAppearance = standard
     nav.scrollEdgeAppearance = standard
     nav.compactAppearance = standard
+
+    // Clear List/Form row backgrounds when the theme has a custom
+    // background, so the underlying theme color shows through.
+    // `.scrollContentBackground(.hidden)` doesn't clear row chrome —
+    // we have to reach into UIKit appearance for that.
+    let clearRows = theme.background != nil
+    UITableView.appearance().backgroundColor = clearRows ? .clear : nil
+    UITableViewCell.appearance().backgroundColor = clearRows ? .clear : nil
+    UICollectionView.appearance().backgroundColor = clearRows ? .clear : nil
 }
 
 private func platinumGradientImage() -> UIImage {
