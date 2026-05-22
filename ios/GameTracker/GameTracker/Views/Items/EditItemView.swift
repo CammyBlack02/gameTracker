@@ -19,8 +19,10 @@ struct EditItemView: View {
     @State private var quantity: Int = 1
     @State private var description: String = ""
     @State private var notes: String = ""
-    @State private var pendingNewImage: UIImage? = nil
+    @State private var pendingNewFrontImage: UIImage? = nil
+    @State private var pendingNewBackImage: UIImage? = nil
     @State private var existingFrontImage: String? = nil
+    @State private var existingBackImage: String? = nil
     @State private var loaded = false
 
     private var canSave: Bool {
@@ -43,8 +45,10 @@ struct EditItemView: View {
                              quantity: $quantity,
                              description: $description,
                              notes: $notes,
-                             pendingNewImage: $pendingNewImage,
+                             pendingNewFrontImage: $pendingNewFrontImage,
                              existingFrontImage: $existingFrontImage,
+                             pendingNewBackImage: $pendingNewBackImage,
+                             existingBackImage: $existingBackImage,
                              itemServerId: currentItemServerId,
                              imagesAPI: imagesAPI)
             }
@@ -74,6 +78,7 @@ struct EditItemView: View {
         description        = i.itemDescription ?? ""
         notes              = i.notes ?? ""
         existingFrontImage = i.frontImage
+        existingBackImage  = i.backImage
         loaded = true
     }
 
@@ -89,15 +94,22 @@ struct EditItemView: View {
         i.itemDescription    = description.isEmpty ? nil : description
         i.notes              = notes.isEmpty ? nil : notes
 
-        // Image upload: if a new photo was picked this session, encode +
-        // overwrite the model's frontImage. If the user removed (both
-        // bindings nilled), clear it. Otherwise leave the original
-        // string untouched (legacy bare-filename / HTTPS values).
-        if let img = pendingNewImage,
-           let dataURI = ItemImageProcessor.dataURI(from: img) {
+        // Image upload (front): if a new photo was picked this session,
+        // encode + overwrite. If both bindings nilled, user tapped
+        // Remove → clear it. Otherwise leave the original untouched.
+        if let img = pendingNewFrontImage,
+           let dataURI = CoverImageProcessor.dataURI(from: img) {
             i.frontImage = dataURI
-        } else if pendingNewImage == nil && existingFrontImage == nil && i.frontImage != nil {
+        } else if pendingNewFrontImage == nil && existingFrontImage == nil && i.frontImage != nil {
             i.frontImage = nil
+        }
+
+        // Image upload (back): same rules.
+        if let img = pendingNewBackImage,
+           let dataURI = CoverImageProcessor.dataURI(from: img) {
+            i.backImage = dataURI
+        } else if pendingNewBackImage == nil && existingBackImage == nil && i.backImage != nil {
+            i.backImage = nil
         }
 
         if i.syncState == .synced { i.syncState = .localModified }

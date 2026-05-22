@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct AddGameView: View {
     let imagesAPI: ImagesAPI
@@ -12,12 +13,15 @@ struct AddGameView: View {
     @State private var title = ""
     @State private var platform = ""
     @State private var genre = ""
-    @State private var coverURL = ""
     @State private var pricechartingPrice = ""
     @State private var metacritic: Int = 0
     @State private var fetchInFlight = false
     @State private var saveInFlight = false
     @State private var errorMessage: String?
+    @State private var pendingNewFrontImage: UIImage? = nil
+    @State private var pendingNewBackImage: UIImage? = nil
+    @State private var existingFrontImage: String? = nil   // always nil for Add
+    @State private var existingBackImage: String? = nil    // always nil for Add
 
     private var canSave: Bool {
         !title.isEmpty && !platform.isEmpty && !saveInFlight
@@ -31,13 +35,21 @@ struct AddGameView: View {
                     TextField("Platform", text: $platform)
                 }
 
-                Section("Cover image") {
-                    TextField("Paste image URL (https://…)", text: $coverURL)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                    Text("Server downloads + saves it after the game is created.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                CoverImagePickerSection(pendingNewImage: $pendingNewFrontImage,
+                                        existingImageString: $existingFrontImage,
+                                        kind: .game,
+                                        serverId: nil,
+                                        face: .front,
+                                        imagesAPI: imagesAPI,
+                                        sectionTitle: "Front cover")
+
+                CoverImagePickerSection(pendingNewImage: $pendingNewBackImage,
+                                        existingImageString: $existingBackImage,
+                                        kind: .game,
+                                        serverId: nil,
+                                        face: .back,
+                                        imagesAPI: imagesAPI,
+                                        sectionTitle: "Back cover")
 
                 Section {
                     Button {
@@ -122,9 +134,19 @@ struct AddGameView: View {
             return
         }
 
-        // 2. Trigger immediate-ish sync so we get the server_id back ASAP.
-        // (Cover-URL flow on the detail screen handles the actual upload;
-        // see Task 9. The URL field on this form is intentionally inert in 3a.)
+        // 2. Encode any picked images as data URIs into the new game's
+        // image columns. The sync push delivers them with the new row.
+        if let img = pendingNewFrontImage,
+           let dataURI = CoverImageProcessor.dataURI(from: img) {
+            game.frontCoverImage = dataURI
+        }
+        if let img = pendingNewBackImage,
+           let dataURI = CoverImageProcessor.dataURI(from: img) {
+            game.backCoverImage = dataURI
+        }
+        try? context.save()
+
+        // 3. Trigger immediate-ish sync so we get the server_id back ASAP.
         syncTrigger.pingAfterMutation()
 
         dismiss()
