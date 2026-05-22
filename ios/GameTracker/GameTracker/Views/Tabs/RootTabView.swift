@@ -19,10 +19,11 @@ struct RootTabView: View {
                         status: status)
                 .tabItem { Label("Library", systemImage: "books.vertical") }
 
-            PlaceholderTabView(title: "Items",
-                               systemImage: "gamecontroller",
-                               blurb: "Consoles and accessories will live here.")
-                .tabItem { Label("Items", systemImage: "gamecontroller") }
+            ItemsView(syncEngine: syncEngine,
+                      syncTrigger: syncTrigger,
+                      imagesAPI: imagesAPI,
+                      status: status)
+                .tabItem { Label("Items", systemImage: "shippingbox") }
 
             CompletionsView(syncEngine: syncEngine,
                             syncTrigger: syncTrigger,
