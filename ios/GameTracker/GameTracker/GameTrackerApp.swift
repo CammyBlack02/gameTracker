@@ -16,6 +16,10 @@ struct GameTrackerApp: App {
 
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
 
+    private var theme: Theme {
+        ThemeRegistry.theme(for: appearanceMode)
+    }
+
     private var apiClient: APIClient {
         APIClient(baseURL: Config.serverBaseURL,
                   tokenProvider: { [authManager] in authManager.currentToken })
@@ -32,13 +36,27 @@ struct GameTrackerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootViewContainer(authAPI: authAPI,
-                              syncAPI: syncAPI,
-                              proxiesAPI: proxiesAPI,
-                              imagesAPI: imagesAPI,
-                              status: status)
-                .environment(authManager)
-                .preferredColorScheme(appearanceMode.colorScheme)
+            ZStack {
+                if let bg = theme.background {
+                    bg.ignoresSafeArea()
+                }
+                RootViewContainer(authAPI: authAPI,
+                                  syncAPI: syncAPI,
+                                  proxiesAPI: proxiesAPI,
+                                  imagesAPI: imagesAPI,
+                                  status: status)
+                    .environment(authManager)
+                    .environment(\.theme, theme)
+            }
+            .preferredColorScheme(theme.colorScheme)
+            .tint(theme.accent)
+            .fontDesign(theme.fontDesign)
+            .onAppear {
+                applyAppKitAppearance(for: theme, mode: appearanceMode)
+            }
+            .onChange(of: appearanceMode) { _, newMode in
+                applyAppKitAppearance(for: ThemeRegistry.theme(for: newMode), mode: newMode)
+            }
         }
         .modelContainer(container)
     }
