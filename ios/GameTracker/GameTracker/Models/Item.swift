@@ -10,7 +10,7 @@ final class Item {
 
     var title: String
     var platform: String?
-    var category: String           // "console" or "accessory"
+    var category: String           // "Systems" (console), "Controllers", "Game Accessories", or "Toys To Life". Older rows may carry the legacy "Console".
     var itemDescription: String?
     var conditionValue: String?
     var pricePaid: Double?
