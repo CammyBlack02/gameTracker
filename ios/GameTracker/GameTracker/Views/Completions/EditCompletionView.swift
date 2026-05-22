@@ -49,6 +49,7 @@ struct EditCompletionView: View {
             }
             .task { loadOnce() }
         }
+        .themedBackground()
     }
 
     private func loadOnce() {

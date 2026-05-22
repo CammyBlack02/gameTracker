@@ -46,6 +46,7 @@ struct AddCompletionView: View {
                 GamePickerSheet(onPick: { pickedGame = $0 }, imagesAPI: imagesAPI)
             }
         }
+        .themedBackground()
     }
 
     private func save() {

@@ -125,3 +125,26 @@ private func platinumGradientImage() -> UIImage {
         cg.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
     }
 }
+
+// MARK: - .themedBackground() modifier
+
+/// Makes the underlying theme background visible by hiding default
+/// Form/List/ScrollView surfaces and painting `theme.background`
+/// (or the system semantic background if the theme doesn't override).
+///
+/// Apply on each top-level tab view + modal sheet root.
+extension View {
+    func themedBackground() -> some View {
+        modifier(ThemedBackground())
+    }
+}
+
+private struct ThemedBackground: ViewModifier {
+    @Environment(\.theme) private var theme
+
+    func body(content: Content) -> some View {
+        content
+            .scrollContentBackground(.hidden)
+            .background((theme.background ?? Color(.systemBackground)).ignoresSafeArea())
+    }
+}

@@ -59,5 +59,6 @@ struct GamePickerSheet: View {
                 }
             }
         }
+        .themedBackground()
     }
 }

@@ -17,18 +17,21 @@ struct RootTabView: View {
                         imagesAPI: imagesAPI,
                         proxiesAPI: proxiesAPI,
                         status: status)
+                .themedBackground()
                 .tabItem { Label("Library", systemImage: "books.vertical") }
 
             ItemsView(syncEngine: syncEngine,
                       syncTrigger: syncTrigger,
                       imagesAPI: imagesAPI,
                       status: status)
+                .themedBackground()
                 .tabItem { Label("Items", systemImage: "shippingbox") }
 
             CompletionsView(syncEngine: syncEngine,
                             syncTrigger: syncTrigger,
                             imagesAPI: imagesAPI,
                             status: status)
+                .themedBackground()
                 .tabItem { Label("Completions", systemImage: "checkmark.seal") }
 
             StatsView(syncEngine: syncEngine,
@@ -36,9 +39,11 @@ struct RootTabView: View {
                       imagesAPI: imagesAPI,
                       proxiesAPI: proxiesAPI,
                       status: status)
+                .themedBackground()
                 .tabItem { Label("Stats", systemImage: "chart.bar") }
 
             SettingsView(authAPI: authAPI, syncEngine: syncEngine, status: status)
+                .themedBackground()
                 .tabItem { Label("Settings", systemImage: "gear") }
         }
     }

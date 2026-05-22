@@ -295,6 +295,7 @@ struct CoverImagePickerSection: View {
                 }
             }
         }
+        .themedBackground()
     }
 
     private func fetchURL() async {

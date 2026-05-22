@@ -64,6 +64,7 @@ struct EditItemView: View {
             }
             .task { loadOnce() }
         }
+        .themedBackground()
     }
 
     private func loadOnce() {
