@@ -10,6 +10,8 @@ struct EditCompletionView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var pickedGame: Game?
+    @State private var dateStarted: Date = Date()
+    @State private var hasStartDate: Bool = false
     @State private var dateCompleted: Date = Date()
     @State private var hasDate: Bool = false
     @State private var timeTaken: String = ""
@@ -23,6 +25,8 @@ struct EditCompletionView: View {
         NavigationStack {
             Form {
                 CompletionFormBody(pickedGame: $pickedGame,
+                                   dateStarted: $dateStarted,
+                                   hasStartDate: $hasStartDate,
                                    dateCompleted: $dateCompleted,
                                    hasDate: $hasDate,
                                    timeTaken: $timeTaken,
@@ -53,6 +57,12 @@ struct EditCompletionView: View {
             let p = #Predicate<Game> { $0.serverId == sid }
             pickedGame = (try? context.fetch(FetchDescriptor(predicate: p)))?.first
         }
+        if let s = c.dateStarted {
+            dateStarted = s
+            hasStartDate = true
+        } else {
+            hasStartDate = false
+        }
         if let d = c.dateCompleted {
             dateCompleted = d
             hasDate = true
@@ -70,6 +80,7 @@ struct EditCompletionView: View {
         c.title          = game.title
         c.platform       = game.platform
         c.gameServerId   = game.serverId
+        c.dateStarted    = hasStartDate ? dateStarted : nil
         c.dateCompleted  = hasDate ? dateCompleted : nil
         c.completionYear = hasDate ? Calendar.current.component(.year, from: dateCompleted) : nil
         c.timeTaken      = timeTaken.isEmpty ? nil : timeTaken

@@ -9,6 +9,8 @@ struct AddCompletionView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var pickedGame: Game?
+    @State private var dateStarted: Date = Date()
+    @State private var hasStartDate: Bool = false
     @State private var dateCompleted: Date = Date()
     @State private var hasDate: Bool = true
     @State private var timeTaken: String = ""
@@ -21,6 +23,8 @@ struct AddCompletionView: View {
         NavigationStack {
             Form {
                 CompletionFormBody(pickedGame: $pickedGame,
+                                   dateStarted: $dateStarted,
+                                   hasStartDate: $hasStartDate,
                                    dateCompleted: $dateCompleted,
                                    hasDate: $hasDate,
                                    timeTaken: $timeTaken,
@@ -49,6 +53,7 @@ struct AddCompletionView: View {
         let c = GameCompletion(title: game.title, syncState: .localNew)
         c.gameServerId   = game.serverId
         c.platform       = game.platform
+        c.dateStarted    = hasStartDate ? dateStarted : nil
         c.dateCompleted  = hasDate ? dateCompleted : nil
         c.completionYear = hasDate ? Calendar.current.component(.year, from: dateCompleted) : nil
         c.timeTaken      = timeTaken.isEmpty ? nil : timeTaken

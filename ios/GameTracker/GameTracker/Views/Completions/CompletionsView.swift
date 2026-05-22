@@ -19,13 +19,13 @@ struct CompletionsView: View {
     @State private var editingID: PersistentIdentifier?
 
     private var filtered: [GameCompletion] {
+        // Effective date key: completed → started → created. Lets
+        // in-progress rows (no completion date yet) interleave by
+        // when they were started instead of sinking to the bottom.
         let sorted = allCompletions.sorted { a, b in
-            switch (a.dateCompleted, b.dateCompleted) {
-            case let (l?, r?): return l > r
-            case (_?, nil):    return true
-            case (nil, _?):    return false
-            case (nil, nil):   return a.createdAt > b.createdAt
-            }
+            let aKey = a.dateCompleted ?? a.dateStarted ?? a.createdAt
+            let bKey = b.dateCompleted ?? b.dateStarted ?? b.createdAt
+            return aKey > bKey
         }
         guard !search.isEmpty else { return sorted }
         let s = search.lowercased()

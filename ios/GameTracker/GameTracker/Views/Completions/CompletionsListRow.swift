@@ -4,6 +4,16 @@ struct CompletionsListRow: View {
     let completion: GameCompletion
     let imagesAPI: ImagesAPI
 
+    private var dateLabel: String? {
+        let fmt: (Date) -> String = { $0.formatted(date: .abbreviated, time: .omitted) }
+        switch (completion.dateStarted, completion.dateCompleted) {
+        case let (s?, c?): return "\(fmt(s)) → \(fmt(c))"
+        case (nil, let c?): return fmt(c)
+        case (let s?, nil): return "Started \(fmt(s))"
+        case (nil, nil): return nil
+        }
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             CoverImage(gameServerId: completion.gameServerId,
@@ -22,10 +32,9 @@ struct CompletionsListRow: View {
                     if let p = completion.platform, !p.isEmpty {
                         Text(p).font(.caption).foregroundStyle(.secondary)
                     }
-                    if let d = completion.dateCompleted {
+                    if let dateLabel = dateLabel {
                         Text("·").font(.caption).foregroundStyle(.secondary)
-                        Text(d.formatted(date: .abbreviated, time: .omitted))
-                            .font(.caption).foregroundStyle(.secondary)
+                        Text(dateLabel).font(.caption).foregroundStyle(.secondary)
                     }
                     if let t = completion.timeTaken, !t.isEmpty {
                         Text("·").font(.caption).foregroundStyle(.secondary)

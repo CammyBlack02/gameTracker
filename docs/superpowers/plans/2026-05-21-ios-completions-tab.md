@@ -33,7 +33,7 @@
 - **Editing the existing read-only completion list** that lives in `GameDetailView`. We keep that as-is; tapping a row there does not navigate to the edit sheet (yet).
 - **Filtering completions by year.** Search by title/notes substring is enough for v1.
 - **`completion_year` field.** We populate it automatically from `dateCompleted` (so the web app's by-year groupings keep working), but the UI doesn't surface it as an editable field.
-- **`dateStarted` field.** Not editable in v1; preserved when editing a synced row but not added through this UI.
+- ~~**`dateStarted` field.**~~ Added during the user checkpoint: optional toggle + DatePicker in the form, rendered on the row, used as a sort fallback so in-progress rows interleave by start date instead of sinking.
 
 ---
 
