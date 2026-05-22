@@ -1,0 +1,68 @@
+import SwiftUI
+
+/// Shared form fields for Add/Edit completion. The owning view supplies
+/// bindings, an `imagesAPI` for the picker's cover thumbs, and an
+/// `onTapGame` callback. The game-picker sheet itself is presented by
+/// the owning view — anchoring it here (on a Group inside the Form)
+/// caused both sheets to dismiss when the picker's search/scroll
+/// retriggered SwiftUI layout.
+struct CompletionFormBody: View {
+    @Binding var pickedGame: Game?
+    @Binding var dateStarted: Date
+    @Binding var hasStartDate: Bool
+    @Binding var dateCompleted: Date
+    @Binding var hasDate: Bool
+    @Binding var timeTaken: String
+    @Binding var notes: String
+    let imagesAPI: ImagesAPI
+    let onTapGame: () -> Void
+
+    var body: some View {
+        Group {
+            Section("Game") {
+                Button {
+                    onTapGame()
+                } label: {
+                    HStack {
+                        if let g = pickedGame {
+                            CoverImage(gameServerId: g.serverId, face: .front, size: .thumb, api: imagesAPI)
+                                .frame(width: 32, height: 48)
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(g.title).font(.body.weight(.medium)).lineLimit(2)
+                                Text(g.platform).font(.caption).foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Image(systemName: "gamecontroller").foregroundStyle(.secondary)
+                            Text("Choose a game…").foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            Section("When") {
+                Toggle("Set a start date", isOn: $hasStartDate)
+                if hasStartDate {
+                    DatePicker("Started",
+                               selection: $dateStarted,
+                               displayedComponents: .date)
+                }
+                Toggle("Set a completion date", isOn: $hasDate)
+                if hasDate {
+                    DatePicker("Completed",
+                               selection: $dateCompleted,
+                               displayedComponents: .date)
+                }
+            }
+
+            Section("Details") {
+                TextField("Time taken (e.g. 20h 30m)", text: $timeTaken)
+                TextField("Notes", text: $notes, axis: .vertical).lineLimit(3...10)
+            }
+        }
+    }
+}
