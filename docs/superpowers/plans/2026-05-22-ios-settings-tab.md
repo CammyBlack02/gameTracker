@@ -78,7 +78,7 @@ ios/GameTracker/GameTrackerTests/ImageCacheSizeCalculatorTests.swift
 **Files:**
 - Create: `docs/superpowers/plans/2026-05-22-ios-settings-tab.md` (this file)
 
-- [ ] **Step 0.1: Confirm current state**
+- [x] **Step 0.1: Confirm current state**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -89,13 +89,13 @@ git status --short                # only pre-existing junk
 
 Expected: branch is `plan-4a-settings-tab`; spec commit (`48c6f91`) sits on top of the 3e merge (`253a341`).
 
-- [ ] **Step 0.2: Clear iCloud Swift conflict files**
+- [x] **Step 0.2: Clear iCloud Swift conflict files**
 
 ```bash
 find ios/GameTracker -name "* [0-9].swift" -print -delete
 ```
 
-- [ ] **Step 0.3: Baseline test pass**
+- [x] **Step 0.3: Baseline test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -106,7 +106,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: `** TEST SUCCEEDED **`.
 
-- [ ] **Step 0.4: Commit this plan doc**
+- [x] **Step 0.4: Commit this plan doc**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -124,7 +124,7 @@ git commit -m "Add Plan 4a (iOS Settings tab) implementation plan"
 
 The enum is the seam between Plan 4a's three Apple color schemes and Plan 4b's richer themes. Raw values must be stable: Plan 4b extends the case list but does not rename `system | light | dark`.
 
-- [ ] **Step 1.1: Write the failing tests**
+- [x] **Step 1.1: Write the failing tests**
 
 Write `ios/GameTracker/GameTrackerTests/AppearanceModeTests.swift`:
 
@@ -160,7 +160,7 @@ final class AppearanceModeTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 1.2: Run tests — expect compile failure**
+- [x] **Step 1.2: Run tests — expect compile failure**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -171,7 +171,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: BUILD FAILED — `AppearanceMode` not found. That's correct; the next step creates it.
 
-- [ ] **Step 1.3: Implement `AppearanceMode.swift`**
+- [x] **Step 1.3: Implement `AppearanceMode.swift`**
 
 Write `ios/GameTracker/GameTracker/Settings/AppearanceMode.swift`:
 
@@ -213,7 +213,7 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 }
 ```
 
-- [ ] **Step 1.4: Run tests — expect pass**
+- [x] **Step 1.4: Run tests — expect pass**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -230,7 +230,7 @@ Expected: `** TEST SUCCEEDED **`. (No commit yet — Tasks 1–5 ship as one bun
 **Files:**
 - Modify: `ios/GameTracker/GameTracker/GameTrackerApp.swift`
 
-- [ ] **Step 2.1: Add `@AppStorage` + `.preferredColorScheme(...)`**
+- [x] **Step 2.1: Add `@AppStorage` + `.preferredColorScheme(...)`**
 
 Find the `GameTrackerApp` struct's `@State` declarations:
 
@@ -278,7 +278,7 @@ Replace with:
     }
 ```
 
-- [ ] **Step 2.2: Build check**
+- [x] **Step 2.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -298,7 +298,7 @@ Expected: **BUILD SUCCEEDED**. (Appearance picker UI lands in Task 5; for now th
 
 Lives outside `SettingsView` so it's testable with a temp directory.
 
-- [ ] **Step 3.1: Write the failing tests**
+- [x] **Step 3.1: Write the failing tests**
 
 Write `ios/GameTracker/GameTrackerTests/ImageCacheSizeCalculatorTests.swift`:
 
@@ -368,11 +368,11 @@ final class ImageCacheSizeCalculatorTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 3.2: Run tests — expect compile failure**
+- [x] **Step 3.2: Run tests — expect compile failure**
 
 Same `xcodebuild test` command as Step 1.2. Expected: BUILD FAILED — `ImageCacheSizeCalculator` not found.
 
-- [ ] **Step 3.3: Implement `ImageCacheSizeCalculator.swift`**
+- [x] **Step 3.3: Implement `ImageCacheSizeCalculator.swift`**
 
 Write `ios/GameTracker/GameTracker/Settings/ImageCacheSizeCalculator.swift`:
 
@@ -422,7 +422,7 @@ enum ImageCacheSizeCalculator {
 }
 ```
 
-- [ ] **Step 3.4: Run tests — expect pass**
+- [x] **Step 3.4: Run tests — expect pass**
 
 Same command as Step 1.4. Expected: `** TEST SUCCEEDED **`.
 
@@ -435,7 +435,7 @@ Same command as Step 1.4. Expected: `** TEST SUCCEEDED **`.
 
 `RootTabView` already receives `syncEngine` from `RootView`. We just need to forward it to `SettingsView` (which gains the parameter in Task 5).
 
-- [ ] **Step 4.1: Update the `SettingsView(...)` call site**
+- [x] **Step 4.1: Update the `SettingsView(...)` call site**
 
 Find:
 
@@ -451,7 +451,7 @@ Replace with:
                 .tabItem { Label("Settings", systemImage: "gear") }
 ```
 
-- [ ] **Step 4.2: Build check — expected to FAIL until Task 5 lands**
+- [x] **Step 4.2: Build check — expected to FAIL until Task 5 lands**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -470,7 +470,7 @@ Expected: **BUILD FAILED** — `SettingsView` doesn't accept `syncEngine` yet. F
 
 Replace the entire file's contents.
 
-- [ ] **Step 5.1: Write the new file**
+- [x] **Step 5.1: Write the new file**
 
 Overwrite `ios/GameTracker/GameTracker/Views/Settings/SettingsView.swift`:
 
@@ -755,7 +755,7 @@ struct SettingsView: View {
 }
 ```
 
-- [ ] **Step 5.2: Build check**
+- [x] **Step 5.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -773,14 +773,14 @@ If the build fails with "cannot find type 'AppearanceMode' in scope" or similar,
 
 **Files:** none modified in this task.
 
-- [ ] **Step 6.1: Clear iCloud conflict files**
+- [x] **Step 6.1: Clear iCloud conflict files**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
 find ios/GameTracker -name "* [0-9].swift" -print -delete
 ```
 
-- [ ] **Step 6.2: Full test pass**
+- [x] **Step 6.2: Full test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -793,7 +793,7 @@ Expected: `** TEST SUCCEEDED **`. Allow up to 8 minutes.
 
 If the first invocation reports `** TEST FAILED **` with no accompanying `error:` lines, it's likely simulator hiccup — try once more.
 
-- [ ] **Step 6.3: Pre-commit sanity check**
+- [x] **Step 6.3: Pre-commit sanity check**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -806,7 +806,7 @@ Expected listing:
 - Modified: `GameTrackerApp.swift`, `Views/Tabs/RootTabView.swift`, `Views/Settings/SettingsView.swift`
 - Pre-existing junk to NOT commit: `js/completions.js`, `scripts/generate-thumbnails 2.php`, `tests/v2/* 2.sh`, `ios/GameTracker/GameTrackerTests/Helpers 2/`
 
-- [ ] **Step 6.4: Bundle commit Tasks 1–5**
+- [x] **Step 6.4: Bundle commit Tasks 1–5**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -847,7 +847,7 @@ Resume only after owner confirms or reports a specific failure.
 
 **Files:** none.
 
-- [ ] **Step 7.1: Verify clean working tree**
+- [x] **Step 7.1: Verify clean working tree**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -856,13 +856,13 @@ git status --short
 
 Expected: only pre-existing junk.
 
-- [ ] **Step 7.2: Push**
+- [x] **Step 7.2: Push**
 
 ```bash
 git push -u origin plan-4a-settings-tab
 ```
 
-- [ ] **Step 7.3: Mark this plan complete**
+- [x] **Step 7.3: Mark this plan complete**
 
 ```bash
 sed -i '' 's/^- \[ \]/- [x]/g' docs/superpowers/plans/2026-05-22-ios-settings-tab.md
@@ -871,7 +871,7 @@ git commit -m "Mark Plan 4a (iOS Settings tab) complete"
 git push
 ```
 
-- [ ] **Step 7.4: Open PR**
+- [x] **Step 7.4: Open PR**
 
 ```bash
 gh pr create --base main --head plan-4a-settings-tab \
@@ -911,9 +911,9 @@ EOF
 
 ## Self-review checklist (run before declaring done)
 
-- [ ] Every referenced symbol exists: `AppearanceMode`, `ImageCacheSizeCalculator`, `SyncEngine.runOnce()`, `SyncMetadata.lastSyncedAt`, `Game.syncStateRaw`, `Item.syncStateRaw`, `ConflictListView`, `Config.serverBaseURL`, `ImageCachePaths.coversThumbs/.coversFull/.extrasThumbs/.extrasFull`, `AuthManager.state`, `AuthAPI.revoke()`. (All landed via prior plans + Tasks 1 + 3 of this plan.)
-- [ ] `@AppStorage("appearanceMode")` uses the same key string in both `GameTrackerApp.swift` and `SettingsView.swift`. (Key is the persistence boundary; mismatched keys would silently store separate values.)
-- [ ] `SettingsView`'s parameter list `(authAPI:, syncEngine:)` is identical between Task 4's call site (`RootTabView`) and Task 5's struct definition.
-- [ ] `cachePaths` in `SettingsView` covers all four `ImageCachePaths` (coversThumbs, coversFull, extrasThumbs, extrasFull) — not just the one ImagesAPI currently uses.
-- [ ] All commit messages cover visible behaviour and bundle interdependent files (Plan 3e precedent).
-- [ ] No "TBD" or "implement later" anywhere except the meta-line in this self-review checklist.
+- [x] Every referenced symbol exists: `AppearanceMode`, `ImageCacheSizeCalculator`, `SyncEngine.runOnce()`, `SyncMetadata.lastSyncedAt`, `Game.syncStateRaw`, `Item.syncStateRaw`, `ConflictListView`, `Config.serverBaseURL`, `ImageCachePaths.coversThumbs/.coversFull/.extrasThumbs/.extrasFull`, `AuthManager.state`, `AuthAPI.revoke()`. (All landed via prior plans + Tasks 1 + 3 of this plan.)
+- [x] `@AppStorage("appearanceMode")` uses the same key string in both `GameTrackerApp.swift` and `SettingsView.swift`. (Key is the persistence boundary; mismatched keys would silently store separate values.)
+- [x] `SettingsView`'s parameter list `(authAPI:, syncEngine:)` is identical between Task 4's call site (`RootTabView`) and Task 5's struct definition.
+- [x] `cachePaths` in `SettingsView` covers all four `ImageCachePaths` (coversThumbs, coversFull, extrasThumbs, extrasFull) — not just the one ImagesAPI currently uses.
+- [x] All commit messages cover visible behaviour and bundle interdependent files (Plan 3e precedent).
+- [x] No "TBD" or "implement later" anywhere except the meta-line in this self-review checklist.
