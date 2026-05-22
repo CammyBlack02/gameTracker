@@ -42,6 +42,23 @@ struct ImagesAPI {
         return dest
     }
 
+    /// Mirror of `downloadCover(gameServerId:…)` but hits the same
+    /// endpoint with `type=item`, looking up `items.front_image` /
+    /// `items.back_image`. Cache filename is namespaced with `item_`
+    /// so a game and item sharing a server ID never collide on disk.
+    func downloadCover(itemServerId: Int, face: Face, size: Size) async throws -> URL {
+        let filename = "item_\(itemServerId)_\(face.rawValue)_\(size.rawValue).jpg"
+        let dest = cacheRoot.appendingPathComponent(filename)
+        if FileManager.default.fileExists(atPath: dest.path) { return dest }
+
+        let data = try await client.downloadData(
+            "/api/v2/images/cover.php",
+            query: ["id": String(itemServerId), "type": "item", "face": face.rawValue, "size": size.rawValue]
+        )
+        try data.write(to: dest, options: .atomic)
+        return dest
+    }
+
     /// Same pattern for extra photos. `type` selects game_images vs item_images.
     func downloadExtra(imageServerId: Int, type: ExtraType, size: Size) async throws -> URL {
         let filename = "extra_\(type.rawValue)_\(imageServerId)_\(size.rawValue).jpg"
@@ -60,6 +77,20 @@ struct ImagesAPI {
     func clearCache() throws {
         let contents = try FileManager.default.contentsOfDirectory(at: cacheRoot, includingPropertiesForKeys: nil)
         for url in contents { try FileManager.default.removeItem(at: url) }
+    }
+
+    /// Purge cached item cover files for one item (both faces, both sizes).
+    /// Called by Add/Edit save paths after writing a new data URI into
+    /// `item.frontImage` so the next render fetches the new bytes instead
+    /// of returning the stale cached file.
+    func invalidateItemCover(itemServerId: Int) {
+        for face in [Face.front, Face.back] {
+            for size in [Size.thumb, Size.full] {
+                let filename = "item_\(itemServerId)_\(face.rawValue)_\(size.rawValue).jpg"
+                let dest = cacheRoot.appendingPathComponent(filename)
+                try? FileManager.default.removeItem(at: dest)
+            }
+        }
     }
 }
 
