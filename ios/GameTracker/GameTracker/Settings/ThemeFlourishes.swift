@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - CodeRainView (Matrix flourish)
 
@@ -75,8 +76,6 @@ struct ScanlineOverlayView: View {
 
 // MARK: - applyAppKitAppearance (Retro Mac flourish + global font hook)
 
-import UIKit
-
 /// Applies UIKit appearance proxies based on the theme. Called from
 /// `GameTrackerApp.body` whenever the chosen theme changes — UIKit
 /// appearance is global mutable state, so it's set imperatively.
@@ -84,7 +83,10 @@ import UIKit
 /// - Retro Mac: navigation bar background is a 3-stop platinum
 ///   gradient with a 1pt dark separator line.
 /// - Game Boy: navigation bar title font is Press Start 2P.
-/// - Otherwise: appearance is reset to UIKit defaults.
+/// - Otherwise: the appearance is overwritten with a freshly
+///   `configureWithDefaultBackground()`-initialized
+///   `UINavigationBarAppearance` — this clears any prior gradient
+///   or title-font side effects from earlier theme selections.
 @MainActor
 func applyAppKitAppearance(for theme: Theme, mode: AppearanceMode) {
     let nav = UINavigationBar.appearance()
