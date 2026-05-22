@@ -1313,46 +1313,742 @@ Resume the implementer queue only after the owner confirms or reports a specific
 
 ---
 
-## Task 12: Manual smoke pass
+## Scope expansion folded in during checkpoint
 
-**Files:** none
+The original Plan 3c deferred image upload to Plan 3d. During the user checkpoint two things became clear:
 
-Walk every flow end-to-end against the live server. This is the equivalent of Plan 3b's Task 8 (and the user has been comfortable folding this into the checkpoint when coverage overlaps — confirm with them).
+1. Some `front_image` rows on the live database point at files that are missing from disk (dangling references). Re-photographing from iOS overwrites those rows cleanly.
+2. The upload path is much simpler than initially scoped — `cover.php` already serves inline `data:` URIs, so iOS just writes a base64 data URI into `item.frontImage` and the existing sync layer carries it. No new server endpoint, no schema change, no multipart upload helper.
 
-- [ ] **Step 12.1: ⌘R the app**
+See the amended [spec, Section 9](../specs/2026-05-22-ios-items-tab-design.md#section-9-front-cover-image-upload-folded-in-during-checkpoint) for the full design.
 
-If the sim hangs, reboot the Mac.
-
-- [ ] **Step 12.2: Run through the checklist**
-
-| # | Action | Expected |
-|---|---|---|
-| 1 | Sign in to a multi-item account | Tab bar shows Items; tapping it shows server-side items A→Z |
-| 2 | Tap "All / Consoles / Accessories" chip | List filters correctly each time |
-| 3 | Search by title substring | List filters live |
-| 4 | Search by platform substring | List filters live |
-| 5 | Clear search | Full list returns |
-| 6 | Switch to Grid via the ellipsis menu | Items render as 110pt-min adaptive grid cells |
-| 7 | Switch back to List | List renders correctly |
-| 8 | Tap an item with both front + back images on the web app | Detail view loads; tap cover flips face |
-| 9 | Tap an item without images | Placeholder shown; no crash |
-| 10 | + → fill in everything → Save | New row appears; badge clears after sync |
-| 11 | Edit a row → change title → Save | Row updates; badge clears |
-| 12 | Edit a row → change quantity from 1 to 3 → Save | `×3` badge appears on row |
-| 13 | Swipe → Delete a row | Row disappears |
-| 14 | Pull-to-refresh after delete | Row stays gone |
-| 15 | Open the web app for the same user | Same items visible; new ones from iOS round-trip |
-| 16 | Open the Library tab | Library still works (no regression from CoverImage refactor) |
-
-If any step fails, note the symptom and dig in. Don't push if Add/Edit/Delete round-trip is broken or if game covers regress.
+Tasks 12–15 implement front-cover upload; Tasks 16–17 are the renumbered original smoke-pass and push.
 
 ---
 
-## Task 13: Push + open PR + wrap up
+## Task 12: Info.plist privacy strings
+
+**Files:**
+- Modify: `ios/GameTracker/GameTracker.xcodeproj/project.pbxproj` (target build settings for `INFOPLIST_KEY_NSCameraUsageDescription` and `INFOPLIST_KEY_NSPhotoLibraryUsageDescription`)
+
+Without these the app crashes the first time the camera or photo library is accessed. Add them via Xcode UI (Target → Info tab) or by editing the pbxproj's build settings block directly.
+
+- [ ] **Step 12.1: Add the two keys via Xcode**
+
+Open `ios/GameTracker/GameTracker.xcodeproj` in Xcode. Select the `GameTracker` target → **Info** tab → under "Custom iOS Target Properties" → click `+` to add two rows:
+
+| Key | Value |
+|---|---|
+| `Privacy - Camera Usage Description` | `GameTracker uses the camera to photograph your consoles and accessories.` |
+| `Privacy - Photo Library Usage Description` | `GameTracker uses your photo library to pick existing photos of your collection.` |
+
+(Xcode displays human-readable names; the underlying keys it writes are `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription`.)
+
+- [ ] **Step 12.2: Verify the keys landed in pbxproj**
+
+```bash
+cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
+grep -E "INFOPLIST_KEY_NSCameraUsageDescription|INFOPLIST_KEY_NSPhotoLibraryUsageDescription" ios/GameTracker/GameTracker.xcodeproj/project.pbxproj | head -4
+```
+
+Expected: at least one match per key (the target has both Debug and Release configurations, so 2 hits per key = 4 total is normal).
+
+- [ ] **Step 12.3: Build check**
+
+```bash
+cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
+xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 \
+  | grep -E "BUILD SUCCEEDED|BUILD FAILED|error:" | head -10
+```
+
+Expected: `** BUILD SUCCEEDED **`. (No commit yet — Tasks 12–15 ship in one bundle at the end of Task 15.)
+
+---
+
+## Task 13: `ImagesAPI.invalidateItemCover(itemServerId:)`
+
+**Files:**
+- Modify: `ios/GameTracker/GameTracker/Networking/ImagesAPI.swift`
+
+After a user edits an item's image, the cached `item_<id>_<face>_<size>.jpg` files would otherwise be served on the next render instead of the freshly-saved data URI. This helper purges them so the next `CoverImage.task(id:)` re-fetches.
+
+- [ ] **Step 13.1: Add the helper to `ImagesAPI`**
+
+Find the `clearCache()` method near the bottom of the struct. Add **immediately after it**:
+
+```swift
+/// Purge cached item cover files for one item (both faces, both sizes).
+/// Called by Add/Edit save paths after writing a new data URI into
+/// `item.frontImage` so the next render fetches the new bytes instead
+/// of returning the stale cached file.
+func invalidateItemCover(itemServerId: Int) {
+    for face in [Face.front, Face.back] {
+        for size in [Size.thumb, Size.full] {
+            let filename = "item_\(itemServerId)_\(face.rawValue)_\(size.rawValue).jpg"
+            let dest = cacheRoot.appendingPathComponent(filename)
+            try? FileManager.default.removeItem(at: dest)
+        }
+    }
+}
+```
+
+- [ ] **Step 13.2: Build check**
+
+```bash
+xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 \
+  | grep -E "BUILD SUCCEEDED|BUILD FAILED|error:" | head -10
+```
+
+Expected: `** BUILD SUCCEEDED **`.
+
+---
+
+## Task 14: `ItemImagePicker`
+
+**Files:**
+- Create: `ios/GameTracker/GameTracker/Views/Items/ItemImagePicker.swift`
+
+Single file containing:
+1. A `UIViewControllerRepresentable` wrapper for `UIImagePickerController` (camera capture — PhotosPicker doesn't support live capture).
+2. A static `processForUpload(_:)` helper that downscales a `UIImage` to max 1024px on the longer edge, JPEG-encodes at quality 0.7, base64-encodes, and prepends `data:image/jpeg;base64,`.
+3. The SwiftUI `ItemImagePickerSection` view — placeholder tap-zone OR preview + Change/Remove buttons, action sheet for Take Photo / Choose from Library.
+
+- [ ] **Step 14.1: Write `ItemImagePicker.swift`**
+
+```swift
+import SwiftUI
+import PhotosUI
+import UIKit
+
+// MARK: - UIImagePickerController wrapper (camera capture)
+
+/// SwiftUI wrapper around `UIImagePickerController` for live camera
+/// capture. PhotosPicker covers the library; this covers the camera.
+struct CameraPickerView: UIViewControllerRepresentable {
+    let onPick: (UIImage) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let vc = UIImagePickerController()
+        vc.sourceType = .camera
+        vc.allowsEditing = false
+        vc.delegate = context.coordinator
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: CameraPickerView
+        init(_ parent: CameraPickerView) { self.parent = parent }
+
+        func imagePickerController(_ picker: UIImagePickerController,
+                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let img = info[.originalImage] as? UIImage {
+                parent.onPick(img)
+            }
+            parent.dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
+    }
+}
+
+// MARK: - Image processing helpers
+
+enum ItemImageProcessor {
+    /// Returns a base64 `data:image/jpeg;base64,…` URI suitable for
+    /// writing to `item.frontImage`. Downscales the longer edge to
+    /// `maxDimension` pt and JPEG-encodes at the supplied quality.
+    static func dataURI(from image: UIImage,
+                        maxDimension: CGFloat = 1024,
+                        jpegQuality: CGFloat = 0.7) -> String? {
+        let resized = downscale(image, maxDimension: maxDimension)
+        guard let jpeg = resized.jpegData(compressionQuality: jpegQuality) else { return nil }
+        let b64 = jpeg.base64EncodedString()
+        return "data:image/jpeg;base64,\(b64)"
+    }
+
+    private static func downscale(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
+        let longest = max(image.size.width, image.size.height)
+        guard longest > maxDimension else { return image }
+        let scale = maxDimension / longest
+        let newSize = CGSize(width: image.size.width * scale,
+                             height: image.size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
+}
+
+// MARK: - Form section
+
+/// The "Image" section for Item Add/Edit forms. Holds no model state
+/// of its own; parents own the bindings.
+///
+/// `existingFrontImage` is the model's current `frontImage` string
+/// (data URI, HTTPS URL, or bare filename). When `pendingNewImage` is
+/// non-nil, that's shown instead (the user just picked it). When the
+/// user taps Remove, the parent should set `pendingNewImage = nil`
+/// and `existingFrontImage = nil` and treat that as a removal.
+struct ItemImagePickerSection: View {
+    @Binding var pendingNewImage: UIImage?
+    @Binding var existingFrontImage: String?
+    let itemServerId: Int?
+    let imagesAPI: ImagesAPI
+
+    @State private var showSourceSheet = false
+    @State private var showCamera = false
+    @State private var libraryPickerItem: PhotosPickerItem?
+
+    var body: some View {
+        Section("Image") {
+            if let img = pendingNewImage {
+                preview(image: Image(uiImage: img))
+            } else if let id = itemServerId, existingFrontImage != nil {
+                preview(image: nil, fallbackServerId: id)
+            } else {
+                Button {
+                    showSourceSheet = true
+                } label: {
+                    Label("Add a photo", systemImage: "camera")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .confirmationDialog("Add an image", isPresented: $showSourceSheet, titleVisibility: .visible) {
+            Button("Take Photo") { showCamera = true }
+            Button("Choose from Library") {
+                // PhotosPicker is presented inline via its own modifier; just
+                // poke its state via the binding rather than a dedicated bool.
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showCamera) {
+            CameraPickerView { img in
+                pendingNewImage = img
+            }
+            .ignoresSafeArea()
+        }
+        // PhotosPicker drives via the libraryPickerItem binding so we don't
+        // need an extra .sheet — its presentation is handled by SwiftUI.
+        .photosPicker(isPresented: .constant(false),
+                      selection: $libraryPickerItem,
+                      matching: .images)
+        .onChange(of: libraryPickerItem) { _, newItem in
+            guard let newItem else { return }
+            Task {
+                if let data = try? await newItem.loadTransferable(type: Data.self),
+                   let img = UIImage(data: data) {
+                    await MainActor.run { pendingNewImage = img }
+                }
+                await MainActor.run { libraryPickerItem = nil }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func preview(image: Image?, fallbackServerId: Int? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Group {
+                if let image {
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } else if let id = fallbackServerId {
+                    CoverImage(itemServerId: id, face: .front, size: .thumb, api: imagesAPI)
+                } else {
+                    Color.gray.opacity(0.2)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 160)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            HStack {
+                Button {
+                    showSourceSheet = true
+                } label: {
+                    Label("Change", systemImage: "arrow.triangle.2.circlepath")
+                }
+                Spacer()
+                Button(role: .destructive) {
+                    pendingNewImage = nil
+                    existingFrontImage = nil
+                } label: {
+                    Label("Remove", systemImage: "trash")
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+    }
+}
+```
+
+> **Note:** SwiftUI's `.photosPicker` modifier with `isPresented: .constant(false)` together with a `selection:` binding is a documented pattern: the picker presents itself when the user selects a `PhotosPickerItem` via the system flow. The action-sheet button for "Choose from Library" exists for UX clarity but the actual presentation is implicit through the binding. If this pattern produces an awkward UX in practice, replace the `confirmationDialog` with two separate `Menu` items: one wrapping a `PhotosPicker(...)` directly, one toggling `showCamera`.
+
+- [ ] **Step 14.2: Build check**
+
+```bash
+xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 \
+  | grep -E "BUILD SUCCEEDED|BUILD FAILED|error:" | head -10
+```
+
+Expected: `** BUILD SUCCEEDED **`.
+
+---
+
+## Task 15: Wire upload into `ItemFormBody` / `AddItemView` / `EditItemView` + bundle commit
+
+**Files:**
+- Modify: `ios/GameTracker/GameTracker/Views/Items/ItemFormBody.swift`
+- Modify: `ios/GameTracker/GameTracker/Views/Items/AddItemView.swift`
+- Modify: `ios/GameTracker/GameTracker/Views/Items/EditItemView.swift`
+
+- [ ] **Step 15.1: Edit `ItemFormBody.swift`**
+
+Add four new bindings + an `imagesAPI` constant + an `itemServerId` optional to the struct, and inject `ItemImagePickerSection` at the top of the `Group`. Find the existing struct definition:
+
+```swift
+struct ItemFormBody: View {
+    @Binding var title: String
+    @Binding var category: ItemCategory
+    @Binding var platform: String
+    @Binding var condition: String
+    @Binding var pricePaid: String
+    @Binding var pricechartingPrice: String
+    @Binding var quantity: Int
+    @Binding var description: String
+    @Binding var notes: String
+```
+
+Replace with:
+
+```swift
+struct ItemFormBody: View {
+    @Binding var title: String
+    @Binding var category: ItemCategory
+    @Binding var platform: String
+    @Binding var condition: String
+    @Binding var pricePaid: String
+    @Binding var pricechartingPrice: String
+    @Binding var quantity: Int
+    @Binding var description: String
+    @Binding var notes: String
+    @Binding var pendingNewImage: UIImage?
+    @Binding var existingFrontImage: String?
+    let itemServerId: Int?
+    let imagesAPI: ImagesAPI
+```
+
+Add `import UIKit` to the top if not already present (UIImage type).
+
+Then in the body, find:
+
+```swift
+        Group {
+            Section("Title & category") {
+```
+
+and replace with:
+
+```swift
+        Group {
+            ItemImagePickerSection(pendingNewImage: $pendingNewImage,
+                                   existingFrontImage: $existingFrontImage,
+                                   itemServerId: itemServerId,
+                                   imagesAPI: imagesAPI)
+
+            Section("Title & category") {
+```
+
+- [ ] **Step 15.2: Edit `AddItemView.swift`**
+
+The view needs an `imagesAPI` parameter (currently it doesn't have one) plus two new `@State` properties for the upload bindings. Find the property block:
+
+```swift
+struct AddItemView: View {
+    let syncTrigger: SyncTrigger
+
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var title: String = ""
+    @State private var category: ItemCategory = .systems
+    @State private var platform: String = ""
+    @State private var condition: String = ""
+    @State private var pricePaid: String = ""
+    @State private var pricechartingPrice: String = ""
+    @State private var quantity: Int = 1
+    @State private var description: String = ""
+    @State private var notes: String = ""
+```
+
+Replace with:
+
+```swift
+struct AddItemView: View {
+    let imagesAPI: ImagesAPI
+    let syncTrigger: SyncTrigger
+
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var title: String = ""
+    @State private var category: ItemCategory = .systems
+    @State private var platform: String = ""
+    @State private var condition: String = ""
+    @State private var pricePaid: String = ""
+    @State private var pricechartingPrice: String = ""
+    @State private var quantity: Int = 1
+    @State private var description: String = ""
+    @State private var notes: String = ""
+    @State private var pendingNewImage: UIImage? = nil
+    @State private var existingFrontImage: String? = nil   // always nil for Add; passed for symmetry
+```
+
+Then in `body`, find the `ItemFormBody(...)` call:
+
+```swift
+                ItemFormBody(title: $title,
+                             category: $category,
+                             platform: $platform,
+                             condition: $condition,
+                             pricePaid: $pricePaid,
+                             pricechartingPrice: $pricechartingPrice,
+                             quantity: $quantity,
+                             description: $description,
+                             notes: $notes)
+```
+
+Replace with:
+
+```swift
+                ItemFormBody(title: $title,
+                             category: $category,
+                             platform: $platform,
+                             condition: $condition,
+                             pricePaid: $pricePaid,
+                             pricechartingPrice: $pricechartingPrice,
+                             quantity: $quantity,
+                             description: $description,
+                             notes: $notes,
+                             pendingNewImage: $pendingNewImage,
+                             existingFrontImage: $existingFrontImage,
+                             itemServerId: nil,
+                             imagesAPI: imagesAPI)
+```
+
+Then in `save()`, before `context.insert(item)`, add:
+
+```swift
+        if let img = pendingNewImage,
+           let dataURI = ItemImageProcessor.dataURI(from: img) {
+            item.frontImage = dataURI
+        }
+```
+
+So the full save body becomes:
+
+```swift
+    private func save() {
+        let item = Item(title: title.trimmingCharacters(in: .whitespaces),
+                        category: category.rawValue,
+                        syncState: .localNew)
+        item.platform           = platform.isEmpty ? nil : platform
+        item.conditionValue     = condition.isEmpty ? nil : condition
+        item.pricePaid          = Double(pricePaid)
+        item.pricechartingPrice = Double(pricechartingPrice)
+        item.quantity           = quantity
+        item.itemDescription    = description.isEmpty ? nil : description
+        item.notes              = notes.isEmpty ? nil : notes
+        if let img = pendingNewImage,
+           let dataURI = ItemImageProcessor.dataURI(from: img) {
+            item.frontImage = dataURI
+        }
+        context.insert(item)
+        try? context.save()
+        syncTrigger.pingAfterMutation()
+        dismiss()
+    }
+```
+
+- [ ] **Step 15.3: Edit `EditItemView.swift`**
+
+Add an `imagesAPI` parameter and the same two state properties; load the existing frontImage on `loadOnce`; on save, encode the new image (if any), nil out frontImage if the user removed it, and invalidate the cache.
+
+Find:
+
+```swift
+struct EditItemView: View {
+    let itemID: PersistentIdentifier
+    let syncTrigger: SyncTrigger
+```
+
+Replace with:
+
+```swift
+struct EditItemView: View {
+    let itemID: PersistentIdentifier
+    let imagesAPI: ImagesAPI
+    let syncTrigger: SyncTrigger
+```
+
+Find the property block:
+
+```swift
+    @State private var title: String = ""
+    @State private var category: ItemCategory = .systems
+    @State private var platform: String = ""
+    @State private var condition: String = ""
+    @State private var pricePaid: String = ""
+    @State private var pricechartingPrice: String = ""
+    @State private var quantity: Int = 1
+    @State private var description: String = ""
+    @State private var notes: String = ""
+    @State private var loaded = false
+```
+
+Replace with:
+
+```swift
+    @State private var title: String = ""
+    @State private var category: ItemCategory = .systems
+    @State private var platform: String = ""
+    @State private var condition: String = ""
+    @State private var pricePaid: String = ""
+    @State private var pricechartingPrice: String = ""
+    @State private var quantity: Int = 1
+    @State private var description: String = ""
+    @State private var notes: String = ""
+    @State private var pendingNewImage: UIImage? = nil
+    @State private var existingFrontImage: String? = nil
+    @State private var loaded = false
+```
+
+Find the `ItemFormBody(...)` call and update it the same way as AddItemView did, but with `itemServerId: <lookup>`:
+
+```swift
+                ItemFormBody(title: $title,
+                             category: $category,
+                             platform: $platform,
+                             condition: $condition,
+                             pricePaid: $pricePaid,
+                             pricechartingPrice: $pricechartingPrice,
+                             quantity: $quantity,
+                             description: $description,
+                             notes: $notes,
+                             pendingNewImage: $pendingNewImage,
+                             existingFrontImage: $existingFrontImage,
+                             itemServerId: (context.model(for: itemID) as? Item)?.serverId,
+                             imagesAPI: imagesAPI)
+```
+
+Find `loadOnce`:
+
+```swift
+    private func loadOnce() {
+        guard !loaded, let i: Item = context.model(for: itemID) as? Item else { return }
+        title              = i.title
+        category           = ItemCategory(rawString: i.category)
+        platform           = i.platform ?? ""
+        condition          = i.conditionValue ?? ""
+        pricePaid          = i.pricePaid.map { String($0) } ?? ""
+        pricechartingPrice = i.pricechartingPrice.map { String($0) } ?? ""
+        quantity           = max(1, i.quantity)
+        description        = i.itemDescription ?? ""
+        notes              = i.notes ?? ""
+        loaded = true
+    }
+```
+
+Add the `existingFrontImage = i.frontImage` line:
+
+```swift
+    private func loadOnce() {
+        guard !loaded, let i: Item = context.model(for: itemID) as? Item else { return }
+        title              = i.title
+        category           = ItemCategory(rawString: i.category)
+        platform           = i.platform ?? ""
+        condition          = i.conditionValue ?? ""
+        pricePaid          = i.pricePaid.map { String($0) } ?? ""
+        pricechartingPrice = i.pricechartingPrice.map { String($0) } ?? ""
+        quantity           = max(1, i.quantity)
+        description        = i.itemDescription ?? ""
+        notes              = i.notes ?? ""
+        existingFrontImage = i.frontImage
+        loaded = true
+    }
+```
+
+Find `save()`:
+
+```swift
+    private func save() {
+        guard let i: Item = context.model(for: itemID) as? Item else { return }
+        i.title              = title.trimmingCharacters(in: .whitespaces)
+        i.category           = category.rawValue
+        i.platform           = platform.isEmpty ? nil : platform
+        i.conditionValue     = condition.isEmpty ? nil : condition
+        i.pricePaid          = Double(pricePaid)
+        i.pricechartingPrice = Double(pricechartingPrice)
+        i.quantity           = quantity
+        i.itemDescription    = description.isEmpty ? nil : description
+        i.notes              = notes.isEmpty ? nil : notes
+        if i.syncState == .synced { i.syncState = .localModified }
+        try? context.save()
+        syncTrigger.pingAfterMutation()
+        dismiss()
+    }
+```
+
+Replace with:
+
+```swift
+    private func save() {
+        guard let i: Item = context.model(for: itemID) as? Item else { return }
+        i.title              = title.trimmingCharacters(in: .whitespaces)
+        i.category           = category.rawValue
+        i.platform           = platform.isEmpty ? nil : platform
+        i.conditionValue     = condition.isEmpty ? nil : condition
+        i.pricePaid          = Double(pricePaid)
+        i.pricechartingPrice = Double(pricechartingPrice)
+        i.quantity           = quantity
+        i.itemDescription    = description.isEmpty ? nil : description
+        i.notes              = notes.isEmpty ? nil : notes
+
+        // Image upload: if a new photo was picked this session, encode +
+        // overwrite the model's frontImage. If the user removed (both
+        // bindings nilled), clear it. Otherwise leave the original
+        // string untouched (legacy bare-filename / HTTPS values).
+        if let img = pendingNewImage,
+           let dataURI = ItemImageProcessor.dataURI(from: img) {
+            i.frontImage = dataURI
+        } else if pendingNewImage == nil && existingFrontImage == nil && (i.frontImage != nil) {
+            // user tapped Remove
+            i.frontImage = nil
+        }
+
+        if i.syncState == .synced { i.syncState = .localModified }
+        try? context.save()
+
+        // Purge cached cover files so the next render re-fetches the new bytes.
+        if let serverId = i.serverId {
+            imagesAPI.invalidateItemCover(itemServerId: serverId)
+        }
+
+        syncTrigger.pingAfterMutation()
+        dismiss()
+    }
+```
+
+- [ ] **Step 15.4: Update `ItemsView` to pass `imagesAPI` into `AddItemView`**
+
+`AddItemView` now takes an `imagesAPI` parameter. Find its instantiation in `ItemsView.swift`:
+
+```swift
+            .sheet(isPresented: $showAdd) {
+                AddItemView(syncTrigger: syncTrigger)
+            }
+```
+
+Replace with:
+
+```swift
+            .sheet(isPresented: $showAdd) {
+                AddItemView(imagesAPI: imagesAPI, syncTrigger: syncTrigger)
+            }
+```
+
+- [ ] **Step 15.5: Update `ItemDetailView` to pass `imagesAPI` into `EditItemView`**
+
+`EditItemView` now takes an `imagesAPI` parameter. Find its instantiation in `ItemDetailView.swift`:
+
+```swift
+        .sheet(isPresented: $showEdit) {
+            EditItemView(itemID: itemID, syncTrigger: syncTrigger)
+        }
+```
+
+Replace with:
+
+```swift
+        .sheet(isPresented: $showEdit) {
+            EditItemView(itemID: itemID, imagesAPI: imagesAPI, syncTrigger: syncTrigger)
+        }
+```
+
+- [ ] **Step 15.6: Full test pass**
+
+```bash
+cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
+xcodebuild -project GameTracker.xcodeproj -scheme GameTracker -destination 'platform=iOS Simulator,name=iPhone 17' test 2>&1 \
+  | grep -E "TEST SUCCEEDED|TEST FAILED|error:" | tail -10
+```
+
+Expected: `** TEST SUCCEEDED **`.
+
+- [ ] **Step 15.7: Commit Tasks 12–15 together**
+
+```bash
+cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
+git add ios/GameTracker/GameTracker.xcodeproj/project.pbxproj \
+        ios/GameTracker/GameTracker/Networking/ImagesAPI.swift \
+        ios/GameTracker/GameTracker/Views/Items/ItemImagePicker.swift \
+        ios/GameTracker/GameTracker/Views/Items/ItemFormBody.swift \
+        ios/GameTracker/GameTracker/Views/Items/AddItemView.swift \
+        ios/GameTracker/GameTracker/Views/Items/EditItemView.swift \
+        ios/GameTracker/GameTracker/Views/Items/ItemsView.swift \
+        ios/GameTracker/GameTracker/Views/Items/ItemDetailView.swift
+git commit -m "Add front-cover image upload to Items tab (camera + library → data URI → sync)"
+```
+
+### 🛑 User checkpoint — image upload flow
+
+Stop here. The owner should ⌘R in Xcode (iPhone 17 sim) and verify the upload-specific flows. (List/grid/search/filter/CRUD already verified in the previous checkpoint — no need to re-walk those.)
+
+1. **Permissions surface correctly:** Open Add sheet → tap "Add a photo" → action sheet shows Take Photo + Choose from Library. Tap Choose from Library → first time, iOS prompts for photo-library access. Allow. Library opens.
+2. **Library pick:** Select an image. Sheet dismisses. Preview shows in the form. Save the item. New row appears with the uploaded image as its thumbnail. Open detail — full-size renders. Web app shows the same image after refresh.
+3. **Camera path:** On the sim, "Take Photo" presents the camera UI (sim shows a black screen with Cancel — that's expected, sim has no real camera). On a real device, snap a photo → preview → Save with the item → image appears.
+4. **Replace existing image:** Edit an existing item that has an image. In the Image section, the current image previews. Tap Change → action sheet → library → pick → preview updates. Save. List thumbnail updates to the new image; detail view's full-size matches.
+5. **Replace broken (dangling-reference) image:** Edit an item that previously showed `photo.badge.exclamationmark` because its front_image filename was missing on disk. Tap Change → library → pick → Save. The item now shows the new image. Web app refresh: the image renders there too (data URI is served by the same cover endpoint and the same web `<img>` tags).
+6. **Remove:** Edit an item with an image → tap Remove → preview reverts to placeholder → Save. List thumbnail becomes placeholder. Edit again → image section shows the "Add a photo" placeholder, confirming the model column is nil.
+7. **No regression:** Library tab still loads game covers correctly; Completions tab still works; Stats placeholder still shows; Settings sign-out still works.
+
+If anything fails, resume the implementer queue only after the owner reports a specific failure.
+
+---
+
+## Task 16: Manual smoke pass (collapsed by default)
 
 **Files:** none
 
-- [ ] **Step 13.1: Verify clean working tree**
+If the user-checkpoint above covered every flow they care about (which the precedent from Plans 3a and 3b suggests it usually does), this task is a no-op — confirm with them and move to Task 17. Otherwise, walk the table below.
+
+- [ ] **Step 16.1: ⌘R the app**
+
+- [ ] **Step 16.2: Optional checklist (skip if checkpoint coverage was sufficient)**
+
+| # | Action | Expected |
+|---|---|---|
+| 1 | Sign in | Items tab populates |
+| 2 | Walk every checkpoint step (above) for Add/Edit/Delete/Image upload | All pass |
+| 3 | Library + Completions + Settings | All still work |
+
+---
+
+## Task 17: Push + open PR + wrap up
+
+**Files:** none
+
+- [ ] **Step 17.1: Verify clean working tree**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1361,13 +2057,15 @@ git status --short
 
 Expected: only pre-existing junk (`js/completions.js`, iCloud `.sh`/`.php` conflict copies).
 
-- [ ] **Step 13.2: Push**
+- [ ] **Step 17.2: Push**
 
 ```bash
-git push -u origin plan-3c-items-tab
+git push origin plan-3c-items-tab
 ```
 
-- [ ] **Step 13.3: Mark this plan complete**
+(Branch is already tracking origin from the earlier push during the checkpoint.)
+
+- [ ] **Step 17.3: Mark this plan complete**
 
 ```bash
 sed -i '' 's/^- \[ \]/- [x]/g' docs/superpowers/plans/2026-05-22-ios-items-tab.md
@@ -1376,7 +2074,7 @@ git commit -m "Mark Plan 3c (iOS Items tab) complete"
 git push
 ```
 
-- [ ] **Step 13.4: Open PR**
+- [ ] **Step 17.4: Open PR**
 
 ```bash
 gh pr create --base main --head plan-3c-items-tab \
@@ -1384,17 +2082,23 @@ gh pr create --base main --head plan-3c-items-tab \
   --body "$(cat <<'EOF'
 ## Summary
 
-Replaces the **Items** placeholder tab with a working Items surface: a single searchable list of every console and accessory the user owns, with full CRUD via add/edit sheets and a per-item detail view.
+Replaces the **Items** placeholder tab with a working Items surface: a single searchable list of every console and accessory the user owns, with full CRUD via add/edit sheets, a per-item detail view, and **front-cover image upload from iPhone**.
 
 - `@Query`-backed reactive list, sorted title A→Z (same default as Library).
-- Inline segmented chip: **All / Consoles / Accessories**.
+- Inline segmented chip: **All / Consoles / Accessories** (groups the four real DB categories — Systems / Controllers / Game Accessories / Toys To Life — under two filters).
 - Search by title or platform.
 - `+` opens Add sheet; tap a row pushes `ItemDetailView`; swipe to delete (soft-delete when `serverId` is set, hard-delete otherwise).
 - View-mode toggle (List / Grid) in the toolbar ellipsis menu, matching LibraryView.
 - Real cover images via a small server-side parity extension to `cover.php` (now accepts `?type=game|item`) and a generalization of `CoverImage` / `ImagesAPI` to dispatch to either kind.
 - `×N` quantity badge on rows where N > 1.
+- **Image upload (folded in during checkpoint):** action sheet for Take Photo (camera) / Choose from Library (PhotosPicker). Photos downscale to 1024px max + JPEG quality 0.7, encode as base64 data URI, write to `item.frontImage`, sync push delivers it. Existing data-URI dispatch in `cover.php` serves it back. Cache invalidation runs on save so the new bytes render immediately.
 
 Tab bar after this PR: **Library / Items / Completions / Stats / Settings**. Stats is still a placeholder; Plan 3d candidate.
+
+## Checkpoint findings folded into this branch
+
+- **Real category strings** — original plan assumed `console` / `accessory`; web app actually uses `Systems` / `Controllers` / `Game Accessories` / `Toys To Life` (plus legacy `Console`). Fixed in `67c43f0` to match the web schema 1:1; the 2-way filter groups them.
+- **Image upload (originally Plan 3d)** — pulled forward because some `front_image` rows on the live DB point at files that are missing from disk, and re-photographing from iOS is the cleanest way to overwrite them. Bonus: `cover.php`'s existing data-URI dispatch makes this much smaller than initially scoped (no new endpoint, no multipart upload helper).
 
 ## Server change
 
@@ -1403,13 +2107,15 @@ Tab bar after this PR: **Library / Items / Completions / Stats / Settings**. Sta
 ## Test Plan
 
 - [x] `xcodebuild test` on iPhone 17 sim — full suite still passes
-- [x] `php -l api/v2/images/cover.php` — no parse errors
-- [x] Manual checkpoint against the live server: list, grid, search, filter, add, edit, delete, web round-trip, image rendering, back-cover flip
+- [x] `php -l api/v2/images/cover.php` (or visual review) — no parse errors
+- [x] Manual checkpoint against the live server: list, grid, search, filter, add, edit, delete, web round-trip, image rendering, image upload, replace, remove
+- [x] Photo library access prompt surfaces on first use; camera path works on real device (sim shows expected black-screen fallback)
+- [x] Replacing a dangling-reference item with a fresh photo overwrites the broken string and renders correctly on both iOS and web
 - [x] No regression on Library tab (CoverImage refactor verified via existing game cover renders)
 
-## Not in scope
+## Not in scope (Plan 3d+ territory)
 
-Image upload from iOS, `item_images` extras gallery on the detail view, Stats tab, per-game "add completion" button on `GameDetailView`, Items sort menu, Completions year-grouping. Captured for Plan 3d+.
+Back-cover upload from iOS, `item_images` extras gallery, Stats tab, per-game "add completion" button on `GameDetailView`, Items sort menu, Completions year-grouping, image upload for games, cache invalidation when an item is edited on the web app between syncs.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
