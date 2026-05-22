@@ -10,6 +10,7 @@ struct SettingsView: View {
 
     let authAPI: AuthAPI
     let syncEngine: SyncEngine
+    @Bindable var status: SyncStatus
 
     // MARK: - Environment / SwiftData
 
@@ -68,12 +69,15 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                syncSection
-                accountSection
-                appearanceSection
-                storageSection
-                aboutSection
+            VStack(spacing: 0) {
+                SyncStatusBannerView(status: status)
+                List {
+                    syncSection
+                    accountSection
+                    appearanceSection
+                    storageSection
+                    aboutSection
+                }
             }
             .navigationTitle("Settings")
             .task { await refreshCacheSize() }
