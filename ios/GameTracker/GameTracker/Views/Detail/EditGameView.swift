@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct EditGameView: View {
     let gameID: PersistentIdentifier
@@ -26,11 +27,35 @@ struct EditGameView: View {
     @State private var description = ""
     @State private var review = ""
 
+    @State private var pendingNewFrontImage: UIImage? = nil
+    @State private var pendingNewBackImage: UIImage? = nil
+    @State private var existingFrontImage: String? = nil
+    @State private var existingBackImage: String? = nil
     @State private var loaded = false
+
+    private var currentGameServerId: Int? {
+        (context.model(for: gameID) as? Game)?.serverId
+    }
 
     var body: some View {
         NavigationStack {
             Form {
+                CoverImagePickerSection(pendingNewImage: $pendingNewFrontImage,
+                                        existingImageString: $existingFrontImage,
+                                        kind: .game,
+                                        serverId: currentGameServerId,
+                                        face: .front,
+                                        imagesAPI: imagesAPI,
+                                        sectionTitle: "Front cover")
+
+                CoverImagePickerSection(pendingNewImage: $pendingNewBackImage,
+                                        existingImageString: $existingBackImage,
+                                        kind: .game,
+                                        serverId: currentGameServerId,
+                                        face: .back,
+                                        imagesAPI: imagesAPI,
+                                        sectionTitle: "Back cover")
+
                 Section("Basics") {
                     TextField("Title", text: $title)
                     TextField("Platform", text: $platform)
@@ -96,6 +121,8 @@ struct EditGameView: View {
         pricechartingPrice = g.pricechartingPrice.map { String(format: "%.2f", $0) } ?? ""
         description = g.gameDescription ?? ""
         review = g.review ?? ""
+        existingFrontImage = g.frontCoverImage
+        existingBackImage  = g.backCoverImage
         loaded = true
     }
 
@@ -116,8 +143,30 @@ struct EditGameView: View {
         g.gameDescription = description.isEmpty ? nil : description
         g.review = review.isEmpty ? nil : review
 
+        // Image upload (front): encode new pick → data URI; remove
+        // clears the column; otherwise preserve existing string.
+        if let img = pendingNewFrontImage,
+           let dataURI = CoverImageProcessor.dataURI(from: img) {
+            g.frontCoverImage = dataURI
+        } else if pendingNewFrontImage == nil && existingFrontImage == nil && g.frontCoverImage != nil {
+            g.frontCoverImage = nil
+        }
+
+        // Image upload (back): same rules.
+        if let img = pendingNewBackImage,
+           let dataURI = CoverImageProcessor.dataURI(from: img) {
+            g.backCoverImage = dataURI
+        } else if pendingNewBackImage == nil && existingBackImage == nil && g.backCoverImage != nil {
+            g.backCoverImage = nil
+        }
+
         if g.syncState == .synced { g.syncState = .localModified }
         try? context.save()
+
+        if let serverId = g.serverId {
+            imagesAPI.invalidateGameCover(gameServerId: serverId)
+        }
+
         syncTrigger.pingAfterMutation()
         dismiss()
     }
