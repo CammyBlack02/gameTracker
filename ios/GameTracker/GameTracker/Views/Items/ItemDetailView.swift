@@ -84,10 +84,10 @@ struct ItemDetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Pricing").font(.headline)
             if let p = item?.pricePaid {
-                row(label: "Price paid", value: "£\(format(p))")
+                row(label: "Price paid", value: formatGBP(p))
             }
             if let p = item?.pricechartingPrice {
-                row(label: "Pricecharting value", value: "£\(format(p))")
+                row(label: "Pricecharting value", value: formatGBP(usdToGBP(p)))
             }
         }
     }
