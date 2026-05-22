@@ -46,8 +46,8 @@ struct ConflictListView: View {
             .navigationDestination(for: ConflictRoute.self) { route in
                 ConflictDetailView(route: route)
             }
+            .themedBackground()
         }
-        .themedBackground()
     }
 }
 

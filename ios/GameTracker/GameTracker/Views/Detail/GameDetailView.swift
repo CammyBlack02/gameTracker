@@ -251,8 +251,8 @@ struct GameDetailView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             }
+            .themedBackground()
         }
-        .themedBackground()
     }
 
     private func fetchExternal(for game: Game) async {
