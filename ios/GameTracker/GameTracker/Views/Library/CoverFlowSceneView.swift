@@ -6,8 +6,8 @@ struct CoverFlowSceneView: UIViewRepresentable {
 
     let games: [Game]
     let imagesAPI: ImagesAPI
-    let theme: Theme
     @Binding var focusedIndex: Int
+    @Binding var showingBack: Bool
     /// Called when the user taps the currently-focused box.
     let onActivateFocused: () -> Void
 
@@ -16,10 +16,23 @@ struct CoverFlowSceneView: UIViewRepresentable {
         var pannedFromIndex: Int = 0
         var parent: CoverFlowSceneView
 
+        /// Signature of the last games array applied to the scene.
+        /// We use ObjectIdentifier of each Game to build a lightweight
+        /// hash so `updateUIView` can skip the expensive node rebuild
+        /// when only the focusedIndex binding changed (which fires on
+        /// every pan tick).
+        var lastGamesSignature: Int = 0
+
         init(parent: CoverFlowSceneView) {
             self.parent = parent
-            self.scene = CoverFlowScene(imagesAPI: parent.imagesAPI,
-                                         theme: parent.theme)
+            self.scene = CoverFlowScene(imagesAPI: parent.imagesAPI)
+        }
+
+        func gamesSignature(_ games: [Game]) -> Int {
+            var hasher = Hasher()
+            hasher.combine(games.count)
+            for g in games { hasher.combine(ObjectIdentifier(g)) }
+            return hasher.finalize()
         }
 
         @objc func handlePan(_ pan: UIPanGestureRecognizer) {
@@ -88,7 +101,10 @@ struct CoverFlowSceneView: UIViewRepresentable {
         let scnView = SCNView(frame: .zero)
         scnView.scene = context.coordinator.scene.scene
         scnView.allowsCameraControl = false
-        scnView.autoenablesDefaultLighting = false
+        // Default lighting acts as a forgiving fill on top of our
+        // scene's key+ambient pair, so the front cover of rotated
+        // side boxes stays readable.
+        scnView.autoenablesDefaultLighting = true
         scnView.backgroundColor = .clear
 
         let pan = UIPanGestureRecognizer(target: context.coordinator,
@@ -101,6 +117,7 @@ struct CoverFlowSceneView: UIViewRepresentable {
         scnView.addGestureRecognizer(tap)
 
         context.coordinator.scene.update(games: games)
+        context.coordinator.lastGamesSignature = context.coordinator.gamesSignature(games)
         return scnView
     }
 
@@ -108,10 +125,19 @@ struct CoverFlowSceneView: UIViewRepresentable {
         // Update parent reference so coordinator's writeback uses the
         // latest binding closure.
         context.coordinator.parent = self
-        context.coordinator.scene.updateTheme(theme)
-        context.coordinator.scene.update(games: games)
+
+        let signature = context.coordinator.gamesSignature(games)
+        if signature != context.coordinator.lastGamesSignature {
+            context.coordinator.scene.update(games: games)
+            context.coordinator.lastGamesSignature = signature
+        }
+
         if context.coordinator.scene.focusedIndex != focusedIndex {
             context.coordinator.scene.snap(to: focusedIndex, animated: true)
+        }
+
+        if context.coordinator.scene.focusedShowingBack != showingBack {
+            context.coordinator.scene.setFocusedShowingBack(showingBack)
         }
     }
 }

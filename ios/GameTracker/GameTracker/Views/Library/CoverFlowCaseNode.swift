@@ -17,29 +17,35 @@ import SwiftUI
 @MainActor
 enum CoverFlowCaseNode {
 
-    /// Box dimensions in SceneKit "units". The camera + lighting
-    /// elsewhere are tuned for these values.
-    private static let discSize  = SCNVector3(0.28, 0.40, 0.022)
-    private static let cartSize  = SCNVector3(0.22, 0.32, 0.018)
+    /// Box dimensions in SceneKit "units", roughly scaled from real
+    /// case sizes (DVD ≈ 135×190×14 mm as baseline):
+    ///   - disc:  tall, thin (PS2+, Xbox, Wii, GameCube)
+    ///   - cart:  squarer, chunkier (Switch, 3DS, GBA, NES)
+    ///   - jewel: wider than tall, CD-thin (PS1, Dreamcast, Saturn)
+    private static let discSize  = SCNVector3(0.37, 0.52, 0.030)
+    private static let cartSize  = SCNVector3(0.35, 0.38, 0.050)
+    private static let jewelSize = SCNVector3(0.37, 0.33, 0.025)
 
-    /// Solid placeholder colors used until textures load.
+    /// Solid placeholder colors used until cover textures load.
     private static let placeholderFront  = UIColor(white: 0.85, alpha: 1.0)
     private static let placeholderDark   = UIColor(white: 0.10, alpha: 1.0)
 
     /// Build the node. Cover textures are kicked off as async work;
     /// the returned node renders with placeholders immediately and
     /// updates in place when the images arrive.
-    static func make(game: Game,
-                     imagesAPI: ImagesAPI,
-                     theme: Theme) -> SCNNode {
-        let media = MediaTypeInfer.infer(from: game.platform)
-        let size  = (media == .cart) ? cartSize : discSize
+    static func make(game: Game, imagesAPI: ImagesAPI) -> SCNNode {
+        let size: SCNVector3
+        switch MediaTypeInfer.infer(from: game.platform) {
+        case .disc:  size = discSize
+        case .cart:  size = cartSize
+        case .jewel: size = jewelSize
+        }
 
         let box = SCNBox(width: CGFloat(size.x),
                          height: CGFloat(size.y),
                          length: CGFloat(size.z),
                          chamferRadius: 0.004)
-        box.materials = makeInitialMaterials(game: game, theme: theme)
+        box.materials = makeInitialMaterials()
 
         let node = SCNNode(geometry: box)
         node.name = nodeName(for: game)
@@ -61,20 +67,18 @@ enum CoverFlowCaseNode {
 
     // MARK: - Material setup
 
-    private static func makeInitialMaterials(game: Game, theme: Theme) -> [SCNMaterial] {
-        let spineImage = SpineTextureBuilder.makeSpine(
-            title: game.title,
-            background: theme.accent,
-            fontName: theme.fontName
-        )
-
+    private static func makeInitialMaterials() -> [SCNMaterial] {
+        // Spines are pure black: real game spines are part of the
+        // wraparound back-cover artwork uploaded by the user, so a
+        // generated spine here would either duplicate or compete with
+        // it. Black reads cleanly as the case's edge.
         return [
-            material(contents: placeholderFront),              // 0 front
-            material(contents: spineImage ?? placeholderDark), // 1 right spine
-            material(contents: placeholderFront),              // 2 back
-            material(contents: spineImage ?? placeholderDark), // 3 left spine
-            material(contents: placeholderDark),               // 4 top
-            material(contents: placeholderDark),               // 5 bottom
+            material(contents: placeholderFront), // 0 front (cover)
+            material(contents: UIColor.black),    // 1 right spine
+            material(contents: placeholderFront), // 2 back (cover)
+            material(contents: UIColor.black),    // 3 left spine
+            material(contents: placeholderDark),  // 4 top
+            material(contents: placeholderDark),  // 5 bottom
         ]
     }
 
@@ -113,7 +117,32 @@ enum CoverFlowCaseNode {
         guard let url = try? await imagesAPI.downloadCover(
             gameServerId: serverId, face: face, size: .full
         ) else { return nil }
-        return UIImage(contentsOfFile: url.path)
+        guard let raw = UIImage(contentsOfFile: url.path) else { return nil }
+        return downscaleForMetal(raw)
+    }
+
+    /// Metal's MTLTextureDescriptor caps texture dimensions at 8192px on
+    /// current iPhone GPUs. Phone-camera photos routinely exceed that
+    /// (e.g. a 12MP shot at 9675×7256). Hand SCNMaterial one of those
+    /// and the simulator's Metal validation layer aborts on assignment.
+    /// Pre-shrink anything larger than `maxDim` before it touches the
+    /// scene graph.
+    private static func downscaleForMetal(_ image: UIImage,
+                                          maxDim: CGFloat = 2048) -> UIImage {
+        let widthPx  = image.size.width  * image.scale
+        let heightPx = image.size.height * image.scale
+        let longest  = max(widthPx, heightPx)
+        guard longest > maxDim else { return image }
+
+        let factor = maxDim / longest
+        let target = CGSize(width:  image.size.width  * factor,
+                            height: image.size.height * factor)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1   // we already chose target in points; don't double-scale.
+        let renderer = UIGraphicsImageRenderer(size: target, format: format)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: target))
+        }
     }
 
     /// Multiplies the image's pixels toward black. Used as a back-cover
