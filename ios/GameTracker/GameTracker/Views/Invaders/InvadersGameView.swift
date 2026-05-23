@@ -17,16 +17,20 @@ struct InvadersGameView: View {
         GeometryReader { geo in
             ZStack {
                 Color(.systemBackground).ignoresSafeArea()
-                SpriteView(scene: coordinator.scene(for: geo.size, games: games))
-                    .ignoresSafeArea()
-                    .accessibilityHidden(true)
-                InvadersHUD(score: coordinator.score,
-                            wave: coordinator.waveNumber,
-                            bestScore: bestScore,
-                            gameOver: coordinator.gameOver,
-                            isNewBest: coordinator.finalScore > bestScore,
-                            onPlayAgain: { coordinator.restart() },
-                            onClose: onDismiss)
+                if coordinator.isReady && !coordinator.loadFailed {
+                    SpriteView(scene: coordinator.scene(for: geo.size, games: games))
+                        .ignoresSafeArea()
+                        .accessibilityHidden(true)
+                    InvadersHUD(score: coordinator.score,
+                                wave: coordinator.waveNumber,
+                                bestScore: bestScore,
+                                gameOver: coordinator.gameOver,
+                                isNewBest: coordinator.finalScore > bestScore,
+                                onPlayAgain: { coordinator.restart() },
+                                onClose: onDismiss)
+                } else {
+                    loadingView
+                }
             }
             .task {
                 configureAudioSession()
@@ -38,6 +42,29 @@ struct InvadersGameView: View {
             .onChange(of: coordinator.finalScore) { _, newValue in
                 if newValue > bestScore { bestScore = newValue }
             }
+        }
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            if coordinator.loadFailed {
+                Image(systemName: "photo.slash")
+                    .font(.largeTitle)
+                    .foregroundStyle(.secondary)
+                Text("No covers loaded.\nPull to sync in Library first.")
+                    .font(.callout.monospaced())
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            } else {
+                ProgressView()
+                    .controlSize(.large)
+                Text("Loading invaders…")
+                    .font(.callout.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+            Button("Cancel", action: onDismiss)
+                .buttonStyle(.bordered)
+                .padding(.top, 8)
         }
     }
 
@@ -57,46 +84,75 @@ struct InvadersGameView: View {
 
         private var _scene: InvadersScene?
         private var loader: CoverTextureLoader?
-        private var games: [Game] = []
         private var sceneSize: CGSize = .zero
+
+        /// Games whose covers were successfully pre-loaded. This is the pool
+        /// passed to the scene — NOT the full original games array.
+        private var loadedGames: [Game] = []
+        /// Cover images keyed by persistent model ID, populated before the
+        /// scene is created so wave 1 invaders have real covers immediately.
+        private var preloadedCovers: [PersistentIdentifier: UIImage] = [:]
+
+        /// True once all covers have been awaited and the scene is safe to create.
+        var isReady: Bool = false
+        /// True when preload completed but zero games had loadable covers.
+        var loadFailed: Bool = false
 
         var score: Int = 0
         var waveNumber: Int = 1
         var gameOver: Bool = false
         var finalScore: Int = 0
 
+        /// Only called after `isReady` is true. On the first call it creates and
+        /// caches the scene; subsequent calls (e.g. on body re-eval) return the
+        /// cached instance.
         func scene(for size: CGSize, games: [Game]) -> SKScene {
             self.sceneSize = size
             if let existing = _scene { return existing }
-            // Snapshot the games array on first call only — spec §6/§10:
-            // sync writes mid-run must not change the active pool.
-            self.games = games
             return makeScene()
         }
 
         private func makeScene() -> InvadersScene {
             let scene = InvadersScene(size: sceneSize)
             scene.scaleMode = .resizeFill
-            scene.configure(games: games)
+            scene.configure(games: loadedGames)
+            // Assign covers BEFORE the scene is presented so that
+            // didMove(to:) → startNextWave() can use them immediately.
+            scene.preloadedCovers = preloadedCovers
             scene.gameDelegate = self
             _scene = scene
             return scene
         }
 
+        /// Awaits ALL covers up front. Once done, sets `isReady = true` so the
+        /// View's body shows the SpriteView. Does NOT call `_scene?.applyCover`
+        /// (no scene exists yet at this point).
         func prewarmCovers(games: [Game], imagesAPI: ImagesAPI) async {
             let loader = CoverTextureLoader(imagesAPI: imagesAPI)
             self.loader = loader
+
+            var result: [PersistentIdentifier: UIImage] = [:]
+            var loaded: [Game] = []
+
             for g in games.prefix(64).shuffled() {
                 if let img = await loader.fetch(game: g) {
-                    _scene?.applyCover(img, for: g.persistentModelID)
+                    result[g.persistentModelID] = img
+                    loaded.append(g)
                 }
             }
+
+            preloadedCovers = result
+            loadedGames = loaded
+            loadFailed = loaded.isEmpty
+            isReady = true
         }
 
         func setPaused(_ paused: Bool) {
             _scene?.isPaused = paused
         }
 
+        /// Rebuild the scene for a fresh run. `loadedGames` and `preloadedCovers`
+        /// persist — no re-prewarm needed.
         func restart() {
             score = 0
             waveNumber = 1

@@ -176,23 +176,23 @@ This is the **entire** difficulty curve. It is deterministic, easy to reason abo
 
 ## Section 6: Cover texture loading
 
-When the sheet opens, `InvadersGameView` kicks off a `Task` that pre-decodes covers:
+When the sheet opens, `InvadersGameView` shows a **"Loading invaders…"** overlay and awaits **all** covers in a randomised pool (up to 64 games) before the SpriteKit scene is created. Cover thumbnails are already on disk (cached from list/grid view), so reading up to 64 of them is sub-second; the user sees a brief flash of the loading view, not a meaningful wait.
 
-```swift
-.task {
-    for game in games.prefix(64).shuffled() {
-        if let img = await CoverTextureLoader.fetch(game: game, imagesAPI: imagesAPI) {
-            scene.registerCover(img, for: game.persistentModelID)
-        }
-    }
-}
-```
+Flow:
 
-Game logic doesn't block on this — the scene starts immediately and uses placeholder grey squares (with the game's platform first letter overlaid in white) until a texture lands. As covers arrive, the next-spawned invader picks one. This means the very first wave may render with a mix of placeholders and real covers; by wave 2 or 3 the pool is full.
+1. Sheet opens → `coordinator.isReady == false` → full-screen "Loading invaders…" overlay with a `ProgressView` and a Cancel button.
+2. `Coordinator.prewarmCovers` runs inside the view's `.task`. It iterates `games.prefix(64).shuffled()`, awaiting each `CoverTextureLoader.fetch` call before moving on. All results are collected into `preloadedCovers: [PersistentIdentifier: UIImage]` and `loadedGames: [Game]`.
+3. Once all awaits complete, `isReady = true`. The view re-evaluates and the `SpriteView` appears for the first time.
+4. `Coordinator.scene(for:games:)` is called (first and only time), which calls `makeScene()`. This configures the scene with `loadedGames`, assigns `scene.preloadedCovers`, and _then_ returns the scene to `SpriteView`.
+5. SpriteKit calls `didMove(to:)` → `startNextWave()`. Every invader is constructed with `cover: preloadedCovers[game.persistentModelID]` — a real cover image is available from the very first frame. **No placeholder grey squares are visible during gameplay.**
 
-If a game has no cached cover thumb at all (rare — only happens for newly-added games that haven't synced their cover), the placeholder grey-square texture is used permanently for that game during this run.
+`InvaderNode`'s placeholder fallback (grey square + platform-letter) is retained as a defence-in-depth safeguard for any unexpected gap, but should never render under normal conditions.
 
-**Memory cap:** at most 64 unique `UIImage` textures held in memory; libraries larger than 64 sample 64 random games at sheet-open and cycle them across waves. This makes the working set bounded regardless of library size.
+**Unsynced library edge case:** if every game in the pool has no cached thumb (e.g. a freshly-added library that hasn't synced), `loadedGames` ends up empty. In this case `loadFailed = true` and `isReady = true` are both set. The loading overlay switches to an error message — "No covers loaded. Pull to sync in Library first." — plus a Cancel button. The scene is not started.
+
+**Restart:** "Play Again" after game-over calls `Coordinator.restart()`, which rebuilds the scene from the already-populated `loadedGames` and `preloadedCovers`. No re-prewarm occurs; the loading view is not shown again.
+
+**Memory cap:** at most 64 unique `UIImage` textures held in memory; libraries larger than 64 sample 64 random games at sheet-open and cycle them across all waves of the run. This makes the working set bounded regardless of library size.
 
 ## Section 7: Sound effects
 
