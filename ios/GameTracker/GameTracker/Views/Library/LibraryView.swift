@@ -40,6 +40,7 @@ struct LibraryView: View {
     @State private var showFilter = false
     @State private var platformFilter: Set<String> = []
     @State private var navigationPath = NavigationPath()
+    @State private var showInvaders = false
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -65,6 +66,11 @@ struct LibraryView: View {
             .sheet(isPresented: $showConflicts) { ConflictListView() }
             .sheet(isPresented: $showFilter) {
                 PlatformFilterSheet(selected: $platformFilter)
+            }
+            .fullScreenCover(isPresented: $showInvaders) {
+                InvadersGameView(games: filteredGames,
+                                 imagesAPI: imagesAPI,
+                                 onDismiss: { showInvaders = false })
             }
             .task { try? await syncEngine.runOnce() }
             .refreshable { try? await syncEngine.runOnce() }
@@ -126,6 +132,14 @@ struct LibraryView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        if !allGames.isEmpty {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button { showInvaders = true } label: {
+                    Image(systemName: "gamecontroller.fill")
+                }
+                .accessibilityLabel("Play Invaders")
+            }
+        }
         ToolbarItem(placement: .navigationBarTrailing) {
             Button { showAdd = true } label: { Image(systemName: "plus") }
         }
