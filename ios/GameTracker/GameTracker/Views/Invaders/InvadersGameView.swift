@@ -134,7 +134,11 @@ struct InvadersGameView: View {
             var result: [PersistentIdentifier: UIImage] = [:]
             var loaded: [Game] = []
 
-            for g in games.prefix(64).shuffled() {
+            // Shuffle BEFORE taking the prefix so the loaded pool is a
+            // uniform random sample of the library — otherwise the
+            // 64-cap biases toward the top of whatever sort the Library
+            // tab happens to be using (alphabetical, date added, etc.).
+            for g in games.shuffled().prefix(64) {
                 if let img = await loader.fetch(game: g) {
                     result[g.persistentModelID] = img
                     loaded.append(g)

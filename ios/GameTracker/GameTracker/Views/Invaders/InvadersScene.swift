@@ -76,6 +76,12 @@ final class InvadersScene: SKScene {
     private var lastFireTime: TimeInterval = 0
     private var lastUpdate: TimeInterval = 0
 
+    /// IDs of games used in the most recent waves. Each new wave
+    /// prefers games NOT in this set so consecutive waves don't
+    /// recycle the same covers from a small loaded pool. Kept to a
+    /// sliding window of roughly two waves' worth of slots.
+    private var recentlyUsedIDs: [PersistentIdentifier] = []
+
     private let reduceMotion = UIAccessibility.isReduceMotionEnabled
 
     // MARK: - Lifecycle
@@ -259,22 +265,33 @@ final class InvadersScene: SKScene {
         let topY = size.height - 100
         let startX = -spacingX * CGFloat(cfg.cols - 1) / 2
 
-        // Build a fresh shuffled pool large enough to fill the grid
-        // with no repeats. If the loaded library is smaller than the
-        // grid (small collections), cycle reshuffled copies so we
-        // still get visible variety run-to-run.
+        // Build a fresh pool for this wave. Two passes:
+        //  1. games NOT used in the recent window (shuffled), then
+        //  2. games that WERE recently used (shuffled), as fallback
+        // This makes consecutive waves prefer fresh covers and only
+        // recycle when the loaded library is smaller than two waves'
+        // worth of slots. If the library is smaller than a single
+        // wave, we cycle reshuffled copies for the remainder.
         let needed = cfg.rows * cfg.cols
+        let recentSet = Set(recentlyUsedIDs)
+        let fresh  = games.filter { !recentSet.contains($0.persistentModelID) }
+        let recent = games.filter {  recentSet.contains($0.persistentModelID) }
+
         var pool: [Game] = []
+        pool.append(contentsOf: fresh.shuffled())
+        pool.append(contentsOf: recent.shuffled())
         while pool.count < needed {
             let nextShuffle = games.shuffled()
             if nextShuffle.isEmpty { break }
             pool.append(contentsOf: nextShuffle)
         }
         var poolIter = pool.makeIterator()
+        var thisWaveIDs: [PersistentIdentifier] = []
 
         for r in 0..<cfg.rows {
             for c in 0..<cfg.cols {
                 guard let game = poolIter.next() else { continue }
+                thisWaveIDs.append(game.persistentModelID)
                 let cover = preloadedCovers[game.persistentModelID]
                 let invader = InvaderNode(gameID: game.persistentModelID,
                                           cover: cover,
@@ -292,6 +309,15 @@ final class InvadersScene: SKScene {
                 invaders.append(invader)
             }
         }
+
+        // Slide the recency window forward — remember roughly two
+        // waves' worth of IDs so the next wave can prefer fresh ones.
+        recentlyUsedIDs.append(contentsOf: thisWaveIDs)
+        let maxRecent = needed * 2
+        if recentlyUsedIDs.count > maxRecent {
+            recentlyUsedIDs.removeFirst(recentlyUsedIDs.count - maxRecent)
+        }
+
         gameDelegate?.waveDidStart(waveNumber)
     }
 
