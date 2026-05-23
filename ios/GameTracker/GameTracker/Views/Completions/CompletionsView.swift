@@ -58,7 +58,7 @@ struct CompletionsView: View {
                                    syncTrigger: syncTrigger)
             }
             .sheet(isPresented: $showConflicts) { ConflictListView() }
-            .task { try? await syncEngine.runOnce() }
+            .task { try? await syncEngine.runOnceIfNeeded() }
             .themedBackground()
         }
     }
