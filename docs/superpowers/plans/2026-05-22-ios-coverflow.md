@@ -59,7 +59,7 @@ ios/GameTracker/GameTrackerTests/
 **Files:**
 - Create: `docs/superpowers/plans/2026-05-22-ios-coverflow.md` (this file)
 
-- [ ] **Step 0.1: Confirm current state**
+- [x] **Step 0.1: Confirm current state**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -70,13 +70,13 @@ git status --short                # only pre-existing junk
 
 Expected: branch is `plan-4c-coverflow`; spec commit (`3cc058d`) sits on top of the 4b merge (`af3de62`).
 
-- [ ] **Step 0.2: Clear iCloud Swift conflict files**
+- [x] **Step 0.2: Clear iCloud Swift conflict files**
 
 ```bash
 find ios/GameTracker -name "* [0-9].swift" -print -delete
 ```
 
-- [ ] **Step 0.3: Baseline test pass**
+- [x] **Step 0.3: Baseline test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -87,7 +87,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: `** TEST SUCCEEDED **`.
 
-- [ ] **Step 0.4: Commit this plan doc**
+- [x] **Step 0.4: Commit this plan doc**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -105,7 +105,7 @@ git commit -m "Add Plan 4c (Library CoverFlow) implementation plan"
 
 Pure function. Cart-format consoles (Switch, DS, 3DS, GBA, Game Boy, NES, SNES, N64, Vita) render in a narrower box; everything else (PlayStation, Xbox, GameCube, Wii, PC, etc.) renders in a wider DVD-case box.
 
-- [ ] **Step 1.1: Write the failing tests**
+- [x] **Step 1.1: Write the failing tests**
 
 Write `ios/GameTracker/GameTrackerTests/MediaTypeInferTests.swift`:
 
@@ -157,7 +157,7 @@ final class MediaTypeInferTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 1.2: Run tests — expect compile failure**
+- [x] **Step 1.2: Run tests — expect compile failure**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -168,7 +168,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: BUILD FAILED — `MediaTypeInfer` not found.
 
-- [ ] **Step 1.3: Implement `MediaTypeInfer.swift`**
+- [x] **Step 1.3: Implement `MediaTypeInfer.swift`**
 
 Write `ios/GameTracker/GameTracker/Views/Library/MediaTypeInfer.swift`:
 
@@ -216,7 +216,7 @@ enum MediaTypeInfer {
 }
 ```
 
-- [ ] **Step 1.4: Run tests — expect pass**
+- [x] **Step 1.4: Run tests — expect pass**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -235,7 +235,7 @@ Expected: `** TEST SUCCEEDED **`. (No commit yet — bundled at Task 8.)
 
 Uses SpriteKit's `SKView.texture(from:)` to snapshot an `SKScene` into a `UIImage` that SceneKit can use as a material texture. The scene is a 60×600 pixel canvas: theme-accent background + game title rotated 90°.
 
-- [ ] **Step 2.1: Implement**
+- [x] **Step 2.1: Implement**
 
 Write `ios/GameTracker/GameTracker/Views/Library/SpineTextureBuilder.swift`:
 
@@ -306,7 +306,7 @@ enum SpineTextureBuilder {
 }
 ```
 
-- [ ] **Step 2.2: Build check**
+- [x] **Step 2.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -325,7 +325,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Factory that builds a single `SCNNode` containing an `SCNBox` geometry with 6 materials (front cover, back cover, two spines, top, bottom). Cover textures load async from `ImagesAPI`; the box renders with placeholder materials until they arrive.
 
-- [ ] **Step 3.1: Implement**
+- [x] **Step 3.1: Implement**
 
 Write `ios/GameTracker/GameTracker/Views/Library/CoverFlowCaseNode.swift`:
 
@@ -456,7 +456,7 @@ enum CoverFlowCaseNode {
 }
 ```
 
-- [ ] **Step 3.2: Build check**
+- [x] **Step 3.2: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -469,7 +469,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Owns the `SCNScene`, the case row, the focused index, the camera + lights. Provides methods the SceneView calls when the games array changes or the user scrolls.
 
-- [ ] **Step 4.1: Implement**
+- [x] **Step 4.1: Implement**
 
 Write `ios/GameTracker/GameTracker/Views/Library/CoverFlowScene.swift`:
 
@@ -655,7 +655,7 @@ final class CoverFlowScene {
 }
 ```
 
-- [ ] **Step 4.2: Build check**
+- [x] **Step 4.2: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -668,7 +668,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Wraps an `SCNView` for SwiftUI. Hosts the pan + tap gesture recognizers. Reports the focused index up to the SwiftUI host via a binding, and reports tap-on-focused-box via a closure.
 
-- [ ] **Step 5.1: Implement**
+- [x] **Step 5.1: Implement**
 
 Write `ios/GameTracker/GameTracker/Views/Library/CoverFlowSceneView.swift`:
 
@@ -792,7 +792,7 @@ struct CoverFlowSceneView: UIViewRepresentable {
 }
 ```
 
-- [ ] **Step 5.2: Build check**
+- [x] **Step 5.2: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -805,7 +805,7 @@ Expected: **BUILD SUCCEEDED**.
 
 The SwiftUI entry point. Owns `@State focusedIndex`, renders the SCNView + below-row label, and triggers navigation when the user activates the focused box.
 
-- [ ] **Step 6.1: Implement**
+- [x] **Step 6.1: Implement**
 
 Write `ios/GameTracker/GameTracker/Views/Library/CoverFlowView.swift`:
 
@@ -863,7 +863,7 @@ struct CoverFlowView: View {
 }
 ```
 
-- [ ] **Step 6.2: Build check**
+- [x] **Step 6.2: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -876,7 +876,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Add the `.coverflow` case to `ViewMode`, a new toolbar icon, and the `case .coverflow:` branch in the content switch.
 
-- [ ] **Step 7.1: Add `.coverflow` to the ViewMode enum**
+- [x] **Step 7.1: Add `.coverflow` to the ViewMode enum**
 
 Find the existing `ViewMode` declaration in `LibraryView.swift`:
 
@@ -904,7 +904,7 @@ Replace with:
     }
 ```
 
-- [ ] **Step 7.2: Add the third branch in the `content` switch**
+- [x] **Step 7.2: Add the third branch in the `content` switch**
 
 Find the content switch in `LibraryView.swift`:
 
@@ -943,7 +943,7 @@ NavigationStack(path: $navigationPath) {
 }
 ```
 
-- [ ] **Step 7.3: Build check**
+- [x] **Step 7.3: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -959,14 +959,14 @@ Expected: **BUILD SUCCEEDED**.
 
 **Files:** none modified in this task.
 
-- [ ] **Step 8.1: Clear iCloud conflict files**
+- [x] **Step 8.1: Clear iCloud conflict files**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
 find ios/GameTracker -name "* [0-9].swift" -print -delete
 ```
 
-- [ ] **Step 8.2: Full test pass**
+- [x] **Step 8.2: Full test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -977,7 +977,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: `** TEST SUCCEEDED **`. Allow up to 8 minutes. Retry once if first run flakes with no `error:` lines.
 
-- [ ] **Step 8.3: Pre-commit sanity**
+- [x] **Step 8.3: Pre-commit sanity**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -989,7 +989,7 @@ Expected:
 - Modified: `LibraryView.swift`
 - Pre-existing junk untouched
 
-- [ ] **Step 8.4: Bundle commit**
+- [x] **Step 8.4: Bundle commit**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1028,7 +1028,7 @@ If anything misbehaves, report which step.
 
 **Files:** none.
 
-- [ ] **Step 9.1: Verify clean working tree**
+- [x] **Step 9.1: Verify clean working tree**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1037,13 +1037,13 @@ git status --short
 
 Expected: only pre-existing junk.
 
-- [ ] **Step 9.2: Push**
+- [x] **Step 9.2: Push**
 
 ```bash
 git push -u origin plan-4c-coverflow
 ```
 
-- [ ] **Step 9.3: Mark plan complete**
+- [x] **Step 9.3: Mark plan complete**
 
 ```bash
 sed -i '' 's/^- \[ \]/- [x]/g' docs/superpowers/plans/2026-05-22-ios-coverflow.md
@@ -1052,7 +1052,7 @@ git commit -m "Mark Plan 4c (Library CoverFlow) complete"
 git push
 ```
 
-- [ ] **Step 9.4: Open PR**
+- [x] **Step 9.4: Open PR**
 
 ```bash
 gh pr create --base main --head plan-4c-coverflow \
@@ -1102,9 +1102,9 @@ EOF
 
 ## Self-review checklist (run before declaring done)
 
-- [ ] Every referenced symbol exists: `MediaType`, `MediaTypeInfer.infer`, `SpineTextureBuilder.makeSpine`, `CoverFlowCaseNode.make`, `CoverFlowScene` (init / update / snap / index(of:) / game(at:)), `CoverFlowSceneView`, `CoverFlowView`, `Theme`, `ImagesAPI.Face`, `ImagesAPI.downloadCover(gameServerId:face:size:)`. (Symbols defined in Tasks 1, 2, 3, 4, 5, 6 or pre-existed.)
-- [ ] `LibraryView.ViewMode` has exactly 3 cases after Task 7. Each case has a corresponding `systemImage`.
-- [ ] `CoverFlowSceneView`'s `Binding<Int>` for `focusedIndex` is wired from `CoverFlowView`'s `@State`. Coordinator writes back to it via `parent.focusedIndex = ...` after re-syncing the parent reference in `updateUIView`.
-- [ ] Box face indices `[0=front, 1=right, 2=back, 3=left, 4=top, 5=bottom]` match Apple's SCNBox material order — confirmed in Task 3.
-- [ ] No "TBD" / "implement later" anywhere.
-- [ ] Pre-existing junk explicitly named in Task 0 — won't be staged in Task 8's commit.
+- [x] Every referenced symbol exists: `MediaType`, `MediaTypeInfer.infer`, `SpineTextureBuilder.makeSpine`, `CoverFlowCaseNode.make`, `CoverFlowScene` (init / update / snap / index(of:) / game(at:)), `CoverFlowSceneView`, `CoverFlowView`, `Theme`, `ImagesAPI.Face`, `ImagesAPI.downloadCover(gameServerId:face:size:)`. (Symbols defined in Tasks 1, 2, 3, 4, 5, 6 or pre-existed.)
+- [x] `LibraryView.ViewMode` has exactly 3 cases after Task 7. Each case has a corresponding `systemImage`.
+- [x] `CoverFlowSceneView`'s `Binding<Int>` for `focusedIndex` is wired from `CoverFlowView`'s `@State`. Coordinator writes back to it via `parent.focusedIndex = ...` after re-syncing the parent reference in `updateUIView`.
+- [x] Box face indices `[0=front, 1=right, 2=back, 3=left, 4=top, 5=bottom]` match Apple's SCNBox material order — confirmed in Task 3.
+- [x] No "TBD" / "implement later" anywhere.
+- [x] Pre-existing junk explicitly named in Task 0 — won't be staged in Task 8's commit.
