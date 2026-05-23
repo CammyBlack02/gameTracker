@@ -1109,8 +1109,11 @@ struct InvadersGameView: View {
             waveNumber = 1
             gameOver = false
             finalScore = 0
+            // Capture the host SKView from the current scene before
+            // makeScene() clobbers _scene with the new instance.
+            let hostView = _scene?.view
             let fresh = makeScene()
-            _scene?.view?.presentScene(fresh)
+            hostView?.presentScene(fresh)
         }
 
         // MARK: InvadersSceneDelegate
