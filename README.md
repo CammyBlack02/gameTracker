@@ -1,242 +1,151 @@
-# gameTracker
+# Game Tracker
 
-A secure, multi-user web application for managing personal game collections. Built with PHP, MySQL, and vanilla JavaScript, featuring enterprise-level security and a modern, responsive interface.
+A self-hosted personal **video-game collection tracker**, available as both a multi-user web app and a native iPhone companion. Track what you own, where you played it, what it cost, how long it took to beat — and browse your shelves as 3D game cases in your pocket.
 
-> **Note**: This application has been migrated from SQLite to MySQL and includes comprehensive security hardening for production use. See [SETUP-GUIDE.md](SETUP-GUIDE.md) for complete setup instructions.
+> **v2.0 ships the native iOS app.** Everything in the web app is reachable from your phone, with extras: a 3D CoverFlow browse mode, four themed appearances (Matrix, Retro Mac, Game Boy, CRT Amber), and a Space-Invaders-style mini-game where the invaders are your own game covers.
 
-> **iOS app**: Source for the iPhone client lives under [`ios/`](ios/). Build with Xcode 17+ targeting iOS 17. See [`docs/superpowers/plans/`](docs/superpowers/plans/) for implementation plans.
+---
 
-## Features
+## v2.0 highlights
 
-### Core Functionality
-- **Multi-User Support**: Each user has their own private collection
-- **Game Collection Management**: Add, edit, and delete games with rich metadata
-- **Image Management**: Local storage + external URL support for cover images
-- **Advanced Filtering**: Filter by platform, genre, condition, completion status
-- **Multiple Views**: Grid, list, and coverflow views
-- **Spin Wheel**: Random game selection with customizable filters
-- **Completion Tracking**: Track when and how long games took to complete
-- **Statistics**: Collection analytics and visualizations
-- **GameEye Import**: Bulk import from GameEye CSV files
+- **Native iOS app** — SwiftUI, SwiftData, syncs with your existing self-hosted backend.
+- **Library, Items, Completions, and Stats tabs** — full parity with the web app's read/write surface, plus per-platform filters, sort options, and pull-to-refresh sync.
+- **3D CoverFlow view mode** — every game rendered as a real `SCNBox` (SceneKit) with the cover on the front, back cover on the back, and a flip button to spin the focused case. Three media shapes (DVD case / cart / CD jewel) auto-detected from the platform string.
+- **Four rich themes** — Matrix (with code-rain flourish), Retro Mac (platinum bevel), Game Boy (8-bit dithering on covers + Press Start 2P font), CRT Amber (scanline overlay).
+- **Library Invaders mini-game** — endless Space-Invaders with your own game covers as invaders. Drag-to-aim, auto-fire, wave-based difficulty ramp, local best score, CC0 retro SFX.
+- **Game and cover photo capture** — front + back covers, plus extra in-the-wild photos of items and cases. Uploaded over HTTPS to your backend.
+- **Settings: theme picker, image cache size, sync status, sign-out.**
+- **Image proxy** — server-side fetch for cover URLs avoids the iOS sandbox blocking arbitrary domains.
 
-### Security Features
-- **HTTPS/SSL**: Full encryption with Let's Encrypt certificates
-- **Rate Limiting**: Protection against brute force attacks
-- **Fail2ban**: Automatic IP banning for suspicious activity
-- **Security Logging**: Comprehensive event tracking
-- **CSRF Protection**: Token-based request validation
-- **XSS Protection**: HTML escaping throughout
-- **Secure File Uploads**: MIME type validation, size limits, dimension checks
-- **Session Security**: Secure cookies, timeout, regeneration
+---
 
-### User Management
-- **Admin Dashboard**: User management and password resets
-- **User Profiles**: Browse other users' collections
-- **Role-Based Access**: Admin and user roles
-- **Registration**: Open registration (configurable)
+## What it does
 
-## Requirements
+### iOS app (new in v2.0)
 
-- **Server**: Ubuntu 22.04+ (or similar Linux distribution)
-- **PHP**: 8.3+ with extensions: `php-fpm`, `php-mysql`, `php-curl`, `php-gd`
-- **Database**: MySQL 8.0+
-- **Web Server**: Nginx (recommended) or Apache
-- **SSL**: Certbot for Let's Encrypt certificates
-- **Network**: Router with port forwarding capability (UniFi recommended)
+- **Library** with list, grid, and CoverFlow view modes; search; multi-platform filter; sort by title / date added / platform / rating; tap to detail; swipe to delete; pull to sync.
+- **Game detail / edit** with title, platform, genre, series, special-edition, condition, review, star rating, Metacritic rating, played flag, price paid + PriceCharting current price, physical/digital toggle, digital store, front + back cover images, release date, plus a wall of extra photos.
+- **Items tab** for accessories, consoles, controllers, peripherals — same metadata + photo system as games.
+- **Completions tab** to record each time you finish a game (date, length, notes), with a per-game completion history.
+- **Stats tab** showing total games, totals by platform, completed count, total spent, average rating, and a top-rated list.
+- **Settings tab** — appearance mode (system / light / dark / matrix / retro-mac / game-boy / crt-amber), image cache size, manual sync, sign-out.
+- **Library Invaders** mini-game (launched from the Library toolbar) using your game covers as invaders.
+- **Offline-first** — SwiftData local store + push/pull sync against the v2 server API.
 
-## Quick Start
+### Web app (since v1)
 
-For complete setup instructions, see **[SETUP-GUIDE.md](SETUP-GUIDE.md)**.
+- Multi-user game-collection management with admin dashboard.
+- Grid / list / coverflow views.
+- Filter by platform, genre, condition, completion status; search.
+- Cover image management (local + external URL).
+- Spin Wheel random-game picker with filters.
+- Completion tracking and statistics.
+- GameEye CSV import.
+- HTTPS, rate limiting, CSRF + XSS protection, secure file uploads, fail2ban, session hardening.
 
-### Basic Installation
+---
 
-1. **Clone repository**:
-   ```bash
-   git clone https://github.com/yourusername/gameTracker.git
-   cd gameTracker
-   ```
+## Architecture
 
-2. **Configure database** in `includes/config.php`:
-   ```php
-   define('DB_HOST', 'localhost');
-   define('DB_NAME', 'gameTracker');
-   define('DB_USER', 'your_username');
-   define('DB_PASS', 'your_password');
-   ```
-
-3. **Set permissions**:
-   ```bash
-   sudo chown -R www-data:www-data /var/www/gameTracker
-   sudo chmod 600 includes/config.php
-   sudo chmod 755 uploads uploads/covers uploads/extras
-   ```
-
-4. **Configure Nginx** (see `nginx-gameTracker.conf`)
-
-5. **Set up SSL**:
-   ```bash
-   sudo certbot --nginx -d yourdomain.com
-   ```
-
-6. **Access the site** and change default admin credentials!
-
-For detailed setup, security hardening, and network configuration, see [SETUP-GUIDE.md](SETUP-GUIDE.md).
-
-## Running on macOS (Development)
-
-### Local Development
-
-```bash
-cd /path/to/gameTracker
-php -S localhost:8000 router.php
+```
++----------------+        HTTPS + JSON         +-----------------------+
+|  iOS app       |  <-------------------->     |  PHP / nginx / MySQL  |
+|  (SwiftUI)     |     /api/v2/* endpoints     |  (self-hosted)        |
++----------------+                             +-----------------------+
+                                                          ^
+                                                          |
+                                                          |  HTTPS
+                                                          |
+                                                  +---------------+
+                                                  |  Web app      |
+                                                  |  (PHP + JS)   |
+                                                  +---------------+
 ```
 
-**Note**: If you need to upload images larger than 2MB, use the included `php.ini` file:
-```bash
-php -c php.ini -S localhost:8000 router.php
-```
+- **iOS client**: Swift 5.10+, SwiftUI, SwiftData, SceneKit (CoverFlow), SpriteKit (Invaders). Xcode 16+. Min iOS 18.
+- **Server**: PHP 8.3 + nginx + MySQL 8, fronted by Let's Encrypt TLS.
+- **Sync**: pull-based delta sync over a single `/api/v2/sync` endpoint with conflict resolution, plus per-resource CRUD endpoints.
+- **Images**: cover thumbs cached locally on iOS (`Documents/covers/`), originals fetched lazily on demand; iOS app proxies external URLs through the backend.
 
-Then open your browser to `http://localhost:8000`
+---
 
-### Access from iPhone (Recommended: ngrok)
-
-**The easiest way to access from iPhone is using ngrok:**
-
-1. **Install ngrok** (if not already installed):
-   ```bash
-   brew install ngrok/ngrok/ngrok
-   ```
-
-2. **Sign up for free** at https://dashboard.ngrok.com/signup
-
-3. **Configure ngrok:**
-   ```bash
-   ngrok config add-authtoken YOUR_TOKEN_HERE
-   ```
-   (Get your token from https://dashboard.ngrok.com/get-started/your-authtoken)
-
-4. **Start PHP server** (in one terminal):
-   ```bash
-   php -S localhost:8000 router.php
-   ```
-
-5. **Start ngrok** (in another terminal):
-   ```bash
-   ngrok http 8000
-   ```
-
-6. **Use the HTTPS URL** shown by ngrok on your iPhone
-
-**For other options** (MAMP, self-signed certificates, etc.), see `HTTPS-SETUP.md`
-
-## Default Login
-
-⚠️ **Security Note**: Default credentials are created on first run. **Change them immediately** using the admin dashboard or `change-admin-credentials.php` script.
-
-**Important**: The login page no longer displays default credentials for security.
-
-## Usage
-
-1. **Login**: Use the default credentials to log in
-2. **Add Games**: Click "Add Game" button to add your first game
-3. **View Games**: Browse your collection in list or grid view
-4. **Filter & Search**: Use the toolbar to filter and search your games
-5. **Edit Games**: Click on any game to view details and edit
-6. **Upload Images**: Add cover images and extra photos when editing games
-7. **Customize**: Go to Settings to upload a custom background image
-
-## File Structure
+## Repo layout
 
 ```
 gameTracker/
-├── index.php              # Login page
-├── dashboard.php          # Main collection view
-├── game-detail.php        # Individual game details
-├── settings.php           # App settings
-├── api/                   # API endpoints
-│   ├── auth.php          # Authentication
-│   ├── games.php           # Game CRUD operations
-│   ├── upload.php        # Image uploads
-│   ├── pricecharting.php # Price fetching
-│   ├── metacritic.php    # Metacritic scraping
-│   └── settings.php      # Settings management
-├── includes/             # PHP includes
-│   ├── config.php        # Database config
-│   ├── auth-check.php    # Auth validation
-│   └── functions.php     # Helper functions
-├── css/
-│   └── style.css        # Main stylesheet
-├── js/                   # JavaScript files
-│   ├── main.js          # Core functionality
-│   ├── games.js         # Game management
-│   └── filters.js       # Filtering logic
-├── database/            # SQLite database (auto-created)
-└── uploads/             # Uploaded images (auto-created)
+  ios/                      — Swift / SwiftUI iPhone app
+    GameTracker/            — Xcode project (open the .xcodeproj here)
+  api/                      — PHP API endpoints (v2 lives under api/v2/)
+  includes/                 — PHP config + shared helpers
+  js/, css/                 — web-app frontend
+  uploads/                  — user-uploaded cover and item images
+  database/                 — schema + migrations
+  docs/superpowers/         — design specs + implementation plans for each feature
+    specs/                  — *-design.md docs that were approved before coding
+    plans/                  — *-implementation plans that drove each task
 ```
 
-## API Endpoints
+The `docs/superpowers/` tree is the design history — if you want to see how each iOS feature was scoped, brainstormed, and implemented, the matching spec and plan are both there.
 
-All API endpoints return JSON responses:
+---
 
-- `api/auth.php?action=login` - POST: Login
-- `api/auth.php?action=logout` - GET: Logout
-- `api/games.php?action=list` - GET: List all games
-- `api/games.php?action=get&id=X` - GET: Get game details
-- `api/games.php?action=create` - POST: Create game
-- `api/games.php?action=update` - POST: Update game
-- `api/games.php?action=delete&id=X` - GET: Delete game
-- `api/upload.php` - POST: Upload image
-- `api/pricecharting.php?title=X&platform=Y` - GET: Fetch price
-- `api/metacritic.php?title=X&platform=Y` - GET: Fetch Metacritic rating
+## Quick start
 
-## Deployment to Ubuntu Server
+### Web app + server
 
-1. Copy files to your server (e.g., `/var/www/gametracker/`)
-2. Set proper permissions:
-   ```bash
-   chmod -R 755 /var/www/gametracker
-   chmod -R 777 /var/www/gametracker/database
-   chmod -R 777 /var/www/gametracker/uploads
-   ```
-3. Configure your web server (Apache/Nginx) to point to the directory
-4. Access via VPN: `http://[server-ip]/gametracker/`
+See **[SETUP-GUIDE.md](SETUP-GUIDE.md)** for the full setup walkthrough (Ubuntu, nginx, MySQL, TLS via Let's Encrypt, fail2ban, UniFi port forwarding).
+
+### iOS app (development)
+
+1. Open `ios/GameTracker/GameTracker.xcodeproj` in **Xcode 16+**.
+2. Point `Config.serverBaseURL` at your deployed instance (defaults to `https://cammysgametracker.duckdns.org` — change this to your own).
+3. Pick your iPhone (or an iPhone 17 simulator on iOS 18+) as the run destination.
+4. ⌘R.
+
+For sideloading onto a real device without a paid Apple Developer Program, use Xcode's free signing (7-day expiry) or AltStore.
+
+---
 
 ## Security
 
-This application includes comprehensive security measures:
+- HTTPS/SSL with Let's Encrypt certificates
+- Rate limiting (application + nginx levels)
+- Fail2ban for brute-force protection
+- SQL injection protection (prepared statements throughout)
+- XSS protection (HTML escaping)
+- CSRF protection (tokens + SameSite cookies)
+- Secure file uploads (MIME validation, size limits, dimension checks)
+- Session security (secure cookies, timeout, regeneration)
+- Comprehensive security logging
+- Search-engine indexing blocked (this is a private app)
 
-- ✅ **HTTPS/SSL** with Let's Encrypt certificates
-- ✅ **Rate limiting** (application + Nginx levels)
-- ✅ **Fail2ban** for brute force protection
-- ✅ **SQL injection protection** (prepared statements)
-- ✅ **XSS protection** (HTML escaping)
-- ✅ **CSRF protection** (tokens + SameSite cookies)
-- ✅ **Secure file uploads** (MIME validation, size limits)
-- ✅ **Session security** (secure cookies, timeout)
-- ✅ **Security logging** and monitoring
-- ✅ **Search engine blocking** (private site)
+See **[SECURITY-ASSESSMENT.md](SECURITY-ASSESSMENT.md)** for the full analysis.
 
-See [SECURITY-ASSESSMENT.md](SECURITY-ASSESSMENT.md) for detailed security analysis.
+---
+
+## Default login
+
+⚠️ Default credentials are created on first run. **Change them immediately** via the admin dashboard or `change-admin-credentials.php`.
+
+---
 
 ## Documentation
 
-- **[SETUP-GUIDE.md](SETUP-GUIDE.md)** - Complete setup instructions
-- **[SECURITY-ASSESSMENT.md](SECURITY-ASSESSMENT.md)** - Security analysis
-- **[SECURITY-SETUP.md](SECURITY-SETUP.md)** - Security hardening guide
-- **[UNIFI-SETUP.md](UNIFI-SETUP.md)** - UniFi network configuration
+- **[SETUP-GUIDE.md](SETUP-GUIDE.md)** — full server + web-app setup
+- **[SECURITY-ASSESSMENT.md](SECURITY-ASSESSMENT.md)** — security analysis
+- **[SECURITY-SETUP.md](SECURITY-SETUP.md)** — security hardening
+- **[UNIFI-SETUP.md](UNIFI-SETUP.md)** — UniFi network setup
+- **[docs/superpowers/specs/](docs/superpowers/specs/)** — design specs for each iOS feature
+- **[docs/superpowers/plans/](docs/superpowers/plans/)** — implementation plans
+
+---
 
 ## Credits
 
-Developed with assistance from AI coding assistants (Claude/Anthropic via Cursor IDE) for implementation, security hardening, and documentation.
+Built by [@CammyBlack02](https://github.com/CammyBlack02). iOS app and most of the v2 architecture pair-programmed with Claude (Anthropic) via Claude Code.
 
-## Troubleshooting
-
-**Database errors**: Ensure `database/` directory is writable
-**Image upload fails**: Check `uploads/` directory permissions
-**Pricecharting not working**: API may require registration or have rate limits
-**Metacritic scraping fails**: Website structure may have changed (scraping is fragile)
+---
 
 ## License
 
-This project is open source and available for personal use.
-
+Open source for personal use.
