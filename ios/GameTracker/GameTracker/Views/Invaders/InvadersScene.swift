@@ -259,9 +259,22 @@ final class InvadersScene: SKScene {
         let topY = size.height - 100
         let startX = -spacingX * CGFloat(cfg.cols - 1) / 2
 
+        // Build a fresh shuffled pool large enough to fill the grid
+        // with no repeats. If the loaded library is smaller than the
+        // grid (small collections), cycle reshuffled copies so we
+        // still get visible variety run-to-run.
+        let needed = cfg.rows * cfg.cols
+        var pool: [Game] = []
+        while pool.count < needed {
+            let nextShuffle = games.shuffled()
+            if nextShuffle.isEmpty { break }
+            pool.append(contentsOf: nextShuffle)
+        }
+        var poolIter = pool.makeIterator()
+
         for r in 0..<cfg.rows {
             for c in 0..<cfg.cols {
-                guard let game = games.randomElement() else { continue }
+                guard let game = poolIter.next() else { continue }
                 let cover = preloadedCovers[game.persistentModelID]
                 let invader = InvaderNode(gameID: game.persistentModelID,
                                           cover: cover,
