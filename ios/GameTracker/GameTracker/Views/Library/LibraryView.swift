@@ -73,7 +73,6 @@ struct LibraryView: View {
                                  onDismiss: { showInvaders = false })
             }
             .task { try? await syncEngine.runOnce() }
-            .refreshable { try? await syncEngine.runOnce() }
             .themedBackground()
         }
     }
