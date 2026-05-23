@@ -10,6 +10,7 @@ struct SettingsView: View {
 
     let authAPI: AuthAPI
     let syncEngine: SyncEngine
+    let imagesAPI: ImagesAPI
     @Bindable var status: SyncStatus
 
     // MARK: - Environment / SwiftData
@@ -33,6 +34,14 @@ struct SettingsView: View {
     @State private var showConflicts = false
     @State private var showConfirmClearCache = false
     @State private var cacheBytes: Int64 = 0
+
+    /// Cover-preload progress reported during a Sync Now run.
+    /// `coversTotal == 0` means the preload phase hasn't started yet
+    /// (or there were no covers to fetch); the button shows the
+    /// indeterminate sync spinner during that interval. Once the
+    /// preload begins, the button switches to "Covers N / M".
+    @State private var coversTotal: Int = 0
+    @State private var coversDone: Int = 0
 
     // MARK: - Derived
 
@@ -123,7 +132,18 @@ struct SettingsView: View {
                 HStack {
                     Spacer()
                     if syncInFlight {
-                        ProgressView()
+                        if coversTotal > 0 {
+                            // Cover-preload phase reports progress.
+                            ProgressView(value: Double(coversDone),
+                                         total: Double(coversTotal))
+                                .progressViewStyle(.linear)
+                                .frame(maxWidth: 120)
+                            Text("\(coversDone) / \(coversTotal)")
+                                .font(.footnote.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ProgressView()
+                        }
                     } else {
                         Text("Sync now")
                     }
@@ -246,8 +266,82 @@ struct SettingsView: View {
 
     private func syncNow() async {
         syncInFlight = true
-        defer { syncInFlight = false }
+        coversTotal = 0
+        coversDone = 0
+        defer {
+            syncInFlight = false
+            coversTotal = 0
+            coversDone = 0
+        }
         try? await syncEngine.runOnce()
+        await preloadAllCoverThumbs()
+    }
+
+    /// After the data sync completes, pre-fetch every game's and item's
+    /// cover thumbnail to local disk so the Library / Items / Stats /
+    /// CoverFlow tabs render instantly without per-cell network round
+    /// trips on first open. Already-downloaded files short-circuit
+    /// inside ImagesAPI so this is cheap to run repeatedly.
+    private func preloadAllCoverThumbs() async {
+        // Snapshot the work: extract just the IDs + face flags off the
+        // main actor so we don't pin SwiftData objects across the
+        // download loop.
+        let games = (try? context.fetch(FetchDescriptor<Game>(
+            predicate: #Predicate { $0.serverId != nil
+                                 && $0.syncStateRaw != "local_deleted" }
+        ))) ?? []
+        let items = (try? context.fetch(FetchDescriptor<Item>(
+            predicate: #Predicate { $0.serverId != nil
+                                 && $0.syncStateRaw != "local_deleted" }
+        ))) ?? []
+
+        enum Job: Sendable {
+            case game(serverId: Int, face: ImagesAPI.Face)
+            case item(serverId: Int, face: ImagesAPI.Face)
+        }
+
+        var jobs: [Job] = []
+        for g in games {
+            guard let id = g.serverId else { continue }
+            if g.frontCoverImage != nil { jobs.append(.game(serverId: id, face: .front)) }
+            if g.backCoverImage  != nil { jobs.append(.game(serverId: id, face: .back)) }
+        }
+        for i in items {
+            guard let id = i.serverId else { continue }
+            if i.frontImage != nil { jobs.append(.item(serverId: id, face: .front)) }
+            if i.backImage  != nil { jobs.append(.item(serverId: id, face: .back)) }
+        }
+
+        coversTotal = jobs.count
+        coversDone  = 0
+        guard !jobs.isEmpty else { return }
+
+        let api = imagesAPI
+        await withTaskGroup(of: Void.self) { group in
+            var iter = jobs.makeIterator()
+
+            func dispatch(_ job: Job) {
+                group.addTask { [api] in
+                    switch job {
+                    case .game(let id, let face):
+                        _ = try? await api.downloadCover(
+                            gameServerId: id, face: face, size: .thumb)
+                    case .item(let id, let face):
+                        _ = try? await api.downloadCover(
+                            itemServerId: id, face: face, size: .thumb)
+                    }
+                }
+            }
+
+            // Prime up to 6 concurrent fetches; refill as each finishes.
+            for _ in 0..<6 {
+                if let next = iter.next() { dispatch(next) }
+            }
+            while await group.next() != nil {
+                coversDone += 1
+                if let next = iter.next() { dispatch(next) }
+            }
+        }
     }
 
     // MARK: - Storage flow

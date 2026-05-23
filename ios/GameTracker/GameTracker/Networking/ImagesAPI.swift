@@ -93,6 +93,27 @@ struct ImagesAPI {
         }
     }
 
+    // MARK: - Offline fallback helpers
+
+    /// Returns the cached on-disk path for this game cover at the given
+    /// size if the file exists, else nil. Performs no network request —
+    /// callers use this as an offline fallback after a download attempt
+    /// fails (e.g. show the `.thumb` we already have when `.full` is
+    /// unreachable).
+    func cachedCoverPath(gameServerId: Int, face: Face, size: Size) -> URL? {
+        let filename = "cover_\(gameServerId)_\(face.rawValue)_\(size.rawValue).jpg"
+        let path = cacheRoot.appendingPathComponent(filename)
+        return FileManager.default.fileExists(atPath: path.path) ? path : nil
+    }
+
+    /// Same idea, item variant — namespaced filename so games and items
+    /// sharing a server id don't collide on disk.
+    func cachedItemCoverPath(itemServerId: Int, face: Face, size: Size) -> URL? {
+        let filename = "item_\(itemServerId)_\(face.rawValue)_\(size.rawValue).jpg"
+        let path = cacheRoot.appendingPathComponent(filename)
+        return FileManager.default.fileExists(atPath: path.path) ? path : nil
+    }
+
     /// Purge cached game cover files for one game (both faces, both sizes).
     /// Called by Add/Edit save paths after writing a new data URI into
     /// `game.frontCoverImage` / `game.backCoverImage`.
