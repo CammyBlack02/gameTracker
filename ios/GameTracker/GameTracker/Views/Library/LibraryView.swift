@@ -72,7 +72,7 @@ struct LibraryView: View {
                                  imagesAPI: imagesAPI,
                                  onDismiss: { showInvaders = false })
             }
-            .task { try? await syncEngine.runOnce() }
+            .task { try? await syncEngine.runOnceIfNeeded() }
             .themedBackground()
         }
     }
