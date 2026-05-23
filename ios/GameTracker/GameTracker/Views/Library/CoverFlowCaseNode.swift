@@ -114,11 +114,20 @@ enum CoverFlowCaseNode {
     private static func loadImage(imagesAPI: ImagesAPI,
                                   serverId: Int,
                                   face: ImagesAPI.Face) async -> UIImage? {
-        guard let url = try? await imagesAPI.downloadCover(
+        if let url = try? await imagesAPI.downloadCover(
             gameServerId: serverId, face: face, size: .full
-        ) else { return nil }
-        guard let raw = UIImage(contentsOfFile: url.path) else { return nil }
-        return downscaleForMetal(raw)
+        ), let raw = UIImage(contentsOfFile: url.path) {
+            return downscaleForMetal(raw)
+        }
+        // Full cover unreachable (server down / network offline). Fall
+        // back to the thumb if Sync now has already pulled it down —
+        // a slightly soft cover beats the placeholder grey square.
+        if let thumbURL = imagesAPI.cachedCoverPath(
+            gameServerId: serverId, face: face, size: .thumb
+        ), let thumb = UIImage(contentsOfFile: thumbURL.path) {
+            return thumb
+        }
+        return nil
     }
 
     /// Metal's MTLTextureDescriptor caps texture dimensions at 8192px on
