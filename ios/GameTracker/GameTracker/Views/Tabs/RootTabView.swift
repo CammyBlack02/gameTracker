@@ -38,7 +38,10 @@ struct RootTabView: View {
                       status: status)
                 .tabItem { Label("Stats", systemImage: "chart.bar") }
 
-            SettingsView(authAPI: authAPI, syncEngine: syncEngine, status: status)
+            SettingsView(authAPI: authAPI,
+                         syncEngine: syncEngine,
+                         imagesAPI: imagesAPI,
+                         status: status)
                 .tabItem { Label("Settings", systemImage: "gear") }
         }
     }

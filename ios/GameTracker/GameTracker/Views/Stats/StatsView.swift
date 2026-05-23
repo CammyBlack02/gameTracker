@@ -42,7 +42,6 @@ struct StatsView: View {
             .navigationTitle("Stats")
             .sheet(isPresented: $showConflicts) { ConflictListView() }
             .task { try? await syncEngine.runOnce() }
-            .refreshable { try? await syncEngine.runOnce() }
             .themedBackground()
         }
     }
