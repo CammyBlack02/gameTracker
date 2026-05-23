@@ -48,7 +48,16 @@ final class SyncEngine {
             status.conflictCount = try countConflicts()
             status.phase = .idle
         } catch {
-            status.phase = .error(error.localizedDescription)
+            // A URLError means the request never landed at the
+            // application layer — DNS failure, timeout, no internet,
+            // host unreachable. Surface those as the soft .offline
+            // state. Everything else (parse failure, server 5xx
+            // mapped to an APIError, etc.) stays as a real .error.
+            if (error as? URLError) != nil {
+                status.phase = .offline
+            } else {
+                status.phase = .error(error.localizedDescription)
+            }
             throw error
         }
     }

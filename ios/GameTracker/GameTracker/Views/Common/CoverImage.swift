@@ -99,7 +99,33 @@ struct CoverImage: View {
                 self.failed = false
             }
         } catch {
-            await MainActor.run { self.failed = true }
+            // Network or server unavailable. When the caller asked for
+            // `.full` but we already have the `.thumb` on disk (from a
+            // previous Sync now preload or list-view render), surface
+            // that instead of the error placeholder. The image will look
+            // slightly less crisp than the original but it's far better
+            // than a broken-photo icon while offline.
+            let fallback = offlineThumbFallback()
+            await MainActor.run {
+                if let fallback {
+                    self.localURL = fallback
+                    self.failed = false
+                } else {
+                    self.failed = true
+                }
+            }
+        }
+    }
+
+    private func offlineThumbFallback() -> URL? {
+        guard size != .thumb else { return nil }
+        switch subject {
+        case .game(let id):
+            guard let id else { return nil }
+            return api.cachedCoverPath(gameServerId: id, face: face, size: .thumb)
+        case .item(let id):
+            guard let id else { return nil }
+            return api.cachedItemCoverPath(itemServerId: id, face: face, size: .thumb)
         }
     }
 }
