@@ -306,7 +306,7 @@ After configuration:
 ## Next Steps
 
 After UniFi configuration:
-1. Configure UFW firewall on server (see `SECURITY-SETUP.md`)
+1. Configure UFW firewall on server (see `SECURITY-ASSESSMENT.md`)
 2. Set up SSL certificates with Certbot
 3. Test all security measures
 4. Monitor logs for suspicious activity
