@@ -6,9 +6,15 @@ import SwiftData
 struct LibraryView: View {
 
     enum ViewMode: String, CaseIterable, Identifiable {
-        case list, grid
+        case list, grid, coverflow
         var id: String { rawValue }
-        var systemImage: String { self == .list ? "list.bullet" : "square.grid.2x2" }
+        var systemImage: String {
+            switch self {
+            case .list:      return "list.bullet"
+            case .grid:      return "square.grid.2x2"
+            case .coverflow: return "rectangle.stack.fill"
+            }
+        }
     }
 
     let syncEngine: SyncEngine
@@ -33,9 +39,10 @@ struct LibraryView: View {
     @State private var showConflicts = false
     @State private var showFilter = false
     @State private var platformFilter: Set<String> = []
+    @State private var navigationPath = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             VStack(spacing: 0) {
                 ConflictBannerView(status: status) { showConflicts = true }
                 SyncStatusBannerView(status: status)
@@ -105,6 +112,12 @@ struct LibraryView: View {
                     }
                     .padding(12)
                 }
+            case .coverflow:
+                CoverFlowView(games: games,
+                              imagesAPI: imagesAPI,
+                              onSelectGame: { id in
+                                  navigationPath.append(id)
+                              })
             }
         }
     }
