@@ -82,3 +82,7 @@ ios/**/Carthage/Build/
 # Xcode picks these up and the build breaks with duplicate-symbol
 # errors. Keep them untracked so a stray sync never lands them in git.
 **/* [0-9].swift
+**/* [0-9].sh
+**/* [0-9].php
+**/* [0-9].xcassets/
+**/* [0-9]/
