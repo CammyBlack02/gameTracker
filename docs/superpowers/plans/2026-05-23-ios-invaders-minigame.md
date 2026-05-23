@@ -68,7 +68,7 @@ All other tabs, models, sync, networking, the CoverFlow code, themes, server cod
 **Files:**
 - Create: `docs/superpowers/plans/2026-05-23-ios-invaders-minigame.md` (this file)
 
-- [ ] **Step 0.1: Confirm current state**
+- [x] **Step 0.1: Confirm current state**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -79,13 +79,13 @@ git status --short             # only pre-existing junk
 
 Expected: branch is `plan-4d-invaders`; spec commit (`4f013a5`) sits on top of the 4c merge (`9a12a8e`).
 
-- [ ] **Step 0.2: Clear iCloud Swift conflict files**
+- [x] **Step 0.2: Clear iCloud Swift conflict files**
 
 ```bash
 find ios/GameTracker -name "* [0-9].swift" -print -delete
 ```
 
-- [ ] **Step 0.3: Baseline test pass**
+- [x] **Step 0.3: Baseline test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -96,7 +96,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: `** TEST SUCCEEDED **`.
 
-- [ ] **Step 0.4: Commit this plan doc**
+- [x] **Step 0.4: Commit this plan doc**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -114,7 +114,7 @@ git commit -m "Add Plan 4d (Library Invaders mini-game) implementation plan"
 
 Pure helper. Lives outside the scene so it's unit-testable without SpriteKit.
 
-- [ ] **Step 1.1: Write the failing tests**
+- [x] **Step 1.1: Write the failing tests**
 
 Write `ios/GameTracker/GameTrackerTests/InvadersCollisionTests.swift`:
 
@@ -156,7 +156,7 @@ final class InvadersCollisionTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 1.2: Confirm build-for-testing fails**
+- [x] **Step 1.2: Confirm build-for-testing fails**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -167,7 +167,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: BUILD FAILED — `CollisionMath` not found.
 
-- [ ] **Step 1.3: Implement `CollisionMath.swift`**
+- [x] **Step 1.3: Implement `CollisionMath.swift`**
 
 Write `ios/GameTracker/GameTracker/Views/Invaders/CollisionMath.swift`:
 
@@ -188,7 +188,7 @@ enum CollisionMath {
 }
 ```
 
-- [ ] **Step 1.4: Run only the collision tests — expect pass**
+- [x] **Step 1.4: Run only the collision tests — expect pass**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -209,7 +209,7 @@ Expected: `** TEST SUCCEEDED **`. (No commit yet — bundled at Task 12.)
 
 Pure deterministic ramp formula. The 3-way cycle (`+row`, `×1.12 speed`, `×1.15 fireRate`) is the *entire* difficulty curve.
 
-- [ ] **Step 2.1: Write the failing tests**
+- [x] **Step 2.1: Write the failing tests**
 
 Write `ios/GameTracker/GameTrackerTests/WaveGeneratorTests.swift`:
 
@@ -264,7 +264,7 @@ final class WaveGeneratorTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2.2: Confirm build-for-testing fails**
+- [x] **Step 2.2: Confirm build-for-testing fails**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -274,7 +274,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: BUILD FAILED — `WaveGenerator` / `WaveConfig` not found.
 
-- [ ] **Step 2.3: Implement `WaveGenerator.swift`**
+- [x] **Step 2.3: Implement `WaveGenerator.swift`**
 
 Write `ios/GameTracker/GameTracker/Views/Invaders/WaveGenerator.swift`:
 
@@ -319,7 +319,7 @@ enum WaveGenerator {
 }
 ```
 
-- [ ] **Step 2.4: Run only the wave generator tests — expect pass**
+- [x] **Step 2.4: Run only the wave generator tests — expect pass**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -339,7 +339,7 @@ Expected: `** TEST SUCCEEDED **`.
 
 Async wrapper around the existing `ImagesAPI` thumb cache with an in-memory LRU cap of 64 textures. Game logic doesn't block on this — it requests covers, takes whatever's available.
 
-- [ ] **Step 3.1: Implement**
+- [x] **Step 3.1: Implement**
 
 Write `ios/GameTracker/GameTracker/Views/Invaders/CoverTextureLoader.swift`:
 
@@ -398,7 +398,7 @@ final class CoverTextureLoader {
 }
 ```
 
-- [ ] **Step 3.2: Build check**
+- [x] **Step 3.2: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -417,7 +417,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Pixel-art cannon drawn procedurally — no asset bundling required.
 
-- [ ] **Step 4.1: Implement**
+- [x] **Step 4.1: Implement**
 
 Write `ios/GameTracker/GameTracker/Views/Invaders/PlayerCannonNode.swift`:
 
@@ -464,7 +464,7 @@ final class PlayerCannonNode: SKSpriteNode {
 }
 ```
 
-- [ ] **Step 4.2: Build check**
+- [x] **Step 4.2: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -477,7 +477,7 @@ Expected: **BUILD SUCCEEDED**.
 
 One invader = one game cover. Uses an immediate placeholder if no cover is loaded yet; exposes `applyCover(_:)` so the scene can re-texture it once the loader delivers.
 
-- [ ] **Step 5.1: Implement**
+- [x] **Step 5.1: Implement**
 
 Write `ios/GameTracker/GameTracker/Views/Invaders/InvaderNode.swift`:
 
@@ -547,7 +547,7 @@ final class InvaderNode: SKSpriteNode {
 }
 ```
 
-- [ ] **Step 5.2: Build check**
+- [x] **Step 5.2: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -560,7 +560,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Tiny rectangle. Two kinds (player vs invader) differ only by colour and Y-velocity sign.
 
-- [ ] **Step 6.1: Implement**
+- [x] **Step 6.1: Implement**
 
 Write `ios/GameTracker/GameTracker/Views/Invaders/BulletNode.swift`:
 
@@ -599,7 +599,7 @@ final class BulletNode: SKSpriteNode {
 }
 ```
 
-- [ ] **Step 6.2: Build check**
+- [x] **Step 6.2: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -614,7 +614,7 @@ The whole game loop lives here. Anchor point is bottom-centre so positions are i
 
 Spec sections this implements: §3 (architecture), §4 (game loop), §8 (game over), §9 (reduce motion), §10 (edge cases — pause via `isPaused`, dt cap).
 
-- [ ] **Step 7.1: Implement**
+- [x] **Step 7.1: Implement**
 
 Write `ios/GameTracker/GameTracker/Views/Invaders/InvadersScene.swift`:
 
@@ -892,7 +892,7 @@ final class InvadersScene: SKScene {
 }
 ```
 
-- [ ] **Step 7.2: Build check**
+- [x] **Step 7.2: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -905,7 +905,7 @@ Expected: **BUILD SUCCEEDED**.
 
 SwiftUI overlay layered on top of the SpriteView. Score / wave / best across the top; close button top-left; game-over panel centred.
 
-- [ ] **Step 8.1: Implement**
+- [x] **Step 8.1: Implement**
 
 Write `ios/GameTracker/GameTracker/Views/Invaders/InvadersHUD.swift`:
 
@@ -987,7 +987,7 @@ struct InvadersHUD: View {
 }
 ```
 
-- [ ] **Step 8.2: Build check**
+- [x] **Step 8.2: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -1000,7 +1000,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Owns the `Coordinator` (`@Observable`), drives the SpriteView, embeds the HUD, manages `@AppStorage` best score, kicks off cover preloading, and pauses on backgrounding.
 
-- [ ] **Step 9.1: Implement**
+- [x] **Step 9.1: Implement**
 
 Write `ios/GameTracker/GameTracker/Views/Invaders/InvadersGameView.swift`:
 
@@ -1128,7 +1128,7 @@ struct InvadersGameView: View {
 }
 ```
 
-- [ ] **Step 9.2: Build check**
+- [x] **Step 9.2: Build check**
 
 Expected: **BUILD SUCCEEDED**.
 
@@ -1141,7 +1141,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Add `@State showInvaders`, the leading-toolbar button (hidden when `allGames.isEmpty`), and the `.fullScreenCover` presenting `InvadersGameView`.
 
-- [ ] **Step 10.1: Add the state property**
+- [x] **Step 10.1: Add the state property**
 
 Find the existing `@State` declarations in `LibraryView.swift` (around the platform-filter / navigation-path block) and add `showInvaders` alongside:
 
@@ -1156,7 +1156,7 @@ Becomes:
 @State private var showInvaders = false
 ```
 
-- [ ] **Step 10.2: Add the toolbar button**
+- [x] **Step 10.2: Add the toolbar button**
 
 In `LibraryView.swift`, find the existing `toolbarContent` `@ToolbarContentBuilder` and insert a new `ToolbarItem` at the leading edge (before the existing trailing items). The current block looks like:
 
@@ -1204,7 +1204,7 @@ private var toolbarContent: some ToolbarContent {
 
 When transcribing, leave the existing Menu's inner body untouched — only the surrounding structure changes (add the leading-side `if !allGames.isEmpty { … }` block).
 
-- [ ] **Step 10.3: Add the fullScreenCover**
+- [x] **Step 10.3: Add the fullScreenCover**
 
 Find the existing sheet/cover modifiers on the `NavigationStack` (sheet for showAdd, etc.) — around lines that look like:
 
@@ -1225,7 +1225,7 @@ Add the new `.fullScreenCover` modifier alongside (e.g. immediately after the pl
 }
 ```
 
-- [ ] **Step 10.4: Build check**
+- [x] **Step 10.4: Build check**
 
 ```bash
 xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
@@ -1248,7 +1248,7 @@ Expected: **BUILD SUCCEEDED**.
 
 Four short CC0 `.wav` files. Spec section 7. The synchronized Xcode group auto-includes anything dropped under `GameTracker/Resources/`.
 
-- [ ] **Step 11.1: Confirm the Resources directory exists**
+- [x] **Step 11.1: Confirm the Resources directory exists**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1256,7 +1256,7 @@ mkdir -p ios/GameTracker/GameTracker/Resources/Sounds/Invaders
 ls ios/GameTracker/GameTracker/Resources/
 ```
 
-- [ ] **Step 11.2: Find four short CC0 .wav files**
+- [x] **Step 11.2: Find four short CC0 .wav files**
 
 Use WebSearch and WebFetch to locate CC0-licensed short retro-arcade sound effects on freesound.org (filter: License = "Creative Commons 0"). Searches that work well:
 
@@ -1275,7 +1275,7 @@ Suggested duration / character:
 
 CC0 means no attribution required, but record the freesound IDs and authors in `InvadersScene.swift` as a comment for traceability.
 
-- [ ] **Step 11.3: Verify files are in place**
+- [x] **Step 11.3: Verify files are in place**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1283,7 +1283,7 @@ ls -la ios/GameTracker/GameTracker/Resources/Sounds/Invaders/
 # Expected: four .wav files, each well under 100KB
 ```
 
-- [ ] **Step 11.4: Add attribution comment to `InvadersScene.swift`**
+- [x] **Step 11.4: Add attribution comment to `InvadersScene.swift`**
 
 Insert a comment block at the top of `InvadersScene.swift` (just below the imports), recording the source freesound IDs you used. Example shape:
 
@@ -1304,7 +1304,7 @@ import UIKit
 protocol InvadersSceneDelegate: AnyObject { ... }
 ```
 
-- [ ] **Step 11.5: Build check (verifies bundle inclusion compiles)**
+- [x] **Step 11.5: Build check (verifies bundle inclusion compiles)**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -1321,14 +1321,14 @@ Expected: **BUILD SUCCEEDED**. (Audio playback itself is verified manually in Ta
 
 **Files:** none modified in this task.
 
-- [ ] **Step 12.1: Clear iCloud conflict files**
+- [x] **Step 12.1: Clear iCloud conflict files**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
 find ios/GameTracker -name "* [0-9].swift" -print -delete
 ```
 
-- [ ] **Step 12.2: Full test pass**
+- [x] **Step 12.2: Full test pass**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker/ios/GameTracker"
@@ -1339,7 +1339,7 @@ xcodebuild -project GameTracker.xcodeproj -scheme GameTracker \
 
 Expected: `** TEST SUCCEEDED **` (includes the new `WaveGeneratorTests` and `InvadersCollisionTests`).
 
-- [ ] **Step 12.3: Pre-commit sanity**
+- [x] **Step 12.3: Pre-commit sanity**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1351,7 +1351,7 @@ Expected:
 - Modified: `LibraryView.swift`
 - Pre-existing junk untouched
 
-- [ ] **Step 12.4: Bundle commit**
+- [x] **Step 12.4: Bundle commit**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1400,7 +1400,7 @@ If anything misbehaves, report which step.
 
 **Files:** none.
 
-- [ ] **Step 13.1: Verify clean working tree**
+- [x] **Step 13.1: Verify clean working tree**
 
 ```bash
 cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Personal-Projects/gameTracker"
@@ -1409,13 +1409,13 @@ git status --short
 
 Expected: only pre-existing junk.
 
-- [ ] **Step 13.2: Push**
+- [x] **Step 13.2: Push**
 
 ```bash
 git push -u origin plan-4d-invaders
 ```
 
-- [ ] **Step 13.3: Mark plan complete**
+- [x] **Step 13.3: Mark plan complete**
 
 ```bash
 sed -i '' 's/^- \[ \]/- [x]/g' docs/superpowers/plans/2026-05-23-ios-invaders-minigame.md
@@ -1424,7 +1424,7 @@ git commit -m "Mark Plan 4d (Library Invaders mini-game) complete"
 git push
 ```
 
-- [ ] **Step 13.4: Open PR**
+- [x] **Step 13.4: Open PR**
 
 ```bash
 gh pr create --base main --head plan-4d-invaders \
@@ -1479,10 +1479,10 @@ EOF
 
 ## Self-review checklist (run before declaring done)
 
-- [ ] Every referenced symbol exists: `CollisionMath.rectsOverlap`, `WaveGenerator.config(for:)`, `WaveConfig`, `CoverTextureLoader.fetch`, `PlayerCannonNode`, `InvaderNode.applyCover`, `InvaderNode.pointValue`, `InvaderNode.gameID`, `BulletNode.Kind`, `BulletNode.velocity`, `InvadersScene.configure`, `InvadersScene.applyCover`, `InvadersScene.gameDelegate`, `InvadersSceneDelegate` (3 methods), `InvadersHUD`, `InvadersGameView`, `InvadersGameView.Coordinator`. (All defined in Tasks 1–9.)
-- [ ] `LibraryView` toolbar gains exactly one new leading item, hidden when `allGames.isEmpty`. Existing trailing items (plus, menu) are unchanged.
-- [ ] `@AppStorage("invadersBestScore")` is used in `InvadersGameView` — same key used to read + write so the persisted value survives across runs.
-- [ ] All sound calls use exact filenames matching files in `Resources/Sounds/` (`invaders_shoot.wav`, `invaders_hit.wav`, `invaders_invader_shoot.wav`, `invaders_death.wav`).
-- [ ] No "TBD" / "implement later" anywhere.
-- [ ] Pre-existing junk explicitly named in Task 0 — won't be staged in Task 12's commit.
-- [ ] No server / API / database changes — Library Invaders is iOS-only.
+- [x] Every referenced symbol exists: `CollisionMath.rectsOverlap`, `WaveGenerator.config(for:)`, `WaveConfig`, `CoverTextureLoader.fetch`, `PlayerCannonNode`, `InvaderNode.applyCover`, `InvaderNode.pointValue`, `InvaderNode.gameID`, `BulletNode.Kind`, `BulletNode.velocity`, `InvadersScene.configure`, `InvadersScene.applyCover`, `InvadersScene.gameDelegate`, `InvadersSceneDelegate` (3 methods), `InvadersHUD`, `InvadersGameView`, `InvadersGameView.Coordinator`. (All defined in Tasks 1–9.)
+- [x] `LibraryView` toolbar gains exactly one new leading item, hidden when `allGames.isEmpty`. Existing trailing items (plus, menu) are unchanged.
+- [x] `@AppStorage("invadersBestScore")` is used in `InvadersGameView` — same key used to read + write so the persisted value survives across runs.
+- [x] All sound calls use exact filenames matching files in `Resources/Sounds/` (`invaders_shoot.wav`, `invaders_hit.wav`, `invaders_invader_shoot.wav`, `invaders_death.wav`).
+- [x] No "TBD" / "implement later" anywhere.
+- [x] Pre-existing junk explicitly named in Task 0 — won't be staged in Task 12's commit.
+- [x] No server / API / database changes — Library Invaders is iOS-only.
