@@ -18,14 +18,33 @@ final class SyncEngine {
     let syncAPI: SyncAPI
     let status: SyncStatus
 
+    /// Tracks whether sync has been attempted at all in this process
+    /// lifetime. Used by `runOnceIfNeeded` so that the per-tab
+    /// `.task` modifiers fire a sync only once per app launch instead
+    /// of on every tab switch / foreground return.
+    private var hasSyncedThisSession = false
+
     init(context: ModelContext, syncAPI: SyncAPI, status: SyncStatus) {
         self.context = context
         self.syncAPI = syncAPI
         self.status = status
     }
 
-    /// Run a complete sync cycle.
+    /// Sync once per app launch. Calls `runOnce` on the first
+    /// invocation and is a no-op thereafter (including after a
+    /// manual sync from Settings, which also flips the flag). Used
+    /// by tab `.task` modifiers so that simply switching tabs no
+    /// longer kicks off another sync.
+    func runOnceIfNeeded() async throws {
+        guard !hasSyncedThisSession else { return }
+        hasSyncedThisSession = true
+        try await runOnce()
+    }
+
+    /// Run a complete sync cycle. Always runs regardless of the
+    /// session flag — used by the manual "Sync now" button.
     func runOnce() async throws {
+        hasSyncedThisSession = true
         status.phase = .syncing
         do {
             // 1+2: pull
@@ -48,18 +67,26 @@ final class SyncEngine {
             status.conflictCount = try countConflicts()
             status.phase = .idle
         } catch {
-            // A URLError means the request never landed at the
-            // application layer — DNS failure, timeout, no internet,
-            // host unreachable. Surface those as the soft .offline
-            // state. Everything else (parse failure, server 5xx
-            // mapped to an APIError, etc.) stays as a real .error.
-            if (error as? URLError) != nil {
+            // Classify "the request never reached / never came back
+            // from the server" as the soft `.offline` state — the
+            // self-hosted backend going down briefly is an everyday
+            // occurrence, not an emergency. URLSession surfaces these
+            // as URLError, but APIClient wraps them in
+            // `APIError.transport(URLError)` before they reach us.
+            // Catch both forms so airplane-mode → no red banner.
+            if Self.isTransportError(error) {
                 status.phase = .offline
             } else {
                 status.phase = .error(error.localizedDescription)
             }
             throw error
         }
+    }
+
+    private static func isTransportError(_ error: Error) -> Bool {
+        if error is URLError { return true }
+        if case APIError.transport = error { return true }
+        return false
     }
 
     // MARK: - Response application
