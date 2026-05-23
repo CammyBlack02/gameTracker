@@ -48,7 +48,14 @@ final class InvadersScene: SKScene {
         self.games = games
     }
 
+    /// Pre-loaded covers provided by the Coordinator before the scene starts.
+    /// Set this before the scene is presented so `startNextWave` can use real
+    /// covers on the very first wave.
+    var preloadedCovers: [PersistentIdentifier: UIImage] = [:]
+
     /// Late-binding cover texture from `CoverTextureLoader`.
+    /// Retained for defensive use; no longer called by the main Coordinator
+    /// code path (covers are now fully preloaded before scene creation).
     func applyCover(_ image: UIImage, for gameID: PersistentIdentifier) {
         for invader in invaders where invader.gameID == gameID {
             invader.applyCover(image)
@@ -255,8 +262,9 @@ final class InvadersScene: SKScene {
         for r in 0..<cfg.rows {
             for c in 0..<cfg.cols {
                 guard let game = games.randomElement() else { continue }
+                let cover = preloadedCovers[game.persistentModelID]
                 let invader = InvaderNode(gameID: game.persistentModelID,
-                                          cover: nil,
+                                          cover: cover,
                                           platformLabel: game.platform)
                 invader.pointValue = 10 * waveNumber
                 let finalPos = CGPoint(x: startX + CGFloat(c) * spacingX,
