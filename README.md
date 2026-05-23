@@ -133,7 +133,6 @@ See **[SECURITY-ASSESSMENT.md](SECURITY-ASSESSMENT.md)** for the full analysis.
 
 - **[SETUP-GUIDE.md](SETUP-GUIDE.md)** — full server + web-app setup
 - **[SECURITY-ASSESSMENT.md](SECURITY-ASSESSMENT.md)** — security analysis
-- **[SECURITY-SETUP.md](SECURITY-SETUP.md)** — security hardening
 - **[UNIFI-SETUP.md](UNIFI-SETUP.md)** — UniFi network setup
 - **[docs/superpowers/specs/](docs/superpowers/specs/)** — design specs for each iOS feature
 - **[docs/superpowers/plans/](docs/superpowers/plans/)** — implementation plans
