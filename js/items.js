@@ -185,9 +185,10 @@ function displayItems(items, container) {
  * Get image URL - handles both external URLs and local paths
  * Uses proxy for external URLs to avoid CORS issues
  */
-function getItemImageUrl(imagePath) {
+function getItemImageUrl(imagePath, size) {
     if (!imagePath) return null;
-    // Data URLs - return as-is
+    const useThumb = size === 'thumb';
+    // Data URLs - return as-is (no thumb variant for legacy base64).
     if (imagePath.startsWith('data:')) {
         return imagePath;
     }
@@ -195,7 +196,11 @@ function getItemImageUrl(imagePath) {
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
         return `api/image-proxy.php?url=${encodeURIComponent(imagePath)}`;
     }
-    // Otherwise, it's a local file
+    // Local file. Grid + list views ask for 'thumb' — upload.php
+    // auto-generates a 512px thumbnail next to every upload.
+    if (useThumb) {
+        return `uploads/covers/thumbs/${imagePath}`;
+    }
     return `uploads/covers/${imagePath}`;
 }
 
@@ -209,8 +214,8 @@ function displayGridView(items, container) {
         if (!itemId) {
             console.error('Item missing ID:', item);
         }
-        const image = item.front_image 
-            ? `<img src="${getItemImageUrl(item.front_image)}" alt="${escapeHtml(item.title)}" class="game-cover">`
+        const image = item.front_image
+            ? `<img src="${getItemImageUrl(item.front_image, 'thumb')}" alt="${escapeHtml(item.title)}" class="game-cover" loading="lazy" decoding="async" onerror="if(this.src.includes('/thumbs/')&&!this.dataset.tfb){this.dataset.tfb='1';this.src=this.src.replace('/thumbs/','/');}else{this.style.display='none';}">`
             : '<div class="game-cover-placeholder">No Image</div>';
         
         return `
@@ -304,8 +309,8 @@ function displayListView(items, container) {
                     return `
                     <tr data-id="${itemId}">
                         <td class="game-title-cell">
-                            ${item.front_image 
-                                ? `<img src="${getItemImageUrl(item.front_image)}" alt="${escapeHtml(item.title)}" class="list-cover-thumb">`
+                            ${item.front_image
+                                ? `<img src="${getItemImageUrl(item.front_image, 'thumb')}" alt="${escapeHtml(item.title)}" class="list-cover-thumb" loading="lazy" decoding="async" onerror="if(this.src.includes('/thumbs/')&&!this.dataset.tfb){this.dataset.tfb='1';this.src=this.src.replace('/thumbs/','/');}else{this.style.display='none';}">`
                                 : ''}
                             <span>${escapeHtml(item.title)}${item.category !== 'Systems' && item.category !== 'Console' && item.quantity > 1 ? ` <span style="color: var(--text-secondary);">(×${item.quantity})</span>` : ''}</span>
                         </td>
