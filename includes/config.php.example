@@ -87,6 +87,20 @@ define('UPLOAD_DIR', __DIR__ . '/../uploads/');
 define('COVERS_DIR', UPLOAD_DIR . 'covers/');
 define('EXTRAS_DIR', UPLOAD_DIR . 'extras/');
 
+// External-API keys used by the "auto-fetch" buttons (metacritic,
+// game description / genre, price). Both are free to obtain.
+//
+//   RAWG          — sign in at https://rawg.io/apidocs and copy your key.
+//                   Powers: Metacritic score, description, genre, release.
+//   PriceCharting — register at https://www.pricecharting.com/api-documentation
+//                   and find "your token" on the API page.
+//                   Powers: current loose / CIB / new prices.
+//
+// Leave a key blank to disable the matching feature; the endpoint will
+// return a clear "not configured" message rather than crashing.
+define('RAWG_API_KEY',          '');
+define('PRICECHARTING_API_KEY', '');
+
 // Create directories if they don't exist
 if (!file_exists(UPLOAD_DIR)) {
     mkdir(UPLOAD_DIR, 0755, true);
