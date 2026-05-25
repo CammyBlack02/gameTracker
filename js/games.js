@@ -1267,41 +1267,9 @@ function setupAddFormFetching() {
             }
         });
     }
-    
-    // Metacritic fetching
-    const fetchMetacriticBtn = document.getElementById('fetchMetacriticAddBtn');
-    if (fetchMetacriticBtn) {
-        fetchMetacriticBtn.addEventListener('click', async function() {
-            const title = document.getElementById('addTitle').value;
-            const platform = document.getElementById('addPlatform').value;
-            
-            if (!title) {
-                showNotification('Please enter a title first', 'error');
-                return;
-            }
-            
-            fetchMetacriticBtn.disabled = true;
-            fetchMetacriticBtn.textContent = 'Fetching...';
-            
-            try {
-                const response = await fetch(`api/metacritic.php?title=${encodeURIComponent(title)}&platform=${encodeURIComponent(platform)}`);
-                const data = await response.json();
-                
-                if (data.success && data.rating !== null) {
-                    document.getElementById('addMetacriticRating').value = data.rating;
-                    showNotification('Metacritic rating fetched successfully', 'success');
-                } else {
-                    showNotification(data.message || 'Could not fetch Metacritic rating', 'error');
-                }
-            } catch (error) {
-                console.error('Error fetching Metacritic:', error);
-                showNotification('Error fetching Metacritic rating', 'error');
-            } finally {
-                fetchMetacriticBtn.disabled = false;
-                fetchMetacriticBtn.textContent = 'Fetch';
-            }
-        });
-    }
+
+    // Metacritic auto-fetch was removed — no free source produced
+    // reliable scores. The Metacritic input is now manual entry only.
 }
 
 /**
@@ -1894,10 +1862,9 @@ function setupEditGameForm() {
     
     // Setup price fetching
     setupPriceFetching();
-    
-    // Setup metacritic fetching
-    setupMetacriticFetching();
-    
+
+    // (Metacritic auto-fetch removed — no working free source.)
+
     // Setup genre and description fetching for edit form
     setupEditMetadataFetching();
     
@@ -3009,44 +2976,9 @@ function setupPriceFetching() {
     }
 }
 
-/**
- * Setup Metacritic fetching
- */
-function setupMetacriticFetching() {
-    const fetchBtn = document.getElementById('fetchMetacriticBtn');
-    if (fetchBtn) {
-        fetchBtn.addEventListener('click', async function() {
-            const title = document.getElementById('editTitle').value;
-            const platform = document.getElementById('editPlatform').value;
-            
-            if (!title) {
-                showNotification('Please enter a title first', 'error');
-                return;
-            }
-            
-            fetchBtn.disabled = true;
-            fetchBtn.textContent = 'Fetching...';
-            
-            try {
-                const response = await fetch(`api/metacritic.php?title=${encodeURIComponent(title)}&platform=${encodeURIComponent(platform)}`);
-                const data = await response.json();
-                
-                if (data.success && data.rating !== null) {
-                    document.getElementById('editMetacriticRating').value = data.rating;
-                    showNotification('Metacritic rating fetched successfully', 'success');
-                } else {
-                    showNotification(data.message || 'Could not fetch Metacritic rating', 'error');
-                }
-            } catch (error) {
-                console.error('Error fetching Metacritic:', error);
-                showNotification('Error fetching Metacritic rating', 'error');
-            } finally {
-                fetchBtn.disabled = false;
-                fetchBtn.textContent = 'Fetch';
-            }
-        });
-    }
-}
+// Metacritic auto-fetch removed — no free source produced reliable
+// scores. The Metacritic field on the edit form is now manual entry
+// only.
 
 /**
  * Setup delete game
