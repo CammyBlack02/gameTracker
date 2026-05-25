@@ -87,6 +87,11 @@ define('UPLOAD_DIR', __DIR__ . '/../uploads/');
 define('COVERS_DIR', UPLOAD_DIR . 'covers/');
 define('EXTRAS_DIR', UPLOAD_DIR . 'extras/');
 
+// The "Auto-fetch description" button uses the public Wikipedia REST
+// API and needs no key. The "Fetch price" button scrapes the public
+// PriceCharting product pages (their API is paid; the public HTML is
+// not). No API keys are configured here.
+
 // Create directories if they don't exist
 if (!file_exists(UPLOAD_DIR)) {
     mkdir(UPLOAD_DIR, 0755, true);
