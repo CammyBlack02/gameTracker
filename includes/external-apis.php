@@ -1,27 +1,21 @@
 <?php
 /**
  * Shared external-API helpers used by the proxy endpoints
- * (api/metacritic.php, api/game-metadata.php, api/pricecharting.php).
+ * (api/game-metadata.php, api/pricecharting.php).
  *
- * Both endpoints used to scrape the source HTML, which was fragile and
- * silently broke whenever the source site redesigned. These helpers
- * call the official JSON APIs instead:
+ * Earlier iterations tried using RAWG + the paid PriceCharting API,
+ * but RAWG's signup gates on social-auth providers the user didn't
+ * have linked, and the PriceCharting API requires a paid subscription.
+ * Both lookups now use sources that need no API key:
  *
- *   - RAWG          → https://rawg.io/apidocs           (free key)
- *   - PriceCharting → https://www.pricecharting.com/api (free token)
+ *   - Wikipedia    → public REST + opensearch APIs (description only)
+ *   - PriceCharting → scrape the product page (their HTML uses stable
+ *                     class names like `td.price.numeric.used_price`)
  *
- * Each helper returns either a normalized assoc array on success, or
- * `null` when the lookup failed (no result, network error, or the
- * required API key isn't configured). Callers can distinguish "no
- * data" from "misconfigured" via `gt_external_api_last_error()`.
- *
- * Configure by adding to `includes/config.php`:
- *
- *   define('RAWG_API_KEY', '...');
- *   define('PRICECHARTING_API_KEY', '...');
+ * Helpers return null on failure and stash a human-readable reason in
+ * gt_external_api_last_error() that callers can surface to the UI.
  */
 
-// Most-recent error string, surfaced by the helpers when they return null.
 $GLOBALS['gt_external_api_last_error'] = null;
 
 function gt_external_api_last_error(): ?string {
@@ -29,183 +23,190 @@ function gt_external_api_last_error(): ?string {
 }
 
 /**
- * Fetch the top-matching game from RAWG by title + (optional) platform.
+ * Wikipedia summary lookup. Two-step:
+ *   1. opensearch?q=<title> video game → grab the top page title
+ *   2. /api/rest_v1/page/summary/<title> → grab the lead-paragraph extract
  *
- * Returns null on failure. On success returns:
- *   [
- *     'slug'        => 'spider-man-2',
- *     'name'        => 'Marvel''s Spider-Man 2',
- *     'description' => 'Long description text, plain HTML stripped...',
- *     'metacritic'  => 87,    // null if RAWG doesn't have one for this title
- *     'genres'      => ['Action', 'Adventure'],
- *     'released'    => '2023-10-20',
- *     'background_image' => 'https://...',
- *   ]
+ * The "video game" suffix biases the disambiguation toward the article
+ * about the game rather than a movie / book / album that shares a name.
+ *
+ * Returns:
+ *   ['title' => 'Marvel''s Spider-Man 2', 'description' => 'Plain-text...']
+ *   or null on failure.
  */
-function gt_rawg_fetch_game(string $title, string $platform = ''): ?array {
+function gt_wikipedia_description(string $title): ?array {
     $GLOBALS['gt_external_api_last_error'] = null;
 
-    if (!defined('RAWG_API_KEY') || RAWG_API_KEY === '') {
-        $GLOBALS['gt_external_api_last_error'] = 'RAWG_API_KEY is not configured in includes/config.php';
+    $query = trim($title) . ' video game';
+    $searchUrl = 'https://en.wikipedia.org/w/api.php'
+        . '?action=opensearch'
+        . '&search=' . urlencode($query)
+        . '&limit=1'
+        . '&namespace=0'
+        . '&format=json';
+
+    $search = gt_external_api_get_json($searchUrl);
+    if (!is_array($search) || empty($search[1][0])) {
+        $GLOBALS['gt_external_api_last_error'] = 'No Wikipedia result for "' . $title . '"';
         return null;
     }
-    $key = RAWG_API_KEY;
+    $pageTitle = (string)$search[1][0];
 
-    // Step 1: search. RAWG's search returns a list ranked by relevance.
-    // We don't try to filter by platform — RAWG's platform_id mapping is
-    // a moving target, and the title match alone is usually accurate.
-    $searchUrl = 'https://api.rawg.io/api/games?key=' . urlencode($key)
-        . '&search=' . urlencode($title)
-        . '&page_size=5';
+    // The summary endpoint is happier with underscored titles in the URL path.
+    $slug = rawurlencode(str_replace(' ', '_', $pageTitle));
+    $summaryUrl = 'https://en.wikipedia.org/api/rest_v1/page/summary/' . $slug;
 
-    $list = gt_external_api_get_json($searchUrl);
-    if (!$list || empty($list['results'])) {
-        $GLOBALS['gt_external_api_last_error'] = 'No RAWG results for "' . $title . '"';
+    $summary = gt_external_api_get_json($summaryUrl);
+    if (!is_array($summary)) {
+        $GLOBALS['gt_external_api_last_error'] = 'Wikipedia summary fetch failed for ' . $pageTitle;
         return null;
     }
-
-    // Prefer a result whose platforms include something matching the
-    // user's platform string. Falls back to the top hit if nothing matches.
-    $pick = gt_rawg_choose_best_match($list['results'], $platform);
-
-    // Step 2: pull the full detail for the chosen slug. The list response
-    // only includes summary fields; description lives on the detail page.
-    $detailUrl = 'https://api.rawg.io/api/games/' . urlencode($pick['slug'])
-        . '?key=' . urlencode($key);
-    $detail = gt_external_api_get_json($detailUrl);
-    if (!$detail) {
-        $GLOBALS['gt_external_api_last_error'] = 'RAWG detail fetch failed for slug ' . $pick['slug'];
+    if (($summary['type'] ?? '') === 'disambiguation') {
+        $GLOBALS['gt_external_api_last_error'] = 'Wikipedia hit a disambiguation page for ' . $pageTitle;
         return null;
     }
-
-    $description = isset($detail['description_raw']) && is_string($detail['description_raw'])
-        ? trim($detail['description_raw'])
-        : null;
-    if ($description === '') { $description = null; }
-
-    $genres = [];
-    if (!empty($detail['genres']) && is_array($detail['genres'])) {
-        foreach ($detail['genres'] as $g) {
-            if (isset($g['name'])) { $genres[] = $g['name']; }
-        }
+    $extract = isset($summary['extract']) && is_string($summary['extract'])
+        ? trim($summary['extract']) : '';
+    if ($extract === '') {
+        $GLOBALS['gt_external_api_last_error'] = 'Wikipedia returned no extract for ' . $pageTitle;
+        return null;
     }
-
     return [
-        'slug'             => $detail['slug'] ?? $pick['slug'],
-        'name'             => $detail['name'] ?? ($pick['name'] ?? $title),
-        'description'      => $description,
-        'metacritic'       => isset($detail['metacritic']) && is_numeric($detail['metacritic'])
-            ? (int)$detail['metacritic']
-            : null,
-        'genres'           => $genres,
-        'released'         => $detail['released'] ?? null,
-        'background_image' => $detail['background_image'] ?? null,
+        'title'       => $summary['title']    ?? $pageTitle,
+        'description' => $extract,
+        'url'         => $summary['content_urls']['desktop']['page'] ?? null,
     ];
 }
 
 /**
- * Pick the search result whose platforms list best matches the user's
- * platform string. Loose substring match in both directions — RAWG calls
- * "Nintendo Switch" "Nintendo Switch" but users sometimes just type
- * "Switch", and vice versa.
- */
-function gt_rawg_choose_best_match(array $results, string $platform): array {
-    $platformLower = strtolower(trim($platform));
-    if ($platformLower !== '') {
-        foreach ($results as $r) {
-            if (empty($r['platforms']) || !is_array($r['platforms'])) continue;
-            foreach ($r['platforms'] as $p) {
-                $pname = strtolower($p['platform']['name'] ?? '');
-                if ($pname === '') continue;
-                if (str_contains($pname, $platformLower) || str_contains($platformLower, $pname)) {
-                    return $r;
-                }
-            }
-        }
-    }
-    return $results[0];
-}
-
-/**
- * Look up a price for the (title, platform) on PriceCharting. Returns
- * the loose-cartridge / disc-only price (the most common "what's this
- * game worth?" metric) in dollars as a float, or null on failure.
+ * Look up a price for the (title, platform) by scraping PriceCharting's
+ * public product page. Two steps:
+ *   1. Hit /search-products?q=<query>&type=prices and pick the first
+ *      product-link href (pattern: /game/<platform-slug>/<game-slug>).
+ *   2. Fetch that product page and read the first row of the price
+ *      table: `td.price.numeric.used_price > span.js-price` etc.
+ *
+ * The "used" / loose price is the user-facing default — closest to the
+ * "what's a game I own actually worth?" metric most users want.
+ *
+ * Returns prices as floats in USD, or null on failure.
  */
 function gt_pricecharting_lookup(string $title, string $platform = ''): ?array {
     $GLOBALS['gt_external_api_last_error'] = null;
 
-    if (!defined('PRICECHARTING_API_KEY') || PRICECHARTING_API_KEY === '') {
-        $GLOBALS['gt_external_api_last_error'] = 'PRICECHARTING_API_KEY is not configured in includes/config.php';
-        return null;
-    }
-    $token = PRICECHARTING_API_KEY;
+    $query = trim($platform . ' ' . $title);
+    $searchUrl = 'https://www.pricecharting.com/search-products'
+        . '?q=' . urlencode($query)
+        . '&type=prices';
 
-    // PriceCharting's API expects "platform name product name" as a
-    // single `q` parameter on the product-lookup endpoint.
-    $q = trim($platform . ' ' . $title);
-    $url = 'https://www.pricecharting.com/api/product'
-        . '?t=' . urlencode($token)
-        . '&q=' . urlencode($q);
-
-    $data = gt_external_api_get_json($url);
-    if (!$data) {
-        $GLOBALS['gt_external_api_last_error'] = 'PriceCharting request failed';
+    $searchHtml = gt_external_api_get_html($searchUrl);
+    if ($searchHtml === null) {
+        $GLOBALS['gt_external_api_last_error'] = 'PriceCharting search request failed';
         return null;
     }
 
-    // PriceCharting wraps errors as { status: "error", error-message: "..." }.
-    if (($data['status'] ?? '') === 'error') {
-        $GLOBALS['gt_external_api_last_error'] = $data['error-message'] ?? 'PriceCharting error';
+    // Find the first product link in the search results.
+    if (!preg_match('#href="(https?://www\.pricecharting\.com/game/[^"]+)"#', $searchHtml, $m)) {
+        $GLOBALS['gt_external_api_last_error'] = 'No PriceCharting product matched "' . $query . '"';
+        return null;
+    }
+    $productUrl = $m[1];
+
+    $productHtml = gt_external_api_get_html($productUrl);
+    if ($productHtml === null) {
+        $GLOBALS['gt_external_api_last_error'] = 'PriceCharting product page request failed';
         return null;
     }
 
-    // Prices are returned as integers in cents (e.g. 2499 = $24.99).
-    $loose = isset($data['loose-price'])    ? (int)$data['loose-price']    / 100.0 : null;
-    $cib   = isset($data['cib-price'])      ? (int)$data['cib-price']      / 100.0 : null;
-    $new   = isset($data['new-price'])      ? (int)$data['new-price']      / 100.0 : null;
+    $loose    = gt_pricecharting_extract_price($productHtml, 'used_price');
+    $complete = gt_pricecharting_extract_price($productHtml, 'complete_price');
+    $new      = gt_pricecharting_extract_price($productHtml, 'new_price');
 
-    if ($loose === null && $cib === null && $new === null) {
-        $GLOBALS['gt_external_api_last_error'] = 'No price returned for "' . $q . '"';
+    if ($loose === null && $complete === null && $new === null) {
+        $GLOBALS['gt_external_api_last_error'] = 'PriceCharting product page had no readable prices';
         return null;
+    }
+
+    // Try to surface a friendly "matched X on Y console" label.
+    $matched = null;
+    if (preg_match('#<h1[^>]*id="product_name"[^>]*>(.+?)</h1>#is', $productHtml, $hm)) {
+        $matched = trim(html_entity_decode(strip_tags($hm[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     }
 
     return [
-        'product_name' => $data['product-name'] ?? null,
-        'console_name' => $data['console-name'] ?? null,
+        'matched'      => $matched,
         'loose_price'  => $loose,
-        'cib_price'    => $cib,
+        'cib_price'    => $complete,
         'new_price'    => $new,
-        'id'           => $data['id'] ?? null,
+        'product_url'  => $productUrl,
     ];
 }
 
 /**
- * Internal: fetch + json_decode a URL with sensible defaults. Returns
- * the decoded array on 2xx + valid JSON, or null on anything else.
+ * Pull the first <td class="price numeric <slot>"> ... <span class="js-price">$X.XX</span>
+ * out of the page HTML. The first match is the canonical price for the
+ * product; subsequent matches in the same page are for related games /
+ * regional variants / etc.
  */
-function gt_external_api_get_json(string $url): ?array {
+function gt_pricecharting_extract_price(string $html, string $slot): ?float {
+    $pattern = '#<td[^>]*class="[^"]*\b' . preg_quote($slot, '#') . '\b[^"]*"[^>]*>\s*'
+             . '(?:<a[^>]*>\s*)?'
+             . '<span[^>]*class="js-price"[^>]*>\s*\$([\d,]+(?:\.\d+)?)\s*</span>#is';
+    if (preg_match($pattern, $html, $m)) {
+        return (float)str_replace(',', '', $m[1]);
+    }
+    return null;
+}
+
+/**
+ * Internal: fetch + json_decode a URL with sensible defaults. Returns
+ * the decoded value on 2xx + valid JSON, or null on anything else.
+ * Returns mixed because Wikipedia's opensearch endpoint hands back a
+ * positional array, not an object.
+ */
+function gt_external_api_get_json(string $url) {
+    $body = gt_external_api_get_raw($url, ['Accept: application/json']);
+    if ($body === null) return null;
+    $decoded = json_decode($body, true);
+    if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+        error_log("external-apis: non-JSON body from $url");
+        return null;
+    }
+    return $decoded;
+}
+
+/**
+ * Internal: fetch a URL and return the body as a string. Used for
+ * HTML scraping where we don't want JSON decoding.
+ */
+function gt_external_api_get_html(string $url): ?string {
+    return gt_external_api_get_raw($url, []);
+}
+
+/**
+ * Shared cURL with timeouts + redirect-follow + a non-empty UA (some
+ * sites — PriceCharting included — refuse responses to bare cURL).
+ */
+function gt_external_api_get_raw(string $url, array $extraHeaders): ?string {
     $ch = curl_init();
     curl_setopt_array($ch, [
         CURLOPT_URL            => $url,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_TIMEOUT        => 10,
-        CURLOPT_USERAGENT      => 'GameTracker/2.0 (+https://github.com/CammyBlack02/gameTracker)',
-        CURLOPT_HTTPHEADER     => ['Accept: application/json'],
+        CURLOPT_TIMEOUT        => 12,
+        CURLOPT_USERAGENT      => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+                                . 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36',
+        CURLOPT_HTTPHEADER     => $extraHeaders,
     ]);
     $body = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlErr = curl_error($ch);
-    curl_close($ch);
+    $err = curl_error($ch);
+    // (no curl_close — the handle is released when $ch goes out of scope;
+    //  curl_close itself is deprecated from PHP 8.5.)
 
     if ($body === false || $status < 200 || $status >= 300) {
-        error_log("external-apis: HTTP $status for $url ($curlErr)");
+        error_log("external-apis: HTTP $status for $url ($err)");
         return null;
     }
-    $decoded = json_decode($body, true);
-    if (!is_array($decoded)) {
-        error_log("external-apis: non-JSON body from $url");
-        return null;
-    }
-    return $decoded;
+    return (string)$body;
 }
