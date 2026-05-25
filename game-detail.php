@@ -101,10 +101,7 @@
                     </div>
                     <div class="form-group">
                         <label for="editMetacriticRating">Metacritic Rating</label>
-                        <div class="input-with-button">
-                            <input type="number" id="editMetacriticRating" name="metacritic_rating" min="0" max="100">
-                            <button type="button" id="fetchMetacriticBtn" class="btn btn-small">Fetch</button>
-                        </div>
+                        <input type="number" id="editMetacriticRating" name="metacritic_rating" min="0" max="100">
                     </div>
                 </div>
                 
