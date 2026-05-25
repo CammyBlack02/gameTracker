@@ -2,22 +2,22 @@
 /**
  * GET /api/pricecharting.php?title=<title>&platform=<platform>
  *
- * Returns a price estimate for a game from PriceCharting's official
- * JSON API. Replaces the previous regex-based HTML scraper, which
- * grabbed whichever dollar amount appeared first in the page markup
- * (sometimes an ad, sometimes a related-item price, sometimes the
- * actual game — unreliable).
+ * Returns a price estimate for a game by scraping PriceCharting's
+ * public product pages. Replaces the previous regex-based scraper,
+ * which grabbed whichever dollar amount appeared first in the page
+ * markup (often an ad or a related-item price).
  *
- * The `price` field surfaced to the UI is PriceCharting's
- * "loose-price" (cartridge/disc only, no box or manual), in dollars.
- * This is the metric most users mean when they ask "what's it worth?".
- * The full response also includes complete-in-box and brand-new prices
- * for callers that want them.
+ * The `price` field surfaced to the UI is PriceCharting's "loose"
+ * price (cartridge / disc only, no box or manual) — the closest
+ * analogue to "what's a game I own actually worth?". The response
+ * also includes complete-in-box and brand-new prices for callers
+ * that want them.
  *
  * Response shape (backwards-compatible with the previous scraper):
  *   { success: true,  price: 24.99, message: "Price found",
  *                     loose_price: 24.99, cib_price: 39.99, new_price: 79.99,
- *                     matched: "Marvel's Spider-Man 2 (PlayStation 5)" }
+ *                     matched: "Marvel's Spider-Man 2",
+ *                     product_url: "https://www.pricecharting.com/game/..." }
  *   { success: false, price: null,  message: "..." }
  */
 
@@ -46,8 +46,6 @@ if ($result === null) {
 }
 
 // Choose the user-facing price in priority order: loose → CIB → new.
-// Loose is what someone gets selling on eBay without packaging, which
-// is the closest analogue to "current value of a game I own".
 $price = $result['loose_price'] ?? $result['cib_price'] ?? $result['new_price'];
 
 if ($price === null) {
@@ -58,14 +56,13 @@ if ($price === null) {
     ]);
 }
 
-$matched = trim(($result['product_name'] ?? '') . ' (' . ($result['console_name'] ?? '') . ')', ' ()');
-
 sendJsonResponse([
     'success'     => true,
     'price'       => $price,
     'loose_price' => $result['loose_price'],
     'cib_price'   => $result['cib_price'],
     'new_price'   => $result['new_price'],
-    'matched'     => $matched !== '' ? $matched : null,
+    'matched'     => $result['matched'],
+    'product_url' => $result['product_url'],
     'message'     => 'Price found',
 ]);

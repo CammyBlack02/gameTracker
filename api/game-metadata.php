@@ -2,17 +2,21 @@
 /**
  * GET /api/game-metadata.php?title=<title>&platform=<platform>
  *
- * Returns the genre and description for a game by looking it up on
- * RAWG. Replaces the previous TheGamesDB scraper, whose hardcoded
- * key had silently gone stale (and whose response shape varied
- * unpredictably between game records).
+ * Returns the description for a game by looking it up on Wikipedia
+ * (plain-text summary of the lead paragraph). Replaces the previous
+ * TheGamesDB scraper, whose hardcoded key had silently gone stale.
  *
- * Response shape (backwards-compatible with the previous endpoint):
- *   { success: true,  genre: "Action, Adventure",
+ * Genre is no longer auto-fetched — Wikipedia summaries don't expose
+ * a clean structured genre field, and there's no free alternative that
+ * doesn't require account signup. Users enter genre manually.
+ *
+ * Response shape (backwards-compatible — `genre` stays in the payload
+ * but is always null now):
+ *   { success: true,  genre: null,
  *                     description: "Long text...",
- *                     released: "2023-10-20",     // (new)
- *                     matched:  "Game name",      // (new)
- *                     message: "Game metadata found" }
+ *                     matched: "Wikipedia page title",
+ *                     url:     "https://en.wikipedia.org/wiki/...",
+ *                     message: "Description found" }
  *   { success: false, genre: null, description: null, message: "..." }
  */
 
@@ -23,8 +27,7 @@ require_once __DIR__ . '/../includes/external-apis.php';
 
 header('Content-Type: application/json');
 
-$title    = $_GET['title']    ?? '';
-$platform = $_GET['platform'] ?? '';
+$title = $_GET['title'] ?? '';
 
 if ($title === '') {
     sendJsonResponse([
@@ -35,24 +38,22 @@ if ($title === '') {
     ], 400);
 }
 
-$result = gt_rawg_fetch_game($title, $platform);
+$result = gt_wikipedia_description($title);
 
 if ($result === null) {
     sendJsonResponse([
         'success'     => false,
-        'message'     => gt_external_api_last_error() ?? 'RAWG lookup failed',
+        'message'     => gt_external_api_last_error() ?? 'Description lookup failed',
         'genre'       => null,
         'description' => null,
     ]);
 }
 
-$genre = !empty($result['genres']) ? implode(', ', $result['genres']) : null;
-
 sendJsonResponse([
     'success'     => true,
-    'message'     => 'Game metadata found',
-    'genre'       => $genre,
+    'message'     => 'Description found',
+    'genre'       => null,
     'description' => $result['description'],
-    'released'    => $result['released'],
-    'matched'     => $result['name'] ?? null,
+    'matched'     => $result['title'] ?? null,
+    'url'         => $result['url']   ?? null,
 ]);
