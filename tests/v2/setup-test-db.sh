@@ -24,7 +24,14 @@ mysql $DB_HOST_FLAG -u"$DB_USER" -e "DROP DATABASE IF EXISTS $DB_NAME; CREATE DA
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export GT_DB_NAME="$DB_NAME"
 export GT_DB_USER="$DB_USER"
-export GT_DB_PASS="${TEST_DB_PASS:-}"
+# When TEST_DB_PASS is set, use it. Otherwise inherit whatever
+# GT_DB_PASS the caller already exported (CI sets it; local dev may too)
+# — the previous default of empty string clobbered a real password and
+# made migrate.php fail with "Access denied ... using password: NO".
+export GT_DB_PASS="${TEST_DB_PASS:-${GT_DB_PASS:-}}"
+# Same story for the host, so a caller with prod-shaped env doesn't
+# accidentally point migrate.php at the wrong server.
+export GT_DB_HOST="${TEST_DB_HOST:-${GT_DB_HOST:-localhost}}"
 
 php -d display_errors=1 "$PROJECT_ROOT/database/migrate.php"
 
