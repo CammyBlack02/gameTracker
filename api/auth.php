@@ -215,6 +215,9 @@ function handleLogin() {
 }
 
 function handleLogout() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
+    }
     session_destroy();
     sendJsonResponse(['success' => true, 'message' => 'Logged out successfully']);
 }

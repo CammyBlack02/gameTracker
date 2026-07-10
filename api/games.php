@@ -682,11 +682,15 @@ function updateGame() {
 
 function deleteGame() {
     global $pdo;
-    
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
+    }
+
     $id = $_GET['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
     $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
-    
+
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Game ID is required'], 400);
     }
