@@ -1,5 +1,6 @@
-<?php 
-require_once __DIR__ . '/includes/auth-check.php';
+<?php
+require_once __DIR__ . '/includes/auth.php';
+requireUser();
 
 $profileUserId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if (!$profileUserId) {

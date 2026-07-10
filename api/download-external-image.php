@@ -4,14 +4,11 @@
  * Called automatically when external URLs are set, or can be called manually
  */
 
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/thumbnail.php';
 
-// Check authentication
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
-    sendJsonResponse(['success' => false, 'message' => 'Authentication required'], 401);
-}
+// Session auth via the shared helper (returns JSON 401 on failure).
+$userId = requireUser();
 
 header('Content-Type: application/json');
 
