@@ -226,7 +226,7 @@ function getGame() {
     
     $id = $_GET['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $isAdmin = isAdmin();
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Game ID is required'], 400);
@@ -522,7 +522,7 @@ function updateGame() {
     }
     
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $isAdmin = isAdmin();
     
     // Check if game exists and verify ownership
     $stmt = $pdo->prepare("SELECT id, user_id FROM games WHERE id = ?");
@@ -688,7 +688,7 @@ function deleteGame() {
 
     $id = $_GET['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $isAdmin = isAdmin();
 
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Game ID is required'], 400);
