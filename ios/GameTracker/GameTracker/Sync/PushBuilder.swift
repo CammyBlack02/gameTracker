@@ -9,120 +9,61 @@ struct PushBuilder {
 
     func build() throws -> PushPayload {
         return PushPayload(
-            games: try bucketGames(),
-            items: try bucketItems(),
-            gameCompletions: try bucketCompletions(),
-            gameImages: try bucketGameImages(),
-            itemImages: try bucketItemImages()
+            games:           try bucket(of: Game.self,           toNew: gameToNewRow,       toModified: gameToModifiedRow),
+            items:           try bucket(of: Item.self,           toNew: itemToNewRow,       toModified: itemToModifiedRow),
+            gameCompletions: try bucket(of: GameCompletion.self, toNew: completionToNewRow, toModified: completionToModifiedRow),
+            gameImages:      try bucket(of: GameImage.self,      toNew: gameImageToNewRow),
+            itemImages:      try bucket(of: ItemImage.self,      toNew: itemImageToNewRow)
         )
     }
 
-    // MARK: - Per-table buckets
+    // MARK: - Generic bucketing
 
-    private func bucketGames() throws -> PushBucket {
-        let all = try context.fetch(FetchDescriptor<Game>())
+    /// Walk every row of type T and drop it into new/modified/deleted
+    /// according to its syncState. Fable §4 (last item): five per-type
+    /// `bucketX` functions collapsed here.
+    ///
+    /// `toNew` returns `nil` for a row that can't be pushed yet (e.g.
+    /// an image whose parent hasn't been server-side'd — see the
+    /// image builders below); those rows are silently skipped and
+    /// picked up on the next sync.
+    ///
+    /// `toModified` is `nil` for row types that are immutable
+    /// server-side (image tables — no `modified` bucket at all).
+    private func bucket<T: SyncableModel>(
+        of _: T.Type,
+        toNew: (T) -> [String: JSONValue]?,
+        toModified: ((T) -> [String: JSONValue])? = nil
+    ) throws -> PushBucket {
+        let all = try context.fetch(FetchDescriptor<T>())
         var new: [[String: JSONValue]] = []
         var modified: [[String: JSONValue]] = []
         var deleted: [[String: JSONValue]] = []
-        for g in all {
-            switch g.syncState {
-            case .localNew:
-                new.append(gameToNewRow(g))
-            case .localModified where g.serverId != nil:
-                modified.append(gameToModifiedRow(g))
-            case .localDeleted where g.serverId != nil:
-                deleted.append(["server_id": .int(g.serverId!)])
-            default: break
+        for row in all {
+            switch row.syncStateRaw {
+            case SyncState.localNew.rawValue:
+                if let dict = toNew(row) { new.append(dict) }
+            case SyncState.localModified.rawValue where row.serverId != nil:
+                if let toMod = toModified {
+                    modified.append(toMod(row))
+                }
+            case SyncState.localDeleted.rawValue where row.serverId != nil:
+                deleted.append(["server_id": .int(row.serverId!)])
+            default:
+                break
             }
         }
         return PushBucket(new: new, modified: modified, deleted: deleted)
-    }
-
-    private func bucketItems() throws -> PushBucket {
-        let all = try context.fetch(FetchDescriptor<Item>())
-        var new: [[String: JSONValue]] = []
-        var modified: [[String: JSONValue]] = []
-        var deleted: [[String: JSONValue]] = []
-        for i in all {
-            switch i.syncState {
-            case .localNew:
-                new.append(itemToNewRow(i))
-            case .localModified where i.serverId != nil:
-                modified.append(itemToModifiedRow(i))
-            case .localDeleted where i.serverId != nil:
-                deleted.append(["server_id": .int(i.serverId!)])
-            default: break
-            }
-        }
-        return PushBucket(new: new, modified: modified, deleted: deleted)
-    }
-
-    private func bucketCompletions() throws -> PushBucket {
-        let all = try context.fetch(FetchDescriptor<GameCompletion>())
-        var new: [[String: JSONValue]] = []
-        var modified: [[String: JSONValue]] = []
-        var deleted: [[String: JSONValue]] = []
-        for c in all {
-            switch c.syncState {
-            case .localNew:
-                new.append(completionToNewRow(c))
-            case .localModified where c.serverId != nil:
-                modified.append(completionToModifiedRow(c))
-            case .localDeleted where c.serverId != nil:
-                deleted.append(["server_id": .int(c.serverId!)])
-            default: break
-            }
-        }
-        return PushBucket(new: new, modified: modified, deleted: deleted)
-    }
-
-    private func bucketGameImages() throws -> PushBucket {
-        let all = try context.fetch(FetchDescriptor<GameImage>())
-        var new: [[String: JSONValue]] = []
-        var deleted: [[String: JSONValue]] = []
-        for g in all {
-            switch g.syncState {
-            case .localNew:
-                // Parent game must already have a server_id; otherwise defer
-                // until next sync after the parent is pushed.
-                guard let gid = g.gameServerId else { continue }
-                new.append([
-                    "client_id": .string(g.clientId.uuidString),
-                    "game_id":   .int(gid),
-                    "image_path": .string(g.imagePath),
-                ])
-            case .localDeleted where g.serverId != nil:
-                deleted.append(["server_id": .int(g.serverId!)])
-            default: break
-            }
-        }
-        return PushBucket(new: new, modified: [], deleted: deleted)
-    }
-
-    private func bucketItemImages() throws -> PushBucket {
-        let all = try context.fetch(FetchDescriptor<ItemImage>())
-        var new: [[String: JSONValue]] = []
-        var deleted: [[String: JSONValue]] = []
-        for i in all {
-            switch i.syncState {
-            case .localNew:
-                guard let iid = i.itemServerId else { continue }
-                new.append([
-                    "client_id": .string(i.clientId.uuidString),
-                    "item_id":   .int(iid),
-                    "image_path": .string(i.imagePath),
-                ])
-            case .localDeleted where i.serverId != nil:
-                deleted.append(["server_id": .int(i.serverId!)])
-            default: break
-            }
-        }
-        return PushBucket(new: new, modified: [], deleted: deleted)
     }
 
     // MARK: - Row builders
 
-    private func gameToNewRow(_ g: Game) -> [String: JSONValue] {
+    /// `toNew` closures return an optional dict — non-image types
+    /// always return a value, so Swift auto-wraps `return d` into
+    /// `.some(d)`. Image types explicitly `return nil` when the
+    /// parent server_id isn't set yet.
+
+    private func gameToNewRow(_ g: Game) -> [String: JSONValue]? {
         var d: [String: JSONValue] = [
             "client_id": .string(g.clientId.uuidString),
             "title":    .string(g.title),
@@ -148,14 +89,15 @@ struct PushBuilder {
     }
 
     private func gameToModifiedRow(_ g: Game) -> [String: JSONValue] {
-        var d = gameToNewRow(g)
+        // gameToNewRow never returns nil for a Game (only image rows do).
+        var d = gameToNewRow(g)!
         d.removeValue(forKey: "client_id")
         d["server_id"] = .int(g.serverId!)
         d["last_synced_at"] = .string(Self.iso8601UTC(g.lastSyncedAt ?? Date(timeIntervalSince1970: 0)))
         return d
     }
 
-    private func itemToNewRow(_ i: Item) -> [String: JSONValue] {
+    private func itemToNewRow(_ i: Item) -> [String: JSONValue]? {
         var d: [String: JSONValue] = [
             "client_id": .string(i.clientId.uuidString),
             "title":    .string(i.title),
@@ -174,14 +116,14 @@ struct PushBuilder {
     }
 
     private func itemToModifiedRow(_ i: Item) -> [String: JSONValue] {
-        var d = itemToNewRow(i)
+        var d = itemToNewRow(i)!
         d.removeValue(forKey: "client_id")
         d["server_id"] = .int(i.serverId!)
         d["last_synced_at"] = .string(Self.iso8601UTC(i.lastSyncedAt ?? Date(timeIntervalSince1970: 0)))
         return d
     }
 
-    private func completionToNewRow(_ c: GameCompletion) -> [String: JSONValue] {
+    private func completionToNewRow(_ c: GameCompletion) -> [String: JSONValue]? {
         var d: [String: JSONValue] = [
             "client_id": .string(c.clientId.uuidString),
             "title": .string(c.title),
@@ -197,11 +139,32 @@ struct PushBuilder {
     }
 
     private func completionToModifiedRow(_ c: GameCompletion) -> [String: JSONValue] {
-        var d = completionToNewRow(c)
+        var d = completionToNewRow(c)!
         d.removeValue(forKey: "client_id")
         d["server_id"] = .int(c.serverId!)
         d["last_synced_at"] = .string(Self.iso8601UTC(c.lastSyncedAt ?? Date(timeIntervalSince1970: 0)))
         return d
+    }
+
+    /// Image rows are only pushable once the parent's server_id is set —
+    /// if the parent game/item is still `.localNew`, defer this row to
+    /// the next sync. Returning `nil` here tells `bucket(...)` to skip.
+    private func gameImageToNewRow(_ g: GameImage) -> [String: JSONValue]? {
+        guard let gid = g.gameServerId else { return nil }
+        return [
+            "client_id":  .string(g.clientId.uuidString),
+            "game_id":    .int(gid),
+            "image_path": .string(g.imagePath),
+        ]
+    }
+
+    private func itemImageToNewRow(_ i: ItemImage) -> [String: JSONValue]? {
+        guard let iid = i.itemServerId else { return nil }
+        return [
+            "client_id":  .string(i.clientId.uuidString),
+            "item_id":    .int(iid),
+            "image_path": .string(i.imagePath),
+        ]
     }
 
     // MARK: - Encoding helpers
