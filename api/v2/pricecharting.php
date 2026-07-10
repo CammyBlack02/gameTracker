@@ -2,20 +2,43 @@
 /**
  * GET /api/v2/pricecharting.php?title=<title>&platform=<platform>
  *
- * Thin Bearer-auth wrapper around the v1 pricecharting endpoint.
+ * Returns a PriceCharting price estimate for the (title, platform) pair.
+ * Bearer-token auth; underlying scrape logic lives in
+ * includes/external-apis.php.
+ *
+ * No session-faking, no `require` of the v1 file (removed in Phase 2c).
  */
 require_once __DIR__ . '/_helpers.php';
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/_auth.php';
+require_once __DIR__ . '/../../includes/external-apis.php';
 
-$userId = v2_require_auth($pdo);
+v2_require_auth($pdo);
 
-$stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
-$stmt->execute([$userId]);
-$username = $stmt->fetchColumn();
-$_SESSION['user_id']  = $userId;
-$_SESSION['username'] = $username;
+$title    = trim((string)($_GET['title'] ?? ''));
+$platform = trim((string)($_GET['platform'] ?? ''));
 
-// v1 emits a flat {"success": ..., ...} payload. Reshape to v2 envelope.
-v2_wrap_v1_response();
-require __DIR__ . '/../pricecharting.php';
+if ($title === '') {
+    v2_error('bad_request', 'title is required', 400);
+}
+
+$result = gt_pricecharting_lookup($title, $platform);
+if ($result === null) {
+    v2_error('lookup_failed', gt_external_api_last_error() ?? 'PriceCharting lookup failed', 404);
+}
+
+// Prefer the loose (used) price for the user-facing default, falling back to
+// complete-in-box then new. Matches the v1 endpoint's behaviour.
+$price = $result['loose_price'] ?? $result['cib_price'] ?? $result['new_price'];
+if ($price === null) {
+    v2_error('lookup_failed', 'PriceCharting matched the title but returned no prices', 404);
+}
+
+v2_ok([
+    'price'       => $price,
+    'loose_price' => $result['loose_price'],
+    'cib_price'   => $result['cib_price'],
+    'new_price'   => $result['new_price'],
+    'matched'     => $result['matched'],
+    'product_url' => $result['product_url'],
+]);
