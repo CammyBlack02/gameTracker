@@ -6,6 +6,11 @@
  * IMPORTANT SECURITY NOTE:
  * This is a template file. Copy it to config.php and fill in your actual credentials.
  * NEVER commit config.php to version control - it contains sensitive database credentials!
+ *
+ * External API keys (also never commit real values):
+ *   - THEGAMESDB_API_KEY — set as an environment variable (e.g. in your
+ *     nginx fastcgi_param block or /etc/gameTracker/env). api/cover-image.php
+ *     also accepts a per-user override via Settings (setting_key='thegamesdb_api_key').
  */
 
 // Helper function to convert memory limit string to bytes
