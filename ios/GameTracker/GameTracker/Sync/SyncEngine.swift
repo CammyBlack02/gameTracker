@@ -175,20 +175,50 @@ final class SyncEngine {
     }
 
     private func applyOutcome<T: SyncableModel>(_ r: PushRowResultDTO, to row: T) {
+        // If the row was tombstoned locally (we asked the server to delete
+        // it), an "accepted" or "not_found" result means the server-side
+        // deletion succeeded — hard-delete the local row instead of
+        // remarking it .synced (which would resurrect it). Fable §4 Bug 1.
+        let wasLocallyDeleted = row.syncStateRaw == SyncState.localDeleted.rawValue
+
         switch r.result {
         case "accepted":
+            if wasLocallyDeleted {
+                context.delete(row)
+                return
+            }
             if let sid = r.serverId { row.serverId = sid }
             row.lastSyncedAt = r.updatedAt.flatMap(Self.parseISO) ?? Date()
             row.syncStateRaw = SyncState.synced.rawValue
+            row.serverVersionJSON = nil
         case "conflict":
             row.syncStateRaw = SyncState.conflict.rawValue
+            // Stash the server's version so ConflictDetailView can show
+            // it and "Keep server" can apply it. Fable §4 Bug 2 + 3.
+            if let sv = r.serverVersion {
+                row.serverVersionJSON = Self.encodeServerVersion(sv.raw)
+            }
         case "not_found":
+            // Applies whether the row was tombstoned or not — if the
+            // server says the row doesn't exist, the local row is stale.
             context.delete(row)
         case "rejected":
             break
         default:
             break
         }
+    }
+
+    /// Serialise the server_version blob for storage on the local row.
+    /// The dict was decoded from the push response as [String: JSONValue];
+    /// we re-encode it verbatim (as a JSON string) so ConflictDetailView
+    /// can round-trip it into a typed DTO at resolve time.
+    private static func encodeServerVersion(_ raw: [String: JSONValue]) -> String? {
+        guard let data = try? JSONEncoder().encode(raw),
+              let str = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return str
     }
 
     // MARK: - Metadata + counts
