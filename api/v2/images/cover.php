@@ -76,33 +76,29 @@ if (strncmp($path, 'data:', 5) === 0) {
     v2_error('not_found', 'Malformed data URI', 404);
 }
 
-// Format 2: external HTTPS URL — fetch via curl and stream.
+// Format 2: external HTTPS URL — fetch via SSRF-safe helper and stream.
+// front_cover_image is client-writable via v2 sync push, so this branch
+// is a stored-SSRF sink without host filtering. The helper resolves the
+// host and rejects private/loopback/reserved IPs (including cloud metadata).
 // (http:// is intentionally not supported, matching api/image-proxy.php.)
 if (strncmp($path, 'https://', 8) === 0) {
-    $ch = curl_init($path);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_MAXREDIRS      => 5,
-        CURLOPT_TIMEOUT        => 30,
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_USERAGENT      => 'GameTracker/1.0',
-    ]);
-    $data        = curl_exec($ch);
-    $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream';
-    curl_close($ch);
-
-    if ($httpCode !== 200 || $data === false || $data === '') {
-        v2_error('not_found', "Failed to fetch external image (HTTP $httpCode)", 404);
+    require_once __DIR__ . '/../../../includes/http-fetch.php';
+    try {
+        $result = gt_safe_http_fetch($path, [
+            'accept' => 'image/webp,image/apng,image/*,*/*;q=0.8',
+        ]);
+    } catch (GtSsrfException $e) {
+        error_log("v2/images/cover.php blocked SSRF for game $id: {$e->getMessage()}");
+        v2_error('forbidden', 'Cover URL not allowed', 403);
+    } catch (GtFetchException $e) {
+        v2_error('not_found', 'Failed to fetch external cover', 404);
     }
 
     header_remove('Content-Type');
-    header("Content-Type: $contentType");
-    header("Content-Length: " . strlen($data));
+    header("Content-Type: {$result['content_type']}");
+    header("Content-Length: " . strlen($result['data']));
     header("Cache-Control: private, max-age=3600");
-    echo $data;
+    echo $result['data'];
     exit;
 }
 
