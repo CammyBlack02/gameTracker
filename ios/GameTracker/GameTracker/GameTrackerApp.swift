@@ -64,6 +64,11 @@ struct GameTrackerApp: App {
 /// Wraps RootView so we can grab the `modelContext` from the environment
 /// (which is only injected *after* `.modelContainer(...)`) and build the
 /// SyncEngine + SyncTrigger with it.
+///
+/// SyncEngine + SyncTrigger are held as `@State` so a @Bindable status
+/// mutation doesn't rebuild them (which would drop debounced syncs and
+/// reset `hasSyncedThisSession`, defeating "sync once per launch").
+/// Fable §4 lifecycle smell.
 private struct RootViewContainer: View {
     @Environment(\.modelContext) private var context
     let authAPI: AuthAPI
@@ -72,14 +77,34 @@ private struct RootViewContainer: View {
     let imagesAPI: ImagesAPI
     @Bindable var status: SyncStatus
 
+    /// Lazily built on first appearance — `modelContext` isn't available
+    /// at property-init time, so we can't populate these in an @State
+    /// initializer. Once set, they persist across re-renders.
+    @State private var engine: SyncEngine?
+    @State private var trigger: SyncTrigger?
+
     var body: some View {
-        let engine = SyncEngine(context: context, syncAPI: syncAPI, status: status)
-        let trigger = SyncTrigger(engine: engine)
-        RootView(authAPI: authAPI,
-                 syncEngine: engine,
-                 syncTrigger: trigger,
-                 imagesAPI: imagesAPI,
-                 proxiesAPI: proxiesAPI,
-                 status: status)
+        Group {
+            if let engine, let trigger {
+                RootView(authAPI: authAPI,
+                         syncEngine: engine,
+                         syncTrigger: trigger,
+                         imagesAPI: imagesAPI,
+                         proxiesAPI: proxiesAPI,
+                         status: status)
+            } else {
+                // First render: build the engines once, then re-render
+                // with them populated. Setting @State inside the view
+                // triggers exactly one re-evaluation.
+                Color.clear
+                    .task {
+                        if engine == nil {
+                            let e = SyncEngine(context: context, syncAPI: syncAPI, status: status)
+                            engine = e
+                            trigger = SyncTrigger(engine: e)
+                        }
+                    }
+            }
+        }
     }
 }
