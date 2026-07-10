@@ -182,18 +182,35 @@ function formatCurrency(amount) {
  */
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
-    
+
     try {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return 'N/A';
-        
+
         const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const year = date.getFullYear();
-        
+
         return `${day}/${month}/${year}`;
     } catch (e) {
         return 'N/A';
     }
+}
+
+/**
+ * Escape a string for safe insertion into HTML. Uses a detached DOM node
+ * as the escaper so the browser handles every edge case correctly.
+ *
+ * Consolidated here in Phase 4a — was previously duplicated in games.js,
+ * items.js, completions.js, stats.js AND inline in admin-dashboard.php,
+ * settings.php, users.php, user-profile.php. main.js is loaded first
+ * on every authed page (see PHP <script> tags), so callers get this
+ * definition via hoisting.
+ */
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 

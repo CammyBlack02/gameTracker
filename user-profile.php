@@ -287,12 +287,8 @@ if (!$profileUserId) {
             }
         }
         
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
+        // escapeHtml is defined in js/main.js (loaded above).
+
         // Override displayGames to hide edit buttons when viewing other users
         const originalDisplayGames = window.displayGames;
         window.displayGames = function(games) {
