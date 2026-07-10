@@ -24,15 +24,21 @@ switch ($action) {
         break;
     
     case 'reset_password':
-        // Admin only
+        // Method-check first so a cross-site GET can't sniff the admin
+        // status of the caller (405 tells us nothing about auth).
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
+        }
         if (!$isAdmin) {
             sendJsonResponse(['success' => false, 'message' => 'Admin access required'], 403);
         }
         resetPassword();
         break;
-    
+
     case 'delete':
-        // Admin only
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
+        }
         if (!$isAdmin) {
             sendJsonResponse(['success' => false, 'message' => 'Admin access required'], 403);
         }
