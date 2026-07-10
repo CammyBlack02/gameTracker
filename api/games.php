@@ -436,49 +436,21 @@ function createGame() {
  * Download external image and return local filename
  */
 function downloadExternalImage($imageUrl, $gameId = null, $type = 'front') {
-    // Validate URL
-    $parsedUrl = @parse_url($imageUrl);
-    if ($parsedUrl === false || empty($parsedUrl['scheme']) || empty($parsedUrl['host'])) {
+    require_once __DIR__ . '/../includes/http-fetch.php';
+    try {
+        $result = gt_safe_http_fetch($imageUrl, [
+            'accept' => 'image/jpeg,image/png,image/gif,image/webp,*/*',
+        ]);
+    } catch (GtSsrfException $e) {
+        error_log("games.php SSRF blocked for cover URL $imageUrl: {$e->getMessage()}");
+        return false;
+    } catch (GtFetchException $e) {
+        error_log("games.php cover fetch failed for $imageUrl: {$e->getMessage()}");
         return false;
     }
-    
-    // Only allow HTTPS
-    if ($parsedUrl['scheme'] !== 'https') {
-        return false;
-    }
-    
-    // Block local/internal IPs
-    $host = $parsedUrl['host'] ?? '';
-    if (preg_match('/^(localhost|127\.0\.0\.1|::1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/', $host)) {
-        return false;
-    }
-    
-    // Download image using cURL
-    $ch = curl_init($imageUrl);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_MAXREDIRS => 5,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_USERAGENT => 'GameTracker/1.0',
-        CURLOPT_HTTPHEADER => [
-            'Accept: image/jpeg,image/png,image/gif,image/webp,*/*'
-        ]
-    ]);
-    
-    $imageData = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-    $error = curl_error($ch);
-    curl_close($ch);
-    
-    if ($error || $httpCode !== 200 || empty($imageData)) {
-        error_log("Failed to download image from $imageUrl: $error (HTTP $httpCode)");
-        return false;
-    }
+
+    $imageData   = $result['data'];
+    $contentType = $result['content_type'];
     
     // Validate it's actually an image (check magic bytes)
     $magicBytes = substr($imageData, 0, 4);

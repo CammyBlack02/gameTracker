@@ -59,73 +59,32 @@ if (empty($host)) {
     die('Invalid host');
 }
 
-// SSRF gate — resolves the host and rejects private/loopback/reserved IPs
-// (including 169.254.169.254 cloud metadata). Task 5 replaces the curl
-// block below with the same helper's fetch path.
+// Fetch through the SSRF-safe helper. It resolves the host and rejects
+// private/loopback/reserved IPs (including 169.254.169.254 cloud metadata),
+// enforces HTTPS + TLS verification, and revalidates each redirect hop.
 require_once __DIR__ . '/../includes/http-fetch.php';
+
 try {
-    gt_ssrf_check_url($url);
+    $result = gt_safe_http_fetch($url, [
+        'timeout'         => 60,
+        'connect_timeout' => 15,
+        'user_agent'      => 'Mozilla/5.0 (compatible; GameTracker/1.0)',
+        'accept'          => 'image/webp,image/apng,image/*,*/*;q=0.8',
+    ]);
+    $imageData   = $result['data'];
+    $contentType = $result['content_type'];
 } catch (GtSsrfException $e) {
     error_log("Image proxy blocked SSRF: {$e->getMessage()} for URL $url");
     http_response_code(403);
     header('Content-Type: text/plain');
-    die('Blocked: ' . $e->getMessage());
+    die('Blocked');
 } catch (GtFetchException $e) {
-    // Host didn't resolve — treat as unreachable, not internal.
-    error_log("Image proxy DNS failure: {$e->getMessage()} for URL $url");
-    http_response_code(502);
-    header('Content-Type: text/plain');
-    die('Could not resolve host');
-}
-
-// Fetch the image
-$ch = curl_init($url);
-curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-curl_setopt($ch, CURLOPT_TIMEOUT, 60); // Increased timeout for large images
-curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
-curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; GameTracker/1.0)');
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HEADER, false);
-curl_setopt($ch, CURLOPT_FAILONERROR, false); // Don't fail on HTTP errors, we'll check the code
-curl_setopt($ch, CURLOPT_BUFFERSIZE, 16384); // 16KB buffer for better performance
-curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1); // Use HTTP/1.1
-
-$imageData = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-$sizeDownloaded = curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD);
-$error = curl_error($ch);
-$curlErrno = curl_errno($ch);
-curl_close($ch);
-
-// Log detailed error info for debugging
-if ($error || $httpCode !== 200) {
-    error_log("Image proxy failed - URL: $url, HTTP: $httpCode, Error: $error, Errno: $curlErrno");
-}
-
-if ($error) {
-    error_log("Image proxy error for $url: $error");
-    // Return a 1x1 transparent PNG instead of error text
+    error_log("Image proxy fetch failed: {$e->getMessage()} for URL $url");
+    // Return a 1x1 transparent PNG (existing failure UX).
     header('Content-Type: image/png');
     header('Cache-Control: no-cache');
     echo base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
     exit;
-}
-
-if ($httpCode !== 200 || empty($imageData)) {
-    error_log("Image proxy: HTTP $httpCode for $url, Size: " . strlen($imageData));
-    // Return a 1x1 transparent PNG instead of error text
-    header('Content-Type: image/png');
-    header('Cache-Control: no-cache');
-    echo base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
-    exit;
-}
-
-// Verify we got the expected amount of data
-$actualSize = strlen($imageData);
-if ($sizeDownloaded > 0 && $actualSize < $sizeDownloaded * 0.9) {
-    error_log("Image proxy: Possible truncation - Expected: $sizeDownloaded, Got: $actualSize for $url");
 }
 
 // Set appropriate content type (default to jpeg if not detected)
