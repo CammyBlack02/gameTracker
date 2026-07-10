@@ -250,12 +250,8 @@ requireAdmin();
             }
         });
         
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
+        // escapeHtml is defined in js/main.js (loaded above).
+
         function showModal(modalId) {
             document.getElementById(modalId).style.display = 'flex';
         }

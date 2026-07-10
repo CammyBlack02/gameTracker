@@ -3105,15 +3105,9 @@ function updateFilters() {
     }
 }
 
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    if (text === null || text === undefined) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// escapeHtml moved to main.js (Phase 4a) — main.js loads before games.js
+// on every page that includes this file, so the function is available
+// via hoisting.
 
 /**
  * Setup scroll to top button
