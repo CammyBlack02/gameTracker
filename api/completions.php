@@ -314,11 +314,15 @@ function updateCompletion() {
 
 function deleteCompletion() {
     global $pdo;
-    
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
+    }
+
     $id = $_GET['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
     $isAdmin = isAdmin();
-    
+
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Completion ID is required'], 400);
     }
