@@ -3,9 +3,8 @@
  * Items (Consoles/Accessories) CRUD API endpoints
  */
 
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/functions.php';
-require_once __DIR__ . '/../includes/auth-check.php';
+require_once __DIR__ . '/../includes/auth.php';
+$userId = requireUser();
 
 header('Content-Type: application/json');
 
@@ -80,7 +79,7 @@ function getItem() {
     
     $id = $_GET['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $isAdmin = isAdmin();
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Item ID is required'], 400);
@@ -177,7 +176,7 @@ function updateItem() {
     $data = json_decode(file_get_contents('php://input'), true);
     $id = $data['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $isAdmin = isAdmin();
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Item ID is required'], 400);
@@ -251,7 +250,7 @@ function deleteItem() {
     $data = json_decode(file_get_contents('php://input'), true);
     $id = $data['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $isAdmin = isAdmin();
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Item ID is required'], 400);

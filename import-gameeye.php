@@ -22,8 +22,8 @@ if (php_sapi_name() === 'cli') {
     echo "Usage: php import-gameeye.php [user_id] [csv_file]\n\n";
 } else {
     // Web mode - require authentication
-    require_once __DIR__ . '/includes/auth-check.php';
-    $userId = $_SESSION['user_id'];
+    require_once __DIR__ . '/includes/auth.php';
+    $userId = requireUser();
     echo "==========================================\n";
     echo "GameEye CSV Import Script (Web Mode)\n";
     echo "==========================================\n\n";

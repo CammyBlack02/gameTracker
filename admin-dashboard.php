@@ -1,11 +1,6 @@
-<?php 
-require_once __DIR__ . '/includes/auth-check.php';
-
-// Check admin role
-if (($_SESSION['role'] ?? 'user') !== 'admin') {
-    header('Location: dashboard.php');
-    exit;
-}
+<?php
+require_once __DIR__ . '/includes/auth.php';
+requireAdmin();
 ?>
 <!DOCTYPE html>
 <html lang="en">

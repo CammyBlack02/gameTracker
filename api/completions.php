@@ -20,10 +20,9 @@ try {
         sendJsonResponse(['success' => false, 'message' => 'Database connection failed'], 500);
     }
     
-    // Manual authentication check for API (return JSON instead of redirect)
-    if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
-        sendJsonResponse(['success' => false, 'message' => 'Authentication required'], 401);
-    }
+    // Session auth via the shared helper (returns JSON 401 on failure).
+    require_once __DIR__ . '/../includes/auth.php';
+    $userId = requireUser();
     
     header('Content-Type: application/json');
 } catch (Throwable $e) {
@@ -125,7 +124,7 @@ function getCompletion() {
     
     $id = $_GET['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $isAdmin = isAdmin();
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Completion ID is required'], 400);
@@ -242,7 +241,7 @@ function updateCompletion() {
     $data = json_decode(file_get_contents('php://input'), true);
     $id = $data['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $isAdmin = isAdmin();
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Completion ID is required'], 400);
@@ -318,7 +317,7 @@ function deleteCompletion() {
     
     $id = $_GET['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $isAdmin = isAdmin();
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Completion ID is required'], 400);

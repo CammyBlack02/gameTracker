@@ -4,20 +4,15 @@
  * Only accessible to users with admin role
  */
 
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
+$userId = requireUser();
 
 header('Content-Type: application/json');
-
-// Check authentication
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
-    sendJsonResponse(['success' => false, 'message' => 'Authentication required'], 401);
-}
 
 $action = $_GET['action'] ?? '';
 
 // Check admin role only for admin-only actions
-$isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+$isAdmin = isAdmin();
 
 switch ($action) {
     case 'list':
