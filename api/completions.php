@@ -124,7 +124,7 @@ function getCompletion() {
     
     $id = $_GET['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $isAdmin = isAdmin();
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Completion ID is required'], 400);
@@ -241,7 +241,7 @@ function updateCompletion() {
     $data = json_decode(file_get_contents('php://input'), true);
     $id = $data['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $isAdmin = isAdmin();
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Completion ID is required'], 400);
@@ -317,7 +317,7 @@ function deleteCompletion() {
     
     $id = $_GET['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
-    $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+    $isAdmin = isAdmin();
     
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Completion ID is required'], 400);

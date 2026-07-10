@@ -237,7 +237,7 @@ try {
             sendJsonResponse(['success' => false, 'message' => 'Game not found'], 404);
         }
         
-        $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
+        $isAdmin = isAdmin();
         if (!$isAdmin && $game['user_id'] != $userId) {
             sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
         }
