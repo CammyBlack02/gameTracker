@@ -15,9 +15,16 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
 
 header('Content-Type: application/json');
 
-$imageUrl = $_POST['url'] ?? $_GET['url'] ?? '';
-$gameId = $_POST['game_id'] ?? $_GET['game_id'] ?? null;
-$type = $_POST['type'] ?? $_GET['type'] ?? 'front'; // 'front' or 'back'
+// POST-only — this endpoint downloads a file to disk and optionally
+// updates the games table. SameSite=Lax does not fully protect
+// GET-triggered mutations.
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
+}
+
+$imageUrl = $_POST['url'] ?? '';
+$gameId = $_POST['game_id'] ?? null;
+$type = $_POST['type'] ?? 'front'; // 'front' or 'back'
 
 if (empty($imageUrl)) {
     sendJsonResponse(['success' => false, 'message' => 'URL is required'], 400);
