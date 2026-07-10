@@ -90,11 +90,7 @@
             container.innerHTML = html;
         }
         
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        // escapeHtml is defined in js/main.js (loaded above).
     </script>
     <style>
         .users-grid {

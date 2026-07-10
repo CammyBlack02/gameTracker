@@ -581,12 +581,8 @@
             }
         });
         
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
+        // escapeHtml is defined in js/main.js (loaded above).
+
         // Setup dark mode toggle
         setupDarkMode();
     </script>
