@@ -7,6 +7,9 @@ final class Item {
     var serverId: Int?
     var lastSyncedAt: Date?
     var syncStateRaw: String
+    /// See Game.serverVersionJSON — populated on conflict, cleared on
+    /// resolve.
+    var serverVersionJSON: String?
 
     var title: String
     var platform: String?

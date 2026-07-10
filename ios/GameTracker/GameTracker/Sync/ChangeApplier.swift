@@ -147,6 +147,14 @@ struct ChangeApplier {
         g.frontCoverImage = dto.frontCoverImage
         g.backCoverImage = dto.backCoverImage
         g.releaseDate = dto.releaseDate.flatMap(Self.parseYMD)
+        // Use the server's created_at so "Recently added" sorts by
+        // when the user actually added the game, not by when this
+        // device first pulled it down. The Game initializer sets
+        // createdAt = Date() (a local stamp) which is right for
+        // brand-new local rows but wrong for everything synced.
+        if let raw = dto.createdAt, let date = parseDate(raw) {
+            g.createdAt = date
+        }
     }
 
     private func copy(_ dto: ItemDTO, into i: Item) {
@@ -161,6 +169,9 @@ struct ChangeApplier {
         i.backImage = dto.backImage
         i.notes = dto.notes
         i.quantity = dto.quantity ?? 1
+        if let raw = dto.createdAt, let date = parseDate(raw) {
+            i.createdAt = date
+        }
     }
 
     private func copy(_ dto: GameCompletionDTO, into c: GameCompletion) {
@@ -172,6 +183,54 @@ struct ChangeApplier {
         c.dateCompleted = dto.dateCompleted.flatMap(Self.parseYMD)
         c.completionYear = dto.completionYear
         c.notes = dto.notes
+    }
+
+    // MARK: - Conflict resolution ("Keep server version")
+
+    /// Applies the raw JSON blob stashed on `game.serverVersionJSON` (put
+    /// there by SyncEngine when the last push returned a conflict) to
+    /// the local Game row. Called from ConflictDetailView. Clears the
+    /// conflict marker and stamps `lastSyncedAt` from the server row's
+    /// updated_at. See Phase 3a plan (Fable §4 Bug 2 + Bug 3).
+    func applyStoredServerVersion(to game: Game) {
+        guard let json = game.serverVersionJSON,
+              let data = json.data(using: .utf8) else {
+            // No stashed server version — nothing to apply. Clear the
+            // conflict marker anyway so the row isn't stuck; without a
+            // stored version we can't do better than that.
+            game.syncStateRaw = SyncState.synced.rawValue
+            return
+        }
+        guard let dto = try? JSONDecoder().decode(GameDTO.self, from: data) else {
+            // Malformed blob — same fallback.
+            game.syncStateRaw = SyncState.synced.rawValue
+            game.serverVersionJSON = nil
+            return
+        }
+        copy(dto, into: game)
+        game.serverId = dto.id
+        game.lastSyncedAt = parseDate(dto.updatedAt) ?? Date()
+        game.syncStateRaw = SyncState.synced.rawValue
+        game.serverVersionJSON = nil
+    }
+
+    /// Item counterpart to `applyStoredServerVersion(to: Game)`.
+    func applyStoredServerVersion(to item: Item) {
+        guard let json = item.serverVersionJSON,
+              let data = json.data(using: .utf8) else {
+            item.syncStateRaw = SyncState.synced.rawValue
+            return
+        }
+        guard let dto = try? JSONDecoder().decode(ItemDTO.self, from: data) else {
+            item.syncStateRaw = SyncState.synced.rawValue
+            item.serverVersionJSON = nil
+            return
+        }
+        copy(dto, into: item)
+        item.serverId = dto.id
+        item.lastSyncedAt = parseDate(dto.updatedAt) ?? Date()
+        item.syncStateRaw = SyncState.synced.rawValue
+        item.serverVersionJSON = nil
     }
 
     // MARK: - Lookup helpers

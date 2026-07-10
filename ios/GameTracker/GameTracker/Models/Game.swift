@@ -8,6 +8,13 @@ final class Game {
     var serverId: Int?
     var lastSyncedAt: Date?
     var syncStateRaw: String
+    /// When a conflict comes back from `/sync/push`, the server's version
+    /// of the row (a JSON-encoded object matching GameDTO) is stashed
+    /// here. ConflictDetailView reads it to show the server side of the
+    /// diff, and the "Keep server" resolution applies it. Cleared once
+    /// the conflict is resolved. See Phase 3a in
+    /// docs/superpowers/plans/2026-07-10-phase3a-ios-sync-bugs.md.
+    var serverVersionJSON: String?
 
     // Server columns
     var title: String
