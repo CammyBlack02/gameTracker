@@ -175,11 +175,22 @@ define('DB_PASS', 'your_secure_password');
 
 ### 3. Initialize Database
 
-The database tables are automatically created on first access. The application will:
+Run the migration runner from the project root:
 
-- Create all necessary tables
-- Set up foreign key relationships
-- Create default admin user (change credentials immediately!)
+```bash
+php database/migrate.php
+```
+
+This will:
+
+- Create all necessary tables (users, games, items, completions, api_tokens, deletions, schema_migrations, etc.)
+- Set up foreign key relationships and indexes
+- Create the default admin user (username `admin`, password `admin` — **change credentials immediately after first login**)
+- Record each migration in the `schema_migrations` ledger so re-running is a no-op
+
+Any time you `git pull` a change that adds a new migration under
+`database/migrations/`, run `php database/migrate.php` again on the
+server before reloading PHP-FPM.
 
 ---
 
