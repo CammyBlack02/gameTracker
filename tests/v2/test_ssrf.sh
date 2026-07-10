@@ -28,4 +28,28 @@ else
   FAIL_COUNT=$((FAIL_COUNT+1))
 fi
 
+blue "SSRF: download-cover.php requires auth"
+req GET "/api/download-cover.php?url=https://169.254.169.254/"
+# auth-check.php redirects unauthenticated to /index.php (302).
+if [[ "$HTTP_STATUS" == "302" || "$HTTP_STATUS" == "401" || "$HTTP_STATUS" == "403" ]]; then
+  green "  PASS: no-auth blocked (HTTP $HTTP_STATUS)"
+  PASS_COUNT=$((PASS_COUNT+1))
+else
+  red "  FAIL: no-auth status=$HTTP_STATUS"
+  FAIL_COUNT=$((FAIL_COUNT+1))
+fi
+
+blue "SSRF: download-cover.php blocks metadata IP for authed user"
+COOKIE=$(mktemp)
+curl -sS -c "$COOKIE" -X POST "$BASE_URL/api/auth.php?action=login" \
+  -d "username=$TEST_USER&password=$TEST_PASS" > /dev/null
+req GET "/api/download-cover.php?url=https://169.254.169.254/" "" -b "$COOKIE"
+assert_eq "400" "$HTTP_STATUS" "download-cover blocks 169.254 for authed user"
+
+blue "SSRF: download-cover.php blocks 127.0.0.1 for authed user"
+req GET "/api/download-cover.php?url=https://127.0.0.1/" "" -b "$COOKIE"
+assert_eq "400" "$HTTP_STATUS" "download-cover blocks 127.0.0.1 for authed user"
+
+rm -f "$COOKIE"
+
 summarize
