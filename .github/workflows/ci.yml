@@ -25,10 +25,13 @@ jobs:
         working-directory: ios/GameTracker
         run: |
           set -o pipefail
+          # macos-15 runners intermittently don't have "iPhone 17"
+          # pre-installed. Use the generic destination so Xcode picks
+          # whatever iOS simulator is actually available.
           xcodebuild test \
             -project GameTracker.xcodeproj \
             -scheme GameTracker \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -destination 'generic/platform=iOS Simulator' \
             -only-testing:GameTrackerTests \
             -skip-testing:GameTrackerTests/KeychainTokenStoreTests \
             CODE_SIGN_IDENTITY="" \
