@@ -21,6 +21,23 @@ jobs:
       # The GameTracker scheme is committed under
       # ios/GameTracker/GameTracker.xcodeproj/xcshareddata/xcschemes/,
       # so a fresh clone can `xcodebuild test` without regenerating one.
+      - name: Pick an available iOS simulator
+        id: pick-sim
+        run: |
+          # macos-15 runners have a fluctuating simulator set — the
+          # specific "iPhone 17" isn't guaranteed. Query the OS for a
+          # real, available iPhone simulator UDID and pass that
+          # concrete id to xcodebuild.
+          UDID=$(xcrun simctl list -j devices available | \
+            jq -r '[.devices | to_entries[] | select(.key | startswith("com.apple.CoreSimulator.SimRuntime.iOS")) | .value[] | select(.name | startswith("iPhone")) | .udid] | first')
+          if [[ -z "$UDID" || "$UDID" == "null" ]]; then
+            echo "No iPhone simulator available on this runner" >&2
+            xcrun simctl list devices available >&2
+            exit 1
+          fi
+          echo "Using simulator UDID: $UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
       - name: Run GameTrackerTests
         working-directory: ios/GameTracker
         run: |
@@ -28,7 +45,7 @@ jobs:
           xcodebuild test \
             -project GameTracker.xcodeproj \
             -scheme GameTracker \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -destination "platform=iOS Simulator,id=${{ steps.pick-sim.outputs.udid }}" \
             -only-testing:GameTrackerTests \
             -skip-testing:GameTrackerTests/KeychainTokenStoreTests \
             CODE_SIGN_IDENTITY="" \
