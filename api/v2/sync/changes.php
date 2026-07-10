@@ -80,9 +80,17 @@ function streamTable(PDO $pdo, string $table, int $userId, string $sinceUtc): vo
 
     // CONVERT_TZ(updated_at, @@session.time_zone, '+00:00') converts the stored
     // local timestamp to UTC for comparison against the UTC since value.
+    //
+    // `>=` (not `>`) is deliberate. `server_now` is emitted with whole-second
+    // precision, so a strict `>` misses any row whose updated_at rounds down
+    // to the same second as the previous serverNow. On the client,
+    // ChangeApplier looks up existing rows by server_id before insert/update,
+    // making re-application of a row in the boundary second idempotent —
+    // wasted work, but no lost writes. See Phase 3c in
+    // docs/superpowers/plans/2026-07-10-phase3c-cursor-boundary.md.
     $stmt = $pdo->prepare("SELECT * FROM $table
         WHERE user_id = ?
-          AND CONVERT_TZ(updated_at, @@session.time_zone, '+00:00') > ?
+          AND CONVERT_TZ(updated_at, @@session.time_zone, '+00:00') >= ?
         ORDER BY updated_at ASC");
     $stmt->execute([$userId, $sinceUtc]);
 
@@ -115,10 +123,11 @@ echo ',"item_images":';      streamTable($pdo, 'item_images',      $userId, $sin
 
 // Deletions: different schema (no user-table updated_at; uses deleted_at).
 echo ',"deletions":[';
+// Same >= boundary as the row queries above — see the comment in streamTable().
 $stmt = $pdo->prepare("SELECT table_name, server_id, deleted_at
     FROM deletions
     WHERE user_id = ?
-      AND CONVERT_TZ(deleted_at, @@session.time_zone, '+00:00') > ?
+      AND CONVERT_TZ(deleted_at, @@session.time_zone, '+00:00') >= ?
     ORDER BY deleted_at ASC");
 $stmt->execute([$userId, $sinceUtc]);
 $first = true;
