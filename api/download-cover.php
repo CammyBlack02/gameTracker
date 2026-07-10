@@ -20,29 +20,25 @@ if (!filter_var($imageUrl, FILTER_VALIDATE_URL)) {
     sendJsonResponse(['success' => false, 'message' => 'Invalid URL'], 400);
 }
 
-// Initialize cURL to download image
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, $imageUrl);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Accept: image/webp,image/apng,image/*,*/*;q=0.8',
-    'Accept-Language: en-US,en;q=0.9'
-]);
+// Fetch through the SSRF-safe helper — TLS verification stays on and
+// private/loopback/reserved IPs (including cloud metadata) are blocked
+// before the request is issued.
+require_once __DIR__ . '/../includes/http-fetch.php';
 
-$imageData = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-curl_close($ch);
-
-if ($httpCode !== 200 || !$imageData) {
+try {
+    $result = gt_safe_http_fetch($imageUrl, [
+        'accept' => 'image/webp,image/apng,image/*,*/*;q=0.8',
+    ]);
+} catch (GtSsrfException $e) {
+    error_log("download-cover blocked SSRF: {$e->getMessage()} for URL $imageUrl");
+    sendJsonResponse(['success' => false, 'message' => 'URL not allowed'], 400);
+} catch (GtFetchException $e) {
+    error_log("download-cover fetch failed: {$e->getMessage()} for URL $imageUrl");
     sendJsonResponse(['success' => false, 'message' => 'Failed to download image'], 500);
 }
+
+$imageData   = $result['data'];
+$contentType = $result['content_type'];
 
 // Validate it's an image
 if (!str_starts_with($contentType, 'image/')) {

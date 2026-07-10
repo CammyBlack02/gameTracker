@@ -21,7 +21,10 @@ $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
 
 switch ($action) {
     case 'list':
-        // All authenticated users can list users
+        // Admin only — leaks other users' email + counts otherwise.
+        if (!$isAdmin) {
+            sendJsonResponse(['success' => false, 'message' => 'Admin access required'], 403);
+        }
         listUsers();
         break;
     

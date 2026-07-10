@@ -58,7 +58,7 @@ try {
     ob_clean();
     error_log('Games API Error: ' . $e->getMessage());
     error_log('Stack trace: ' . $e->getTraceAsString());
-    sendJsonResponse(['success' => false, 'message' => 'Server error occurred: ' . $e->getMessage()], 500);
+    sendJsonResponse(['success' => false, 'message' => 'Server error occurred'], 500);
 }
 
 try {
@@ -118,9 +118,10 @@ function listGames() {
         $perPage = isset($_GET['per_page']) ? max(1, min(1000, (int)$_GET['per_page'])) : 100; // Reduced default from 500 to 100
         $offset = ($page - 1) * $perPage;
         
-        // Get user_id from session or optional parameter (any user can view other users' collections)
-        $currentUserId = $_SESSION['user_id'];
-        $targetUserId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : $currentUserId;
+        // Always scope to the caller. Cross-user ?user_id= override was
+        // an IDOR — Fable §1. If shared-shelf browsing is wanted later,
+        // add it as an explicit ACL feature.
+        $targetUserId = $_SESSION['user_id'];
         
         // Get total count - optimized: no need for DISTINCT since we're not joining yet
         try {
@@ -215,10 +216,7 @@ function listGames() {
         if (!headers_sent()) {
             http_response_code(500);
             header('Content-Type: application/json');
-            // Include error details for debugging (remove in production)
-            $errorMessage = 'Failed to load games: ' . $e->getMessage();
-            $errorMessage .= ' (File: ' . basename($e->getFile()) . ' Line: ' . $e->getLine() . ')';
-            echo json_encode(['success' => false, 'message' => $errorMessage], JSON_UNESCAPED_SLASHES);
+            echo json_encode(['success' => false, 'message' => 'Failed to load games'], JSON_UNESCAPED_SLASHES);
         }
         exit;
     }
@@ -436,49 +434,21 @@ function createGame() {
  * Download external image and return local filename
  */
 function downloadExternalImage($imageUrl, $gameId = null, $type = 'front') {
-    // Validate URL
-    $parsedUrl = @parse_url($imageUrl);
-    if ($parsedUrl === false || empty($parsedUrl['scheme']) || empty($parsedUrl['host'])) {
+    require_once __DIR__ . '/../includes/http-fetch.php';
+    try {
+        $result = gt_safe_http_fetch($imageUrl, [
+            'accept' => 'image/jpeg,image/png,image/gif,image/webp,*/*',
+        ]);
+    } catch (GtSsrfException $e) {
+        error_log("games.php SSRF blocked for cover URL $imageUrl: {$e->getMessage()}");
+        return false;
+    } catch (GtFetchException $e) {
+        error_log("games.php cover fetch failed for $imageUrl: {$e->getMessage()}");
         return false;
     }
-    
-    // Only allow HTTPS
-    if ($parsedUrl['scheme'] !== 'https') {
-        return false;
-    }
-    
-    // Block local/internal IPs
-    $host = $parsedUrl['host'] ?? '';
-    if (preg_match('/^(localhost|127\.0\.0\.1|::1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/', $host)) {
-        return false;
-    }
-    
-    // Download image using cURL
-    $ch = curl_init($imageUrl);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_MAXREDIRS => 5,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_USERAGENT => 'GameTracker/1.0',
-        CURLOPT_HTTPHEADER => [
-            'Accept: image/jpeg,image/png,image/gif,image/webp,*/*'
-        ]
-    ]);
-    
-    $imageData = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-    $error = curl_error($ch);
-    curl_close($ch);
-    
-    if ($error || $httpCode !== 200 || empty($imageData)) {
-        error_log("Failed to download image from $imageUrl: $error (HTTP $httpCode)");
-        return false;
-    }
+
+    $imageData   = $result['data'];
+    $contentType = $result['content_type'];
     
     // Validate it's actually an image (check magic bytes)
     $magicBytes = substr($imageData, 0, 4);
@@ -699,7 +669,7 @@ function updateGame() {
         if (strpos($e->getMessage(), 'Data too long') !== false) {
             sendJsonResponse(['success' => false, 'message' => 'Cover image is too large. Please use a smaller image or an external URL.'], 400);
         } else {
-            sendJsonResponse(['success' => false, 'message' => 'Failed to update game: ' . $e->getMessage()], 500);
+            sendJsonResponse(['success' => false, 'message' => 'Failed to update game'], 500);
         }
         return;
     }
@@ -712,11 +682,15 @@ function updateGame() {
 
 function deleteGame() {
     global $pdo;
-    
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
+    }
+
     $id = $_GET['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
     $isAdmin = ($_SESSION['role'] ?? 'user') === 'admin';
-    
+
     if (!$id) {
         sendJsonResponse(['success' => false, 'message' => 'Game ID is required'], 400);
     }

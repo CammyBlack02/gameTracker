@@ -30,7 +30,7 @@ try {
     ob_clean();
     error_log('Stats API Error: ' . $e->getMessage());
     error_log('Stack trace: ' . $e->getTraceAsString());
-    sendJsonResponse(['success' => false, 'message' => 'Server error occurred: ' . $e->getMessage()], 500);
+    sendJsonResponse(['success' => false, 'message' => 'Server error occurred'], 500);
 }
 
 try {
@@ -222,7 +222,7 @@ function getStats() {
     } catch (Throwable $e) {
         error_log('getStats Error: ' . $e->getMessage());
         error_log('Stack trace: ' . $e->getTraceAsString());
-        sendJsonResponse(['success' => false, 'message' => 'Failed to load stats: ' . $e->getMessage()], 500);
+        sendJsonResponse(['success' => false, 'message' => 'Failed to load stats'], 500);
     }
 }
 

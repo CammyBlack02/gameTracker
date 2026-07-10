@@ -40,9 +40,9 @@ function listItems() {
     global $pdo;
     
     $category = $_GET['category'] ?? '';
-    $currentUserId = $_SESSION['user_id'];
-    // Any user can view other users' collections
-    $targetUserId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : $currentUserId;
+    // Always scope to the caller. Cross-user ?user_id= override was an
+    // IDOR — Fable §1.
+    $targetUserId = $_SESSION['user_id'];
     
     $sql = "
         SELECT i.*, 
