@@ -2,7 +2,7 @@
 /**
  * Configuration file for Game Tracker
  * Database connection and settings
- * 
+ *
  * IMPORTANT SECURITY NOTE:
  * This is a template file. Copy it to config.php and fill in your actual credentials.
  * NEVER commit config.php to version control - it contains sensitive database credentials!
@@ -11,6 +11,10 @@
  *   - THEGAMESDB_API_KEY — set as an environment variable (e.g. in your
  *     nginx fastcgi_param block or /etc/gameTracker/env). api/cover-image.php
  *     also accepts a per-user override via Settings (setting_key='thegamesdb_api_key').
+ *
+ * Schema management: this file no longer creates or alters tables. Run
+ * `php database/migrate.php` after code deploys — see Phase 2b in
+ * docs/superpowers/plans/2026-07-10-phase2b-migrations.md.
  */
 
 // Helper function to convert memory limit string to bytes
@@ -42,12 +46,12 @@ if ($currentMemoryLimit !== '-1') {
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     // Secure session configuration
-    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || 
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
                (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
-    
+
     // Session timeout: 30 minutes of inactivity
     $sessionTimeout = 1800; // 30 minutes in seconds
-    
+
     // Check if session has expired
     if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $sessionTimeout)) {
         // Session expired, destroy it
@@ -55,10 +59,10 @@ if (session_status() === PHP_SESSION_NONE) {
         session_destroy();
         session_start();
     }
-    
+
     // Update last activity time
     $_SESSION['last_activity'] = time();
-    
+
     session_set_cookie_params([
         'lifetime' => $sessionTimeout,
         'path' => '/',
@@ -67,12 +71,12 @@ if (session_status() === PHP_SESSION_NONE) {
         'httponly' => true,
         'samesite' => 'Lax'
     ]);
-    
+
     // Use strict mode to prevent session fixation
     ini_set('session.use_strict_mode', '1');
-    
+
     session_start();
-    
+
     // Regenerate session ID periodically (every 5 minutes) to prevent fixation
     if (!isset($_SESSION['created'])) {
         $_SESSION['created'] = time();
@@ -83,19 +87,14 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Database configuration
-// TODO: Fill in your actual database credentials
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'gameTracker');
-define('DB_USER', 'your_database_username');
-define('DB_PASS', 'your_database_password');
+// Env-var overrides (used by tests; fall back to defaults for production)
+define('DB_HOST', getenv('GT_DB_HOST') ?: 'localhost');
+define('DB_NAME', getenv('GT_DB_NAME') ?: 'gameTracker');
+define('DB_USER', getenv('GT_DB_USER') ?: 'your_database_username');
+define('DB_PASS', getenv('GT_DB_PASS') !== false ? getenv('GT_DB_PASS') : 'your_database_password');
 define('UPLOAD_DIR', __DIR__ . '/../uploads/');
 define('COVERS_DIR', UPLOAD_DIR . 'covers/');
 define('EXTRAS_DIR', UPLOAD_DIR . 'extras/');
-
-// The "Auto-fetch description" button uses the public Wikipedia REST
-// API and needs no key. The "Fetch price" button scrapes the public
-// PriceCharting product pages (their API is paid; the public HTML is
-// not). No API keys are configured here.
 
 // Create directories if they don't exist
 if (!file_exists(UPLOAD_DIR)) {
@@ -120,9 +119,9 @@ try {
     ]);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-    
-    // Initialize database tables
-    initializeDatabase($pdo);
+    // Schema is managed by database/migrate.php against database/migrations/.
+    // No per-request DDL runs here — see Phase 2b in
+    // docs/superpowers/plans/2026-07-10-phase2b-migrations.md.
 } catch (PDOException $e) {
     // Check if we're in an API context (output buffering active and JSON header expected)
     if (ob_get_level() > 0 && (php_sapi_name() === 'cli-server' || strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false)) {
@@ -131,284 +130,5 @@ try {
     } else {
         // In regular page context, use die()
         die("Database connection failed: " . $e->getMessage());
-    }
-}
-
-/**
- * Initialize database tables if they don't exist
- */
-function initializeDatabase($pdo) {
-    // Enable foreign key checks
-    $pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
-    
-    // Users table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        username VARCHAR(255) UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        role ENUM('user', 'admin') DEFAULT 'user',
-        email VARCHAR(255) NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_username (username)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    
-    // Add role and email columns if they don't exist (for existing databases)
-    try {
-        $pdo->exec("ALTER TABLE users ADD COLUMN role ENUM('user', 'admin') DEFAULT 'user'");
-    } catch (PDOException $e) {
-        // Column already exists, ignore error
-    }
-    try {
-        $pdo->exec("ALTER TABLE users ADD COLUMN email VARCHAR(255) NULL");
-    } catch (PDOException $e) {
-        // Column already exists, ignore error
-    }
-    // Add index on username if it doesn't exist
-    try {
-        $pdo->exec("ALTER TABLE users ADD INDEX idx_username (username)");
-    } catch (PDOException $e) {
-        // Index already exists, ignore error
-    }
-    
-    // Games table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS games (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        user_id INT NOT NULL,
-        title TEXT NOT NULL,
-        platform VARCHAR(255) NOT NULL,
-        genre VARCHAR(255),
-        description TEXT,
-        series VARCHAR(255),
-        special_edition VARCHAR(255),
-        `condition` VARCHAR(255),
-        review TEXT,
-        star_rating INT,
-        metacritic_rating INT,
-        played INT DEFAULT 0,
-        price_paid DECIMAL(10,2),
-        pricecharting_price DECIMAL(10,2),
-        is_physical INT DEFAULT 1,
-        digital_store VARCHAR(255),
-        front_cover_image MEDIUMTEXT,
-        back_cover_image MEDIUMTEXT,
-        release_date DATE,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        INDEX idx_user_id (user_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    
-    // Add user_id column if it doesn't exist (for existing databases)
-    try {
-        $pdo->exec("ALTER TABLE games ADD COLUMN user_id INT NOT NULL");
-        // Add index
-        $pdo->exec("ALTER TABLE games ADD INDEX idx_user_id (user_id)");
-        // Add foreign key
-        $pdo->exec("ALTER TABLE games ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore error
-    }
-    
-    // Add digital_store column if it doesn't exist (for existing databases)
-    try {
-        $pdo->exec("ALTER TABLE games ADD COLUMN digital_store VARCHAR(255)");
-    } catch (PDOException $e) {
-        // Column already exists, ignore error
-    }
-    
-    // Add release_date column if it doesn't exist (for existing databases)
-    try {
-        $pdo->exec("ALTER TABLE games ADD COLUMN release_date DATE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore error
-    }
-    
-    // Upgrade image columns from TEXT to MEDIUMTEXT if needed (for existing databases)
-    try {
-        $pdo->exec("ALTER TABLE games MODIFY COLUMN front_cover_image MEDIUMTEXT");
-    } catch (PDOException $e) {
-        // Column might not exist or already be MEDIUMTEXT, ignore error
-    }
-    try {
-        $pdo->exec("ALTER TABLE games MODIFY COLUMN back_cover_image MEDIUMTEXT");
-    } catch (PDOException $e) {
-        // Column might not exist or already be MEDIUMTEXT, ignore error
-    }
-    
-    // Game images table (for extra photos)
-    $pdo->exec("CREATE TABLE IF NOT EXISTS game_images (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        game_id INT NOT NULL,
-        user_id INT NOT NULL,
-        image_path TEXT NOT NULL,
-        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        INDEX idx_user_id (user_id),
-        INDEX idx_game_id (game_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    
-    // Add user_id column if it doesn't exist (for existing databases)
-    try {
-        $pdo->exec("ALTER TABLE game_images ADD COLUMN user_id INT NOT NULL");
-        $pdo->exec("ALTER TABLE game_images ADD INDEX idx_user_id (user_id)");
-        $pdo->exec("ALTER TABLE game_images ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore error
-    }
-    
-    // Add missing indexes for performance optimization
-    try {
-        $pdo->exec("ALTER TABLE game_images ADD INDEX idx_game_id (game_id)");
-    } catch (PDOException $e) {
-        // Index already exists, ignore error
-    }
-    try {
-        $pdo->exec("ALTER TABLE games ADD INDEX idx_platform (platform)");
-    } catch (PDOException $e) {
-        // Index already exists, ignore error
-    }
-    try {
-        $pdo->exec("ALTER TABLE games ADD INDEX idx_created_at (created_at)");
-    } catch (PDOException $e) {
-        // Index already exists, ignore error
-    }
-    try {
-        $pdo->exec("ALTER TABLE games ADD INDEX idx_platform_user_id (platform, user_id)");
-    } catch (PDOException $e) {
-        // Index already exists, ignore error
-    }
-    
-    // Consoles and accessories table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS items (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        user_id INT NOT NULL,
-        title TEXT NOT NULL,
-        platform VARCHAR(255),
-        category VARCHAR(255) NOT NULL,
-        description TEXT,
-        `condition` VARCHAR(255),
-        price_paid DECIMAL(10,2),
-        pricecharting_price DECIMAL(10,2),
-        front_image TEXT,
-        back_image TEXT,
-        notes TEXT,
-        quantity INT DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        INDEX idx_user_id (user_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    
-    // Add user_id column if it doesn't exist (for existing databases)
-    try {
-        $pdo->exec("ALTER TABLE items ADD COLUMN user_id INT NOT NULL");
-        $pdo->exec("ALTER TABLE items ADD INDEX idx_user_id (user_id)");
-        $pdo->exec("ALTER TABLE items ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore error
-    }
-    
-    // Add quantity column if it doesn't exist (for existing databases)
-    try {
-        $pdo->exec("ALTER TABLE items ADD COLUMN quantity INT DEFAULT 1");
-    } catch (PDOException $e) {
-        // Column already exists, ignore error
-    }
-    
-    // Item images table (for extra photos)
-    $pdo->exec("CREATE TABLE IF NOT EXISTS item_images (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        item_id INT NOT NULL,
-        user_id INT NOT NULL,
-        image_path TEXT NOT NULL,
-        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        INDEX idx_user_id (user_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    
-    // Add user_id column if it doesn't exist (for existing databases)
-    try {
-        $pdo->exec("ALTER TABLE item_images ADD COLUMN user_id INT NOT NULL");
-        $pdo->exec("ALTER TABLE item_images ADD INDEX idx_user_id (user_id)");
-        $pdo->exec("ALTER TABLE item_images ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore error
-    }
-    
-    // Settings table (for background image, etc.) - per-user settings
-    $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        user_id INT NOT NULL,
-        setting_key VARCHAR(255) NOT NULL,
-        setting_value TEXT,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        UNIQUE KEY unique_user_setting (user_id, setting_key),
-        INDEX idx_user_id (user_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    
-    // Add user_id column if it doesn't exist (for existing databases)
-    try {
-        $pdo->exec("ALTER TABLE settings ADD COLUMN user_id INT NOT NULL");
-        // Drop old unique constraint if it exists
-        try {
-            $pdo->exec("ALTER TABLE settings DROP INDEX setting_key");
-        } catch (PDOException $e) {
-            // Index doesn't exist, ignore
-        }
-        $pdo->exec("ALTER TABLE settings ADD INDEX idx_user_id (user_id)");
-        $pdo->exec("ALTER TABLE settings ADD UNIQUE KEY unique_user_setting (user_id, setting_key)");
-        $pdo->exec("ALTER TABLE settings ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore error
-    }
-    
-    // Game completions table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS game_completions (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        user_id INT NOT NULL,
-        game_id INT,
-        title TEXT NOT NULL,
-        platform VARCHAR(255),
-        time_taken VARCHAR(255),
-        date_started DATE,
-        date_completed DATE,
-        completion_year INT,
-        notes TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL,
-        INDEX idx_user_id (user_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    
-    // Add user_id column if it doesn't exist (for existing databases)
-    try {
-        $pdo->exec("ALTER TABLE game_completions ADD COLUMN user_id INT NOT NULL");
-        $pdo->exec("ALTER TABLE game_completions ADD INDEX idx_user_id (user_id)");
-        $pdo->exec("ALTER TABLE game_completions ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore error
-    }
-    
-    // Create default admin user if no users exist
-    $stmt = $pdo->query("SELECT COUNT(*) as count FROM users");
-    $result = $stmt->fetch();
-    
-    if ($result['count'] == 0) {
-        // Default username: admin, password: admin (change this after first login!)
-        $username = 'admin';
-        $password = password_hash('admin', PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'admin')");
-        $stmt->execute([$username, $password]);
-    } else {
-        // Ensure existing admin user has admin role
-        try {
-            $pdo->exec("UPDATE users SET role = 'admin' WHERE username = 'admin' AND (role IS NULL OR role = '')");
-        } catch (PDOException $e) {
-            // Ignore if role column doesn't exist yet (will be added by migration)
-        }
     }
 }
