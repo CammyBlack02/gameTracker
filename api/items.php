@@ -3,9 +3,8 @@
  * Items (Consoles/Accessories) CRUD API endpoints
  */
 
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/functions.php';
-require_once __DIR__ . '/../includes/auth-check.php';
+require_once __DIR__ . '/../includes/auth.php';
+$userId = requireUser();
 
 header('Content-Type: application/json');
 

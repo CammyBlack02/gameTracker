@@ -1,4 +1,4 @@
-<?php require_once __DIR__ . '/includes/auth-check.php'; ?>
+<?php require_once __DIR__ . '/includes/auth.php'; requireUser(); ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>

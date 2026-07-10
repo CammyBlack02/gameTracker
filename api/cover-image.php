@@ -4,9 +4,8 @@
  * Uses TheGamesDB API (free, no auth required) to find game cover images
  */
 
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/functions.php';
-require_once __DIR__ . '/../includes/auth-check.php';
+require_once __DIR__ . '/../includes/auth.php';
+$userId = requireUser();
 
 header('Content-Type: application/json');
 
