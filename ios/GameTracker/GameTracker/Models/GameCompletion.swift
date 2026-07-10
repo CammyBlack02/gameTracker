@@ -7,6 +7,8 @@ final class GameCompletion {
     var serverId: Int?
     var lastSyncedAt: Date?
     var syncStateRaw: String
+    /// See Game.serverVersionJSON.
+    var serverVersionJSON: String?
 
     /// Server-side foreign key to `games.id`. May be `nil` if the parent
     /// game is itself still `localNew` and unpushed.

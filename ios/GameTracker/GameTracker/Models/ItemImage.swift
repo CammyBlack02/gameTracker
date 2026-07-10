@@ -7,6 +7,8 @@ final class ItemImage {
     var serverId: Int?
     var lastSyncedAt: Date?
     var syncStateRaw: String
+    /// See Game.serverVersionJSON.
+    var serverVersionJSON: String?
 
     var itemServerId: Int?
     var imagePath: String
