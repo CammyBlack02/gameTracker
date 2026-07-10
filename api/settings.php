@@ -96,7 +96,11 @@ function setBackgroundImage() {
 
 function removeBackgroundImage() {
     global $pdo;
-    
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
+    }
+
     $userId = $_SESSION['user_id'];
     
     // Get current background
