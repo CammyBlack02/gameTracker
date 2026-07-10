@@ -27,12 +27,12 @@ try {
         ob_end_clean();
     }
     
+    error_log('Auth API init: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
     http_response_code(500);
     header('Content-Type: application/json');
-    $errorMsg = 'Server error: ' . $e->getMessage() . ' (File: ' . basename($e->getFile()) . ' Line: ' . $e->getLine() . ')';
     echo json_encode([
-        'success' => false, 
-        'message' => $errorMsg
+        'success' => false,
+        'message' => 'Server error'
     ], JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -205,11 +205,11 @@ function handleLogin() {
             sendJsonResponse(['success' => false, 'message' => 'Invalid username or password'], 401);
         }
     } catch (Throwable $e) {
-        error_log('handleLogin error: ' . $e->getMessage());
+        error_log('handleLogin error: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
         error_log('Stack trace: ' . $e->getTraceAsString());
         sendJsonResponse([
-            'success' => false, 
-            'message' => 'Login error: ' . $e->getMessage() . ' (File: ' . basename($e->getFile()) . ' Line: ' . $e->getLine() . ')'
+            'success' => false,
+            'message' => 'Login error'
         ], 500);
     }
 }

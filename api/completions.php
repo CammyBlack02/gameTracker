@@ -30,7 +30,7 @@ try {
     ob_clean();
     error_log('Completions API Error: ' . $e->getMessage());
     error_log('Stack trace: ' . $e->getTraceAsString());
-    sendJsonResponse(['success' => false, 'message' => 'Server error occurred: ' . $e->getMessage()], 500);
+    sendJsonResponse(['success' => false, 'message' => 'Server error occurred'], 500);
 }
 
 try {
@@ -116,7 +116,7 @@ function listCompletions() {
         sendJsonResponse(['success' => true, 'completions' => $completions]);
     } catch (Throwable $e) {
         error_log('listCompletions Error: ' . $e->getMessage());
-        sendJsonResponse(['success' => false, 'message' => 'Failed to load completions: ' . $e->getMessage()], 500);
+        sendJsonResponse(['success' => false, 'message' => 'Failed to load completions'], 500);
     }
 }
 
@@ -220,7 +220,7 @@ function createCompletion() {
         error_log("createCompletion: Created completion ID $completionId for user_id $userId");
     } catch (PDOException $e) {
         error_log('createCompletion: Database error - ' . $e->getMessage());
-        sendJsonResponse(['success' => false, 'message' => 'Failed to save completion: ' . $e->getMessage()], 500);
+        sendJsonResponse(['success' => false, 'message' => 'Failed to save completion'], 500);
         return;
     }
     

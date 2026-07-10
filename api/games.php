@@ -58,7 +58,7 @@ try {
     ob_clean();
     error_log('Games API Error: ' . $e->getMessage());
     error_log('Stack trace: ' . $e->getTraceAsString());
-    sendJsonResponse(['success' => false, 'message' => 'Server error occurred: ' . $e->getMessage()], 500);
+    sendJsonResponse(['success' => false, 'message' => 'Server error occurred'], 500);
 }
 
 try {
@@ -216,10 +216,7 @@ function listGames() {
         if (!headers_sent()) {
             http_response_code(500);
             header('Content-Type: application/json');
-            // Include error details for debugging (remove in production)
-            $errorMessage = 'Failed to load games: ' . $e->getMessage();
-            $errorMessage .= ' (File: ' . basename($e->getFile()) . ' Line: ' . $e->getLine() . ')';
-            echo json_encode(['success' => false, 'message' => $errorMessage], JSON_UNESCAPED_SLASHES);
+            echo json_encode(['success' => false, 'message' => 'Failed to load games'], JSON_UNESCAPED_SLASHES);
         }
         exit;
     }
@@ -672,7 +669,7 @@ function updateGame() {
         if (strpos($e->getMessage(), 'Data too long') !== false) {
             sendJsonResponse(['success' => false, 'message' => 'Cover image is too large. Please use a smaller image or an external URL.'], 400);
         } else {
-            sendJsonResponse(['success' => false, 'message' => 'Failed to update game: ' . $e->getMessage()], 500);
+            sendJsonResponse(['success' => false, 'message' => 'Failed to update game'], 500);
         }
         return;
     }
