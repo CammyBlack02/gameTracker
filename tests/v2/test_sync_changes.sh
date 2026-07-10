@@ -34,8 +34,13 @@ GAME_COUNT=$(echo "$RESPONSE_BODY" | jq '.data.games | length')
 [[ "$GAME_COUNT" -ge 1 ]] && green "  PASS: at least one game returned" && PASS_COUNT=$((PASS_COUNT+1)) || { red "  FAIL: game_count=$GAME_COUNT"; FAIL_COUNT=$((FAIL_COUNT+1)); }
 
 blue "GET with since=NOW returns no new rows"
-NOW_ISO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+# Sleep BEFORE capturing NOW so any row seeded above has an updated_at
+# at least one whole second earlier. The Phase 3c cursor fix switched
+# the server's query from `>` to `>=`, so a row whose updated_at ==
+# since is now returned; the sleep decouples this assertion from that
+# boundary behaviour and continues to prove "no NEW rows after NOW".
 sleep 1
+NOW_ISO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 req GET "/api/v2/sync/changes.php?since=$NOW_ISO" "" -H "Authorization: Bearer $TOKEN"
 GAME_COUNT=$(echo "$RESPONSE_BODY" | jq '.data.games | length')
 assert_eq "0" "$GAME_COUNT" "no new games after NOW"
