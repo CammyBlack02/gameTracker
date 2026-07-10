@@ -92,86 +92,51 @@ final class SyncEngine {
     // MARK: - Response application
 
     private func applyPushResults(_ resp: PushResponseDTO) throws {
-        for r in resp.games           { applyGameResult(r) }
-        for r in resp.items           { applyItemResult(r) }
-        for r in resp.gameCompletions { applyCompletionResult(r) }
-        for r in resp.gameImages      { applyGameImageResult(r) }
-        for r in resp.itemImages      { applyItemImageResult(r) }
+        try applyResults(resp.games,           of: Game.self)
+        try applyResults(resp.items,           of: Item.self)
+        try applyResults(resp.gameCompletions, of: GameCompletion.self)
+        try applyResults(resp.gameImages,      of: GameImage.self)
+        try applyResults(resp.itemImages,      of: ItemImage.self)
     }
 
-    private func applyGameResult(_ r: PushRowResultDTO) {
-        let local: Game? = {
-            if let cid = r.clientId, let uuid = UUID(uuidString: cid) {
-                let p = #Predicate<Game> { $0.clientId == uuid }
-                return try? context.fetch(FetchDescriptor(predicate: p)).first
-            } else if let sid = r.serverId {
-                let p = #Predicate<Game> { $0.serverId == sid }
-                return try? context.fetch(FetchDescriptor(predicate: p)).first
-            }
-            return nil
-        }()
-        guard let row = local else { return }
-        applyOutcome(r, to: row)
-    }
-
-    private func applyItemResult(_ r: PushRowResultDTO) {
-        let local: Item? = {
-            if let cid = r.clientId, let uuid = UUID(uuidString: cid) {
-                let p = #Predicate<Item> { $0.clientId == uuid }
-                return try? context.fetch(FetchDescriptor(predicate: p)).first
-            } else if let sid = r.serverId {
-                let p = #Predicate<Item> { $0.serverId == sid }
-                return try? context.fetch(FetchDescriptor(predicate: p)).first
-            }
-            return nil
-        }()
-        guard let row = local else { return }
-        applyOutcome(r, to: row)
-    }
-
-    private func applyCompletionResult(_ r: PushRowResultDTO) {
-        let local: GameCompletion? = {
-            if let cid = r.clientId, let uuid = UUID(uuidString: cid) {
-                let p = #Predicate<GameCompletion> { $0.clientId == uuid }
-                return try? context.fetch(FetchDescriptor(predicate: p)).first
-            } else if let sid = r.serverId {
-                let p = #Predicate<GameCompletion> { $0.serverId == sid }
-                return try? context.fetch(FetchDescriptor(predicate: p)).first
-            }
-            return nil
-        }()
-        guard let row = local else { return }
-        applyOutcome(r, to: row)
-    }
-
-    private func applyGameImageResult(_ r: PushRowResultDTO) {
-        let local: GameImage? = {
-            if let cid = r.clientId, let uuid = UUID(uuidString: cid) {
-                let p = #Predicate<GameImage> { $0.clientId == uuid }
-                return try? context.fetch(FetchDescriptor(predicate: p)).first
-            } else if let sid = r.serverId {
-                let p = #Predicate<GameImage> { $0.serverId == sid }
-                return try? context.fetch(FetchDescriptor(predicate: p)).first
-            }
-            return nil
-        }()
-        guard let row = local else { return }
-        applyOutcome(r, to: row)
-    }
-
-    private func applyItemImageResult(_ r: PushRowResultDTO) {
-        let local: ItemImage? = {
-            if let cid = r.clientId, let uuid = UUID(uuidString: cid) {
-                let p = #Predicate<ItemImage> { $0.clientId == uuid }
-                return try? context.fetch(FetchDescriptor(predicate: p)).first
-            } else if let sid = r.serverId {
-                let p = #Predicate<ItemImage> { $0.serverId == sid }
-                return try? context.fetch(FetchDescriptor(predicate: p)).first
-            }
-            return nil
-        }()
-        guard let row = local else { return }
-        applyOutcome(r, to: row)
+    /// Applies a push-response bucket for one table. Fable §4 (last item):
+    /// the five per-type `applyXResult` functions collapsed here.
+    ///
+    /// Implementation note: `#Predicate` does not reliably specialize
+    /// over a generic type parameter, so we can't run the per-row
+    /// `WHERE clientId = ?` / `WHERE serverId = ?` fetches inside a
+    /// generic function. Instead we batch-fetch all rows of type T once
+    /// per bucket, index by clientId and serverId, and do dictionary
+    /// lookups per result. A typical push response has a handful of
+    /// results per table, so one O(n) fetch + O(k) lookups is at least
+    /// as fast as k × per-row indexed fetches.
+    private func applyResults<T: SyncableModel>(
+        _ results: [PushRowResultDTO],
+        of _: T.Type
+    ) throws {
+        guard !results.isEmpty else { return }
+        let rows = try context.fetch(FetchDescriptor<T>())
+        let byClient: [UUID: T] = Dictionary(
+            rows.map { ($0.clientId, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let byServer: [Int: T] = Dictionary(
+            rows.compactMap { row in row.serverId.map { ($0, row) } },
+            uniquingKeysWith: { first, _ in first }
+        )
+        for r in results {
+            let row: T? = {
+                if let cid = r.clientId, let uuid = UUID(uuidString: cid) {
+                    return byClient[uuid]
+                }
+                if let sid = r.serverId {
+                    return byServer[sid]
+                }
+                return nil
+            }()
+            guard let row else { continue }
+            applyOutcome(r, to: row)
+        }
     }
 
     private func applyOutcome<T: SyncableModel>(_ r: PushRowResultDTO, to row: T) {
