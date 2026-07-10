@@ -18,6 +18,11 @@ enum Config {
         serverBaseURL.appendingPathComponent("api/v2").appendingPathComponent(path)
     }
 
-    /// Toggle verbose URLSession logging in debug builds.
+    /// Verbose URLSession logging — DEBUG builds only. Fable §9 quick win:
+    /// release builds shouldn't ship the extra logging path.
+    #if DEBUG
     static let verboseNetworking = true
+    #else
+    static let verboseNetworking = false
+    #endif
 }
