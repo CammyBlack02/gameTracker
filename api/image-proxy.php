@@ -59,17 +59,23 @@ if (empty($host)) {
     die('Invalid host');
 }
 
-// Block obvious localhost patterns
-if ($host === 'localhost' || 
-    $host === '127.0.0.1' || 
-    $host === '::1' ||
-    preg_match('/^192\.168\./', $host) ||
-    preg_match('/^10\./', $host) ||
-    preg_match('/^172\.(1[6-9]|2[0-9]|3[01])\./', $host)) {
-    error_log("Image proxy blocked: Local/internal host '$host' for URL: $url");
+// SSRF gate — resolves the host and rejects private/loopback/reserved IPs
+// (including 169.254.169.254 cloud metadata). Task 5 replaces the curl
+// block below with the same helper's fetch path.
+require_once __DIR__ . '/../includes/http-fetch.php';
+try {
+    gt_ssrf_check_url($url);
+} catch (GtSsrfException $e) {
+    error_log("Image proxy blocked SSRF: {$e->getMessage()} for URL $url");
     http_response_code(403);
     header('Content-Type: text/plain');
-    die('Local/internal URLs not allowed');
+    die('Blocked: ' . $e->getMessage());
+} catch (GtFetchException $e) {
+    // Host didn't resolve — treat as unreachable, not internal.
+    error_log("Image proxy DNS failure: {$e->getMessage()} for URL $url");
+    http_response_code(502);
+    header('Content-Type: text/plain');
+    die('Could not resolve host');
 }
 
 // Fetch the image
