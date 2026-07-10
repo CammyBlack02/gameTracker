@@ -9,7 +9,12 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 export GT_DB_NAME="${TEST_DB_NAME:-gameTracker_test}"
 export GT_DB_USER="${TEST_DB_USER:-root}"
-export GT_DB_PASS="${TEST_DB_PASS:-}"
+# Preserve an already-set GT_DB_PASS / GT_DB_HOST if TEST_DB_* isn't
+# provided — the previous default of empty string clobbered a real
+# CI-provided password and broke migrate.php with "Access denied ...
+# using password: NO". Same fix applied inside setup-test-db.sh.
+export GT_DB_PASS="${TEST_DB_PASS:-${GT_DB_PASS:-}}"
+export GT_DB_HOST="${TEST_DB_HOST:-${GT_DB_HOST:-localhost}}"
 
 # Reset DB
 "$SCRIPT_DIR/setup-test-db.sh"
