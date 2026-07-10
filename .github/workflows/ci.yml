@@ -63,12 +63,26 @@ jobs:
           extensions: pdo, pdo_mysql, mbstring, gd, curl, fileinfo
           coverage: none
 
+      - name: Configure mysql client to use TCP + password by default
+        run: |
+          # Ubuntu's mysql client defaults to a Unix socket at
+          # /var/run/mysqld/mysqld.sock which the Dockerised MySQL
+          # service doesn't expose. Pin host to 127.0.0.1 and stash
+          # the password so every mysql invocation in the test scripts
+          # picks it up without needing per-call flags.
+          cat > ~/.my.cnf <<'EOF'
+          [client]
+          host=127.0.0.1
+          user=root
+          password=root
+          protocol=TCP
+          EOF
+          chmod 600 ~/.my.cnf
+
       - name: Wait for MySQL
-        env:
-          MYSQL_PWD: root
         run: |
           for i in {1..30}; do
-            if mysqladmin ping -h127.0.0.1 -uroot --silent; then
+            if mysqladmin ping --silent; then
               echo "MySQL is up"; exit 0
             fi
             sleep 1
@@ -79,14 +93,9 @@ jobs:
         run: |
           cp includes/config.php.example includes/config.php
 
-      - name: Bootstrap schema via migrations
-        env:
-          GT_DB_HOST: 127.0.0.1
-          GT_DB_NAME: gameTracker_test
-          GT_DB_USER: root
-          GT_DB_PASS: root
-        run: |
-          php database/migrate.php
+      # The MySQL service starts with an empty gameTracker_test DB.
+      # setup-test-db.sh (later step) DROPs+CREATEs and runs migrations,
+      # so no standalone bootstrap step is needed.
 
       - name: Boot PHP built-in server
         env:
@@ -98,8 +107,16 @@ jobs:
           php -S 127.0.0.1:8000 -t . router.php > /tmp/php-server.log 2>&1 &
           echo $! > /tmp/php-server.pid
           sleep 2
-          # Verify server responded
-          curl -sSf http://127.0.0.1:8000/api/v2/_ping.php | head -c 200 || (cat /tmp/php-server.log; exit 1)
+          # Verify the server is reachable. _ping.php requires bearer
+          # auth so 401 is the expected unauthenticated response —
+          # anything other than a connection error means the server is
+          # up. Reject only "server didn't respond at all" (which curl
+          # exits non-zero for on transport errors, but not HTTP status).
+          status=$(curl -sS -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/v2/_ping.php || echo "000")
+          if [[ "$status" == "000" ]]; then
+            echo "PHP server never responded"; cat /tmp/php-server.log; exit 1
+          fi
+          echo "PHP server is up (HTTP $status)"
 
       - name: Seed test DB + run shell tests
         env:
@@ -107,10 +124,12 @@ jobs:
           TEST_DB_HOST: 127.0.0.1
           TEST_DB_NAME: gameTracker_test
           TEST_DB_USER: root
-          # setup-test-db.sh invokes `mysql -uroot` without -p; MYSQL_PWD
-          # is the standard way to feed a password to the mysql client
-          # without every call needing to know about it.
-          MYSQL_PWD: root
+          # mysql client credentials are in ~/.my.cnf (set earlier).
+          # PHP's PDO reads GT_DB_* from env.
+          GT_DB_HOST: 127.0.0.1
+          GT_DB_NAME: gameTracker_test
+          GT_DB_USER: root
+          GT_DB_PASS: root
         run: |
           bash tests/v2/setup-test-db.sh
           bash tests/v2/run-all.sh
