@@ -23,54 +23,25 @@ if (empty($imageUrl)) {
     sendJsonResponse(['success' => false, 'message' => 'URL is required'], 400);
 }
 
-// Validate URL
-$parsedUrl = @parse_url($imageUrl);
-if ($parsedUrl === false || empty($parsedUrl['scheme']) || empty($parsedUrl['host'])) {
-    sendJsonResponse(['success' => false, 'message' => 'Invalid URL format'], 400);
+// Fetch through the shared SSRF-safe helper — it enforces HTTPS,
+// resolves the host, and rejects private/loopback/reserved IPs
+// (including 169.254.169.254 cloud metadata).
+require_once __DIR__ . '/../includes/http-fetch.php';
+
+try {
+    $result = gt_safe_http_fetch($imageUrl, [
+        'accept' => 'image/jpeg,image/png,image/gif,image/webp,*/*',
+    ]);
+} catch (GtSsrfException $e) {
+    error_log("download-external-image blocked SSRF: {$e->getMessage()} for URL $imageUrl");
+    sendJsonResponse(['success' => false, 'message' => 'URL not allowed'], 400);
+} catch (GtFetchException $e) {
+    error_log("download-external-image fetch failed: {$e->getMessage()} for URL $imageUrl");
+    sendJsonResponse(['success' => false, 'message' => 'Failed to download image'], 500);
 }
 
-// Only allow HTTPS
-if ($parsedUrl['scheme'] !== 'https') {
-    sendJsonResponse(['success' => false, 'message' => 'Only HTTPS URLs are allowed'], 400);
-}
-
-// Block local/internal IPs
-$host = $parsedUrl['host'] ?? '';
-if (preg_match('/^(localhost|127\.0\.0\.1|::1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/', $host)) {
-    sendJsonResponse(['success' => false, 'message' => 'Local/internal URLs are not allowed'], 400);
-}
-
-// Download image using cURL
-$ch = curl_init($imageUrl);
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_FOLLOWLOCATION => true,
-    CURLOPT_MAXREDIRS => 5,
-    CURLOPT_TIMEOUT => 30,
-    CURLOPT_CONNECTTIMEOUT => 10,
-    CURLOPT_SSL_VERIFYPEER => true,
-    CURLOPT_SSL_VERIFYHOST => 2,
-    CURLOPT_USERAGENT => 'GameTracker/1.0',
-    CURLOPT_HTTPHEADER => [
-        'Accept: image/jpeg,image/png,image/gif,image/webp,*/*'
-    ]
-]);
-
-$imageData = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-$error = curl_error($ch);
-curl_close($ch);
-
-if ($error) {
-    error_log("Failed to download image: $error");
-    sendJsonResponse(['success' => false, 'message' => 'Failed to download image: ' . $error], 500);
-}
-
-if ($httpCode !== 200 || empty($imageData)) {
-    error_log("Failed to download image: HTTP $httpCode");
-    sendJsonResponse(['success' => false, 'message' => "Failed to download image: HTTP $httpCode"], 500);
-}
+$imageData   = $result['data'];
+$contentType = $result['content_type'];
 
 // Validate it's actually an image
 if (!isValidImageData($imageData, $contentType)) {
