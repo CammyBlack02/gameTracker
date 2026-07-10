@@ -10,6 +10,8 @@ final class GameImage {
     var serverId: Int?
     var lastSyncedAt: Date?
     var syncStateRaw: String
+    /// See Game.serverVersionJSON.
+    var serverVersionJSON: String?
 
     var gameServerId: Int?
     /// Server's stored filename, e.g. "abc123.jpg". Used to build cache paths.

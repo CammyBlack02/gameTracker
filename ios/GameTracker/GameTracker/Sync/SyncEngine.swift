@@ -234,6 +234,7 @@ protocol SyncableModel: PersistentModel {
     var serverId: Int? { get set }
     var lastSyncedAt: Date? { get set }
     var syncStateRaw: String { get set }
+    var serverVersionJSON: String? { get set }
 }
 
 extension Game: SyncableModel {}
