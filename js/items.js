@@ -329,12 +329,5 @@ function displayListView(items, container) {
     `;
 }
 
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// escapeHtml moved to main.js (Phase 4a).
 
