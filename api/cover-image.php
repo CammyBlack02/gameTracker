@@ -19,8 +19,20 @@ if (empty($title)) {
 
 // Try multiple APIs for cover images
 // Method 1: TheGamesDB API (v1 - working version)
-// Use the same API key as release dates
-$apiKey = 'a6665c94c14c40ce77c7546a1a1f12f4084650ef255637fef3e8e6c4c047d9f3';
+// API key is sourced from THEGAMESDB_API_KEY env var, or per-user Settings
+// (setting_key='thegamesdb_api_key'). No hardcoded value in the repo.
+$apiKey = getenv('THEGAMESDB_API_KEY') ?: '';
+if (empty($apiKey)) {
+    $userIdForKey = $_SESSION['user_id'] ?? 0;
+    if ($userIdForKey) {
+        $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ? AND user_id = ?");
+        $stmt->execute(['thegamesdb_api_key', $userIdForKey]);
+        $apiKey = (string)($stmt->fetchColumn() ?: '');
+    }
+}
+if (empty($apiKey)) {
+    sendJsonResponse(['success' => false, 'message' => 'TheGamesDB API key not configured'], 500);
+}
 
 // Clean title - try multiple variations (same as release date script)
 $cleanTitle = preg_replace('/\s*\[[^\]]+\]\s*/', ' ', $title);

@@ -448,6 +448,6 @@ try {
         unlink($tempFile);
     }
     error_log("GameEye import error: " . $e->getMessage());
-    sendJsonResponse(['success' => false, 'message' => 'Import failed: ' . $e->getMessage()], 500);
+    sendJsonResponse(['success' => false, 'message' => 'Import failed'], 500);
 }
 
