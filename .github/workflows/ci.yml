@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Fable §9: "You wrote the tests; make them earn their keep."
+
+jobs:
+  ios-tests:
+    name: iOS unit tests
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      # The GameTracker scheme is committed under
+      # ios/GameTracker/GameTracker.xcodeproj/xcshareddata/xcschemes/,
+      # so a fresh clone can `xcodebuild test` without regenerating one.
+      - name: Run GameTrackerTests
+        working-directory: ios/GameTracker
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project GameTracker.xcodeproj \
+            -scheme GameTracker \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -only-testing:GameTrackerTests \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify --renderer github-actions
+        # xcbeautify is pre-installed on macos-15 runners. If it's not,
+        # `| tee` still surfaces the raw log.
+
+  v2-shell-tests:
+    name: v2 API shell tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: gameTracker_test
+        ports: [3306:3306]
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, mbstring, gd, curl, fileinfo
+          coverage: none
+
+      - name: Wait for MySQL
+        env:
+          MYSQL_PWD: root
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h127.0.0.1 -uroot --silent; then
+              echo "MySQL is up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "MySQL never came up"; exit 1
+
+      - name: Create includes/config.php from template
+        run: |
+          cp includes/config.php.example includes/config.php
+
+      - name: Bootstrap schema via migrations
+        env:
+          GT_DB_HOST: 127.0.0.1
+          GT_DB_NAME: gameTracker_test
+          GT_DB_USER: root
+          GT_DB_PASS: root
+        run: |
+          php database/migrate.php
+
+      - name: Boot PHP built-in server
+        env:
+          GT_DB_HOST: 127.0.0.1
+          GT_DB_NAME: gameTracker_test
+          GT_DB_USER: root
+          GT_DB_PASS: root
+        run: |
+          php -S 127.0.0.1:8000 -t . router.php > /tmp/php-server.log 2>&1 &
+          echo $! > /tmp/php-server.pid
+          sleep 2
+          # Verify server responded
+          curl -sSf http://127.0.0.1:8000/api/v2/_ping.php | head -c 200 || (cat /tmp/php-server.log; exit 1)
+
+      - name: Seed test DB + run shell tests
+        env:
+          BASE_URL: http://127.0.0.1:8000
+          TEST_DB_HOST: 127.0.0.1
+          TEST_DB_NAME: gameTracker_test
+          TEST_DB_USER: root
+          # setup-test-db.sh invokes `mysql -uroot` without -p; MYSQL_PWD
+          # is the standard way to feed a password to the mysql client
+          # without every call needing to know about it.
+          MYSQL_PWD: root
+        run: |
+          bash tests/v2/setup-test-db.sh
+          bash tests/v2/run-all.sh
+
+      - name: Stop PHP server
+        if: always()
+        run: |
+          [ -f /tmp/php-server.pid ] && kill "$(cat /tmp/php-server.pid)" || true
