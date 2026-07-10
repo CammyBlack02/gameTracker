@@ -306,21 +306,11 @@ function renderTopItems(containerId, items, type) {
     container.innerHTML = html.join('');
 }
 
-/**
- * Get image URL - uses proxy for external URLs to avoid CORS
- */
-function getImageUrl(imagePath) {
-    if (!imagePath) return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect fill="%23ddd" width="200" height="200"/></svg>';
-    // Data URLs - return as-is
-    if (imagePath.startsWith('data:')) {
-        return imagePath;
-    }
-    // External URLs - use proxy to avoid CORS
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-        return `api/image-proxy.php?url=${encodeURIComponent(imagePath)}`;
-    }
-    return `uploads/covers/${imagePath}`;
-}
+// getImageUrl moved to main.js (Phase 4b). Callers here pass one
+// argument and now get `null` back on missing paths — the existing
+// inline onerror handlers on the <img> tags convert that into the
+// "No Image" placeholder div (same UX the previous SVG grey square
+// gave, just via a different path).
 
 /**
  * Render items in modal
@@ -553,14 +543,9 @@ function showError(message) {
     statsContent.innerHTML = `<div class="error">${escapeHtml(message)}</div>`;
 }
 
-/**
- * Format date
- */
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-}
+// formatDate moved to main.js (Phase 4b). Canonical format is now
+// DD/MM/YYYY across the app (was "Jan 15, 2025" here — UX-aligned in
+// this PR).
 
 // escapeHtml moved to main.js (Phase 4a).
 

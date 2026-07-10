@@ -683,14 +683,7 @@ function showError(message) {
     content.innerHTML = `<div class="error">${escapeHtml(message)}</div>`;
 }
 
-/**
- * Format date
- */
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-}
+// formatDate moved to main.js (Phase 4b). Now DD/MM/YYYY.
 
 // escapeHtml moved to main.js (Phase 4a).
 
