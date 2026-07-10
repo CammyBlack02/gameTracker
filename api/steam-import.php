@@ -219,9 +219,9 @@ function importSteamLibrary() {
             $appId = $steamGame['appid'];
             $name = $steamGame['name'] ?? 'Unknown Game';
             
-            // Check if game already exists (by title and platform)
-            $stmt = $pdo->prepare("SELECT id FROM games WHERE title = ? AND platform = 'PC'");
-            $stmt->execute([$name]);
+            // Check if THIS USER already has the game (by title and platform)
+            $stmt = $pdo->prepare("SELECT id FROM games WHERE title = ? AND platform = 'PC' AND user_id = ?");
+            $stmt->execute([$name, $userId]);
             if ($stmt->fetch()) {
                 $skipped++;
                 continue;
@@ -243,15 +243,16 @@ function importSteamLibrary() {
                 'played' => 0 // Set all imported games to not played
             ];
             
-            // Insert game into database
+            // Insert game into database (scoped to the calling user)
             $stmt = $pdo->prepare("
                 INSERT INTO games (
-                    title, platform, genre, description, is_physical, digital_store,
+                    user_id, title, platform, genre, description, is_physical, digital_store,
                     front_cover_image, release_date, played
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            
+
             $stmt->execute([
+                $userId,
                 $gameData['title'],
                 $gameData['platform'],
                 $gameData['genre'],
@@ -392,15 +393,17 @@ function deletePCGames() {
     }
     
     try {
-        // Count games before deletion
-        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM games WHERE platform = 'PC'");
-        $stmt->execute();
+        $userId = $_SESSION['user_id'];
+
+        // Count this user's PC games before deletion
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM games WHERE platform = 'PC' AND user_id = ?");
+        $stmt->execute([$userId]);
         $result = $stmt->fetch();
         $count = $result['count'] ?? 0;
-        
-        // Delete all PC games (cascade will handle related images)
-        $stmt = $pdo->prepare("DELETE FROM games WHERE platform = 'PC'");
-        $stmt->execute();
+
+        // Delete only this user's PC games (cascade will handle related images)
+        $stmt = $pdo->prepare("DELETE FROM games WHERE platform = 'PC' AND user_id = ?");
+        $stmt->execute([$userId]);
         
         sendJsonResponse([
             'success' => true,
