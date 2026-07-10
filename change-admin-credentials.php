@@ -89,13 +89,8 @@ if ($isCLI) {
     
 } else {
     // Web mode - require admin login
-    require_once __DIR__ . '/includes/auth-check.php';
-    
-    // Check admin role
-    if (($_SESSION['role'] ?? 'user') !== 'admin') {
-        header('Location: dashboard.php');
-        exit;
-    }
+    require_once __DIR__ . '/includes/auth.php';
+    requireAdmin();
     
     // Handle form submission
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
