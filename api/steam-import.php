@@ -31,7 +31,7 @@ try {
     ob_clean();
     error_log('Steam Import API Error: ' . $e->getMessage());
     error_log('Stack trace: ' . $e->getTraceAsString());
-    sendJsonResponse(['success' => false, 'message' => 'Server error occurred: ' . $e->getMessage()], 500);
+    sendJsonResponse(['success' => false, 'message' => 'Server error occurred'], 500);
 }
 
 try {

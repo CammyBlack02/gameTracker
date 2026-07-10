@@ -224,7 +224,7 @@ try {
             gt_generate_thumbnail($targetPath, gt_thumbnail_path($targetPath), 512);
         } catch (Exception $e) {
             error_log("Error generating filename or moving file: " . $e->getMessage());
-            sendJsonResponse(['success' => false, 'message' => 'Error processing file: ' . $e->getMessage()], 500);
+            sendJsonResponse(['success' => false, 'message' => 'Error processing file'], 500);
         }
     }
     
@@ -273,11 +273,11 @@ try {
     
     // Make sure we can send JSON even if sendJsonResponse isn't available
     if (function_exists('sendJsonResponse')) {
-        sendJsonResponse(['success' => false, 'message' => 'Upload error: ' . $e->getMessage()], 500);
+        sendJsonResponse(['success' => false, 'message' => 'Upload error'], 500);
     } else {
         header('Content-Type: application/json');
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Upload error: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Upload error']);
         exit;
     }
 }
