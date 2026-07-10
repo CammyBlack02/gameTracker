@@ -118,9 +118,10 @@ function listGames() {
         $perPage = isset($_GET['per_page']) ? max(1, min(1000, (int)$_GET['per_page'])) : 100; // Reduced default from 500 to 100
         $offset = ($page - 1) * $perPage;
         
-        // Get user_id from session or optional parameter (any user can view other users' collections)
-        $currentUserId = $_SESSION['user_id'];
-        $targetUserId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : $currentUserId;
+        // Always scope to the caller. Cross-user ?user_id= override was
+        // an IDOR — Fable §1. If shared-shelf browsing is wanted later,
+        // add it as an explicit ACL feature.
+        $targetUserId = $_SESSION['user_id'];
         
         // Get total count - optimized: no need for DISTINCT since we're not joining yet
         try {
