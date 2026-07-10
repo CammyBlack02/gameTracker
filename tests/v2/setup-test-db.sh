@@ -26,7 +26,7 @@ export GT_DB_NAME="$DB_NAME"
 export GT_DB_USER="$DB_USER"
 export GT_DB_PASS="${TEST_DB_PASS:-}"
 
-php -d display_errors=1 "$PROJECT_ROOT/database/migrate.php" > /dev/null
+php -d display_errors=1 "$PROJECT_ROOT/database/migrate.php"
 
 # Seed: create test user with known password (test_password). The
 # baseline migration also seeds an admin/admin user (users table was
