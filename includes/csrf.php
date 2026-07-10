@@ -1,7 +1,13 @@
 <?php
 /**
  * CSRF Protection Helper Functions
+ *
+ * isAdmin() / requireAdmin() moved to includes/auth.php in Phase 2a.
+ * Any legacy caller that included csrf.php expecting those functions
+ * still works — we re-export them via the require_once below.
  */
+
+require_once __DIR__ . '/auth.php';
 
 /**
  * Generate a CSRF token and store it in session
@@ -29,30 +35,3 @@ function validateCsrfToken($token) {
     }
     return hash_equals($_SESSION['csrf_token'], $token);
 }
-
-/**
- * Check if user is admin
- */
-function isAdmin() {
-    return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
-}
-
-/**
- * Require admin role - redirects if not admin
- */
-function requireAdmin() {
-    if (!isAdmin()) {
-        if (strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false) {
-            // API context - return JSON
-            header('Content-Type: application/json');
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'Admin access required']);
-            exit;
-        } else {
-            // Page context - redirect
-            header('Location: dashboard.php');
-            exit;
-        }
-    }
-}
-
