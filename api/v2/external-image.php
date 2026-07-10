@@ -1,38 +1,42 @@
 <?php
 /**
- * GET /api/v2/external-image.php?url=<https url>&game_id=<id>&type=front|back
+ * POST /api/v2/external-image.php
+ *   Body: url=<https url>&game_id=<id>&type=front|back
  *
- * Thin wrapper around v1's download-external-image.php that uses Bearer-token
- * auth instead of session auth. The v1 file's logic (validating the URL,
- * downloading via curl, saving locally) is reused by injecting the
- * authenticated user into the session before requiring it.
+ * Downloads an external cover image, saves it under uploads/covers/,
+ * and optionally updates games.{front|back}_cover_image for the
+ * authenticated user's game row.
+ *
+ * All logic lives in includes/external-image-service.php — this file
+ * is the Bearer-token → service-call adapter. No session-faking, no
+ * `require` of a v1 file (removed in Phase 2c).
  */
 require_once __DIR__ . '/_helpers.php';
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/_auth.php';
+require_once __DIR__ . '/../../includes/external-image-service.php';
 
 $userId = v2_require_auth($pdo);
 
-// Validate game_id ownership before delegating to v1 (which doesn't check).
-$gameId = (int)($_GET['game_id'] ?? $_POST['game_id'] ?? 0);
-if ($gameId > 0) {
-    $check = $pdo->prepare("SELECT id FROM games WHERE id = ? AND user_id = ?");
-    $check->execute([$gameId, $userId]);
-    if (!$check->fetch()) {
-        v2_error('not_found', 'Game not found', 404);
-    }
+// Accept POST (v1-compatible) and GET (backwards-compat with any caller
+// that still uses GET — but the service enforces the same auth checks).
+$imageUrl = $_POST['url']     ?? $_GET['url']     ?? '';
+$gameId   = isset($_POST['game_id']) ? (int)$_POST['game_id']
+          : (isset($_GET['game_id']) ? (int)$_GET['game_id'] : null);
+$type     = $_POST['type']    ?? $_GET['type']    ?? 'front';
+
+$result = gt_download_and_save_cover($pdo, $userId, (string)$imageUrl, $gameId, (string)$type);
+
+if (!$result['ok']) {
+    v2_error($result['code'], $result['message'], $result['status']);
 }
 
-// The v1 endpoint reads $_SESSION['user_id'] / $_SESSION['username'].
-// Populate them so the v1 logic accepts the request.
-$stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
-$stmt->execute([$userId]);
-$username = $stmt->fetchColumn();
-$_SESSION['user_id']  = $userId;
-$_SESSION['username'] = $username;
-
-// The v1 file expects POST or GET; both work. It writes its own JSON
-// response and exits, so we install a buffer that re-shapes its flat
-// {"success": ...} payload into a v2 envelope before flushing.
-v2_wrap_v1_response();
-require __DIR__ . '/../download-external-image.php';
+$data = [
+    'filename' => $result['filename'],
+    'url'      => $result['url'],
+    'game_id'  => $result['game_id'],
+];
+if (isset($result['warning'])) {
+    $data['warning'] = $result['warning'];
+}
+v2_ok($data);

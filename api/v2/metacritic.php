@@ -2,20 +2,22 @@
 /**
  * GET /api/v2/metacritic.php?title=<title>&platform=<platform>
  *
- * Thin Bearer-auth wrapper around the v1 metacritic endpoint.
+ * Metacritic auto-fetch is no longer supported (every free source we
+ * tried broke on a redesign or got paywalled — see api/metacritic.php
+ * for the story). This endpoint stays so existing callers don't 404;
+ * it always returns an "unavailable" error the client can gracefully
+ * skip past.
+ *
+ * No session-faking, no `require` of the v1 file (removed in Phase 2c).
  */
 require_once __DIR__ . '/_helpers.php';
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/_auth.php';
 
-$userId = v2_require_auth($pdo);
+v2_require_auth($pdo);
 
-$stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
-$stmt->execute([$userId]);
-$username = $stmt->fetchColumn();
-$_SESSION['user_id']  = $userId;
-$_SESSION['username'] = $username;
-
-// v1 emits a flat {"success": ..., ...} payload. Reshape to v2 envelope.
-v2_wrap_v1_response();
-require __DIR__ . '/../metacritic.php';
+v2_error(
+    'unavailable',
+    'Metacritic auto-fetch is no longer supported — please enter the score manually.',
+    200
+);
