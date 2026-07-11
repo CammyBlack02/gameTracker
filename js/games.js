@@ -12,7 +12,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const isUserProfilePage = window.IS_USER_PROFILE_PAGE || window.location.pathname.includes('user-profile.php');
     
     if (isUserProfilePage) {
-        console.log('User profile page detected - skipping auto-loadGames');
         return; // Exit early, don't run any setup
     }
     
@@ -47,16 +46,11 @@ let isLoadingGames = false;
 async function loadGames() {
     // Don't load games on user profile page
     if (window.IS_USER_PROFILE_PAGE || window.location.pathname.includes('user-profile.php')) {
-        console.log('loadGames: Blocked on user profile page', {
-            IS_USER_PROFILE_PAGE: window.IS_USER_PROFILE_PAGE,
-            pathname: window.location.pathname
-        });
         return;
     }
     
     // Prevent duplicate calls
     if (isLoadingGames) {
-        console.log('loadGames: Already loading, skipping duplicate call');
         return;
     }
     
@@ -107,7 +101,6 @@ async function loadGames() {
                 // Add games from this page
                 if (data.games && data.games.length > 0) {
                     allGames = allGames.concat(data.games);
-                    console.log(`Loaded page ${page}: ${data.games.length} games (total so far: ${allGames.length})`);
                 }
                 
                 // Check if there are more pages
@@ -124,7 +117,6 @@ async function loadGames() {
         
         // Expose to window for spin wheel
         window.allGames = allGames;
-        console.log('Loaded all games:', allGames.length);
         
         // Display all games first, then update filters (which may apply saved filters)
         displayGames(allGames);
@@ -170,8 +162,6 @@ function showSkeletonLoading(container) {
  */
 function displayGames(games) {
     const container = document.getElementById('gamesContainer');
-    console.log('displayGames called with', games.length, 'games');
-    console.log('Container:', container, 'ID:', container?.id);
     
     if (!container) {
         console.error('gamesContainer not found!');
@@ -189,15 +179,11 @@ function displayGames(games) {
         return;
     }
     
-    console.log('Current view:', currentView);
     if (currentView === 'coverflow') {
-        console.log('Displaying cover flow view');
         displayGamesCoverFlow(games, container);
     } else if (currentView === 'grid') {
-        console.log('Displaying grid view');
         displayGamesGridView(games, container);
     } else {
-        console.log('Displaying list view');
         displayGamesListView(games, container);
     }
 }
@@ -253,7 +239,6 @@ function getCaseType(platform) {
  * Display games in grid view
  */
 function displayGamesGridView(games, container) {
-    console.log('displayGridView called with container:', container, 'ID:', container?.id);
     container.className = 'games-container grid-view';
     const html = games.map(game => {
         const caseType = getCaseType(game.platform);
@@ -278,9 +263,7 @@ function displayGamesGridView(games, container) {
         `;
     }).join('');
     
-    console.log('Setting innerHTML, HTML length:', html.length);
     container.innerHTML = html;
-    console.log('innerHTML set, container now has', container.children.length, 'children');
     
     // Detect and handle combined covers (very wide or tall images)
     // Also handle image load errors (e.g., truncated base64 data)
@@ -330,9 +313,7 @@ function displayGamesGridView(games, container) {
     });
     
     // Attach click handlers directly to each game card (only for games container)
-    console.log('About to attach handlers, container:', container, 'container.id:', container?.id);
     if (container && container.id === 'gamesContainer') {
-        console.log('Container is gamesContainer, proceeding...');
         
         // Remove any existing handlers from container
         const oldGridHandler = container._gameClickHandler;
@@ -348,27 +329,20 @@ function displayGamesGridView(games, container) {
         setTimeout(() => {
             // Attach handlers directly to each card
             const cards = container.querySelectorAll('.game-card[data-type="game"]');
-            console.log('Found', cards.length, 'game cards to attach handlers to');
             
             if (cards.length === 0) {
                 console.error('No game cards found! Container HTML:', container.innerHTML.substring(0, 200));
             }
             
-            cards.forEach((card, index) => {
+            cards.forEach((card) => {
                 // Remove any existing handlers by cloning
                 const newCard = card.cloneNode(true);
                 card.parentNode.replaceChild(newCard, card);
-                
-                // Verify the card has the right attributes
-                console.log(`Card ${index}: id=${newCard.dataset.id}, type=${newCard.dataset.type}`);
-                
+
                 // Add click handler
                 newCard.addEventListener('click', function(e) {
-                    console.log('Game card clicked!', 'ID:', this.dataset.id, 'Type:', this.dataset.type);
-                    
                     // Don't prevent if clicking on buttons or links inside
                     if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a') || e.target.closest('button')) {
-                        console.log('Click was on a link/button, ignoring');
                         return;
                     }
                     
@@ -376,7 +350,6 @@ function displayGamesGridView(games, container) {
                     e.stopPropagation();
                     const gameId = this.dataset.id;
                     if (gameId && this.dataset.type === 'game') {
-                        console.log('Navigating to game-detail.php?id=' + gameId);
                         window.location.href = `game-detail.php?id=${gameId}`;
                     } else {
                         console.error('Invalid card data:', {gameId, type: this.dataset.type});
@@ -384,7 +357,6 @@ function displayGamesGridView(games, container) {
                 });
             });
             
-            console.log('Game card handlers attached to', cards.length, 'cards');
         }, 10);
     } else {
         console.error('Container is NOT gamesContainer!', container?.id);
@@ -744,26 +716,15 @@ function flipCoverFlow() {
     // Check if back cover exists
     const backFace = centerItem.querySelector('.coverflow-cover-back');
     if (!backFace) {
-        console.log('No back cover found');
         return;
     }
-    
-    // Debug: Check if back cover image exists
-    const backImg = backFace.querySelector('img');
-    if (backImg) {
-        console.log('Back cover image src:', backImg.src);
-        console.log('Back cover image complete:', backImg.complete);
-        console.log('Back cover image naturalWidth:', backImg.naturalWidth);
-    }
-    
+
     coverFlowFlipped = !coverFlowFlipped;
     
     if (coverFlowFlipped) {
         coverInner.classList.add('flipped');
-        console.log('Flipped - back should be visible');
     } else {
         coverInner.classList.remove('flipped');
-        console.log('Unflipped - front should be visible');
     }
 }
 
@@ -819,9 +780,7 @@ function displayGamesListView(games, container) {
     `;
     
     // Add click handler for list view rows (only for games container)
-    console.log('Setting up list view handler, container.id:', container?.id);
     if (container && container.id === 'gamesContainer') {
-        console.log('Container is gamesContainer for list view');
         // Remove any existing click handlers first
         const oldHandler = container._gameListClickHandler;
         if (oldHandler) {
@@ -1080,12 +1039,9 @@ function setupCoverImageFetch() {
             fetchBtn.textContent = 'Fetching...';
             
             try {
-                console.log('Fetching cover for:', title, platform);
                 const url = `api/cover-image.php?title=${encodeURIComponent(title)}&platform=${encodeURIComponent(platform || '')}`;
-                console.log('Fetching from:', url);
                 
                 const response = await fetch(url);
-                console.log('Response status:', response.status, response.statusText);
                 
                 if (!response.ok) {
                     const text = await response.text();
@@ -1094,10 +1050,8 @@ function setupCoverImageFetch() {
                 }
                 
                 const data = await response.json();
-                console.log('Cover API response:', data);
                 
                 if (data.success && data.image_url) {
-                    console.log('Image URL found:', data.image_url);
                     // Store the URL directly instead of downloading
                     const previewId = 'addFrontCoverPreview';
                     document.getElementById(previewId).innerHTML = 
@@ -1125,13 +1079,10 @@ function setupCoverImageFetch() {
  */
 async function downloadAndUploadCover(imageUrl, type) {
     try {
-        console.log('Downloading cover image from:', imageUrl);
         // First, download the image via our PHP proxy
         const url = `api/download-cover.php?url=${encodeURIComponent(imageUrl)}`;
-        console.log('Download API URL:', url);
         
         const response = await fetch(url);
-        console.log('Download response status:', response.status);
         
         if (!response.ok) {
             const text = await response.text();
@@ -1140,10 +1091,8 @@ async function downloadAndUploadCover(imageUrl, type) {
         }
         
         const data = await response.json();
-        console.log('Download API response:', data);
         
         if (data.success && data.filename) {
-            console.log('Image uploaded successfully:', data.filename);
             const previewId = type === 'front' ? 'addFrontCoverPreview' : 'addBackCoverPreview';
             document.getElementById(previewId).innerHTML = 
                 `<img src="uploads/covers/${data.filename}" alt="Cover" style="max-width: 200px;">`;
@@ -1183,12 +1132,9 @@ function setupAddFormFetching() {
             fetchPriceBtn.textContent = 'Fetching...';
             
             try {
-                console.log('Fetching price for:', title, platform);
                 const url = `api/pricecharting.php?title=${encodeURIComponent(title)}&platform=${encodeURIComponent(platform)}`;
-                console.log('Fetching from:', url);
                 
                 const response = await fetch(url);
-                console.log('Response status:', response.status, response.statusText);
                 
                 if (!response.ok) {
                     const text = await response.text();
@@ -1197,10 +1143,8 @@ function setupAddFormFetching() {
                 }
                 
                 const data = await response.json();
-                console.log('Price API response:', data);
                 
                 if (data.success && data.price) {
-                    console.log('Price found:', data.price);
                     document.getElementById('addPricechartingPrice').value = data.price;
                     showNotification('Price fetched successfully', 'success');
                 } else {
@@ -1319,7 +1263,6 @@ function setupAddFormUrlInputs() {
                         // Combined covers are usually wider (aspect ratio > 1.3) or taller (aspect ratio < 0.7)
                         // This is just for reference, button is already shown
                         if (aspectRatio > 1.3 || aspectRatio < 0.7) {
-                            console.log('Image appears to be a combined cover (aspect ratio:', aspectRatio.toFixed(2), ')');
                         }
                     };
                     img.onerror = function() {
@@ -1894,17 +1837,6 @@ function setupEditGameForm() {
             };
             
             try {
-                // Debug: Log cover image data being sent
-                if (formData.front_cover_image) {
-                    const frontCoverPreview = formData.front_cover_image.substring(0, 100);
-                    console.log('Saving front cover image:', {
-                        type: formData.front_cover_image.startsWith('data:') ? 'base64' : 
-                              formData.front_cover_image.startsWith('http') ? 'external URL' : 'local file',
-                        preview: frontCoverPreview,
-                        length: formData.front_cover_image.length
-                    });
-                }
-                
                 const response = await fetch('api/games.php?action=update', {
                     method: 'POST',
                     headers: {
@@ -2191,7 +2123,6 @@ function setupEditFormUrlInputs() {
                         // Combined covers are usually wider (aspect ratio > 1.3) or taller (aspect ratio < 0.7)
                         // This is just for reference, button is already shown
                         if (aspectRatio > 1.3 || aspectRatio < 0.7) {
-                            console.log('Image appears to be a combined cover (aspect ratio:', aspectRatio.toFixed(2), ')');
                         }
                     };
                     img.onerror = function() {
