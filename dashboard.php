@@ -1,4 +1,8 @@
-<?php require_once __DIR__ . '/includes/auth.php'; requireUser(); ?>
+<?php
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/vite.php';
+requireUser();
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -549,7 +553,7 @@
     <script src="js/filters.js"></script>
     <script src="js/items.js"></script>
     <script src="js/add-item.js"></script>
-    <script src="js/spin-wheel.js"></script>
+    <?php echo vite_asset('js/spin-wheel.js'); ?>
     <script>
         // Tab switching
         /**
