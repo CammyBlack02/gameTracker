@@ -16,6 +16,31 @@ set -euo pipefail
 # Move to the repo root regardless of where this is invoked from
 cd "$(dirname "$0")/.."
 
+# Preflight: Node/npm on the VM. First deploy after phase 4e needs these.
+if [ -f package.json ]; then
+    for cmd in node npm; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            cat <<EOF >&2
+==> $cmd not installed. Install with:
+
+  Debian/Ubuntu:  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - \\
+                  && sudo apt-get install -y nodejs
+  RHEL/Alma:      curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo -E bash - \\
+                  && sudo dnf install -y nodejs
+
+Node >= 18 required. Rerun this script when ready.
+EOF
+            exit 1
+        fi
+    done
+
+    node_major=$(node -p 'process.versions.node.split(".")[0]')
+    if [ "$node_major" -lt 18 ]; then
+        echo "==> Node $node_major installed but >= 18 required. Upgrade before continuing." >&2
+        exit 1
+    fi
+fi
+
 echo "==> git pull"
 git pull --ff-only
 
