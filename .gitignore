@@ -45,6 +45,9 @@ logs/
 *.backup
 *_backup.*
 
+# Node dev deps (phase 4c: ESLint + Prettier tooling, not shipped)
+node_modules/
+
 # Security - don't commit these
 php-security.ini
 .env
