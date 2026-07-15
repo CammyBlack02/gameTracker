@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/vite.php';
 requireUser();
 ?>
@@ -7,6 +8,7 @@ requireUser();
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="<?php echo htmlspecialchars(getCsrfToken()); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>Game Tracker - Dashboard</title>
