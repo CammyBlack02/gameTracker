@@ -121,6 +121,8 @@ if (!$profileUserId) {
     <script src="js/main.js"></script>
     
     <script src="js/api.js"></script>
+    
+    <script src="js/utils.js"></script>
     <script src="js/user-profile-init.js"></script>
     <script src="js/image-split.js"></script>
     <script src="js/forms/game-form.js"></script>
