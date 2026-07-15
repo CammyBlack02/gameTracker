@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 $userId = requireUser();
 
 header('Content-Type: application/json');
@@ -12,6 +13,7 @@ header('Content-Type: application/json');
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
 }
+requireCsrfToken();
 
 $userId = $_SESSION['user_id'];
 
