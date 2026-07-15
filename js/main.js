@@ -30,9 +30,8 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 async function checkAuth() {
     try {
-        const response = await fetch('api/auth.php?action=check');
-        const data = await response.json();
-        
+        const data = await apiGet('api/auth.php?action=check');
+
         if (!data.authenticated) {
             window.location.href = 'index.php';
         }
@@ -82,9 +81,8 @@ function updateDarkModeIcon(isDark) {
 async function handleLogout() {
     if (confirm('Are you sure you want to logout?')) {
         try {
-            const response = await fetch('api/auth.php?action=logout');
-            const data = await response.json();
-            
+            const data = await apiGet('api/auth.php?action=logout');
+
             if (data.success) {
                 window.location.href = 'index.php';
             }

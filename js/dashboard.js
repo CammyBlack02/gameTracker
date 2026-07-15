@@ -93,8 +93,7 @@ if (savedTab && (savedTab === 'games' || savedTab === 'consoles' || savedTab ===
 // Load background image on page load
 async function loadBackgroundImage() {
     try {
-        const response = await fetch('api/settings.php?action=get');
-        const data = await response.json();
+        const data = await apiGet('api/settings.php?action=get');
 
         if (data.success && data.settings.background_image) {
             document.body.style.backgroundImage = `url(uploads/${data.settings.background_image})`;

@@ -29,9 +29,8 @@ async function loadCompletions() {
     if (status !== 'all') params.append('status', status);
     
     try {
-        const response = await fetch(`api/completions.php?action=list&${params.toString()}`);
-        const data = await response.json();
-        
+        const data = await apiGet(`api/completions.php?action=list&${params.toString()}`);
+
         if (data.success) {
             allCompletions = data.completions;
             displayCompletions();
@@ -50,9 +49,8 @@ async function loadCompletions() {
 async function loadGames() {
     try {
         // Load a reasonable number of games for platform list (not all games)
-        const response = await fetch('api/games.php?action=list&per_page=500');
-        const data = await response.json();
-        
+        const data = await apiGet('api/games.php?action=list&per_page=500');
+
         if (data.success) {
             allGames = data.games || [];
             updatePlatformList();
@@ -75,9 +73,8 @@ async function searchGamesForLinking(query, platform = null) {
             // We'll filter by platform in the matching logic
         }
         
-        const response = await fetch(url);
-        const data = await response.json();
-        
+        const data = await apiGet(url);
+
         if (data.success && data.games) {
             // Filter games by query on client side (more efficient than loading all)
             const normalizedQuery = normalizeTitle(query);
@@ -314,9 +311,8 @@ async function editCompletion(id) {
     currentEditingId = id;
     
     try {
-        const response = await fetch(`api/completions.php?action=get&id=${id}`);
-        const data = await response.json();
-        
+        const data = await apiGet(`api/completions.php?action=get&id=${id}`);
+
         if (data.success) {
             const completion = data.completion;
             const modal = document.getElementById('completionModal');
@@ -380,16 +376,8 @@ async function saveCompletion() {
     }
     
     try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
-        
-        const result = await response.json();
-        
+        const result = await apiPostJson(url, data);
+
         if (result.success) {
             hideModal('completionModal');
             loadCompletions();
@@ -605,19 +593,11 @@ async function linkCompletion(completionId) {
  */
 async function linkCompletionToGame(completionId, gameId) {
     try {
-        const response = await fetch('api/completions.php?action=link', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                completion_id: completionId,
-                game_id: gameId
-            })
+        const data = await apiPostJson('api/completions.php?action=link', {
+            completion_id: completionId,
+            game_id: gameId
         });
-        
-        const data = await response.json();
-        
+
         if (data.success) {
             loadCompletions();
             showNotification('Completion linked successfully', 'success');
@@ -639,9 +619,8 @@ async function deleteCompletion(id) {
     }
     
     try {
-        const response = await fetch(`api/completions.php?action=delete&id=${id}`);
-        const data = await response.json();
-        
+        const data = await apiGet(`api/completions.php?action=delete&id=${id}`);
+
         if (data.success) {
             loadCompletions();
             showNotification('Completion deleted successfully', 'success');
@@ -662,8 +641,7 @@ function setupLogout() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async function() {
             try {
-                const response = await fetch('api/auth.php?action=logout');
-                const data = await response.json();
+                const data = await apiGet('api/auth.php?action=logout');
                 if (data.success) {
                     window.location.href = 'index.php';
                 }

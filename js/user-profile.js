@@ -59,8 +59,7 @@ document.querySelectorAll('.tab-button').forEach(btn => {
 
 async function loadUserInfo() {
     try {
-        const response = await fetch('api/admin.php?action=list');
-        const data = await response.json();
+        const data = await apiGet('api/admin.php?action=list');
 
         if (data.success) {
             const user = data.users.find(u => u.id == profileUserId);
@@ -87,8 +86,7 @@ async function loadUserInfo() {
 
 async function loadUserGames() {
     try {
-        const response = await fetch(`api/games.php?action=list&user_id=${profileUserId}&page=1&per_page=500`);
-        const data = await response.json();
+        const data = await apiGet(`api/games.php?action=list&user_id=${profileUserId}&page=1&per_page=500`);
 
         if (data.success && data.games) {
             // Set allGames so filters work correctly, but prevent loadGames from being called
@@ -127,8 +125,7 @@ async function loadUserGames() {
 
 async function loadUserItems(category) {
     try {
-        const response = await fetch(`api/items.php?action=list&user_id=${profileUserId}&category=${category}`);
-        const data = await response.json();
+        const data = await apiGet(`api/items.php?action=list&user_id=${profileUserId}&category=${category}`);
 
         if (data.success && data.items) {
             const container = document.getElementById('gamesContainer');

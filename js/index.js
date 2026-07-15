@@ -16,12 +16,7 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
     formData.append('password', password);
 
     try {
-        const response = await fetch('api/auth.php?action=login', {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
+        const data = await apiPostForm('api/auth.php?action=login', formData);
 
         if (data.success) {
             window.location.href = 'dashboard.php';
