@@ -149,6 +149,7 @@
     <script src="js/api.js"></script>
     <script src="js/image-split.js"></script>
     <script src="js/games.js"></script>
+    <script src="js/render/coverflow.js"></script>
     <script src="js/items.js"></script>
     <script src="js/item-detail.js"></script>
     <?php include __DIR__ . '/includes/footer.php'; ?>
