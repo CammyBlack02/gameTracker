@@ -145,6 +145,7 @@
     </div>
     
     <script src="js/main.js"></script>
+    <script src="js/image-split.js"></script>
     <script src="js/games.js"></script>
     <script src="js/items.js"></script>
     <script src="js/item-detail.js"></script>
