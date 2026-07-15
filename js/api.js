@@ -11,7 +11,29 @@
 // (fetch itself rejecting: DNS, offline, CORS) still throw and fall into
 // the caller's catch block.
 
+/**
+ * Read the current session's CSRF token from the meta tag rendered on
+ * every authenticated page. Returns undefined on pre-session pages
+ * (index.php / register.php); the api helpers still function — just
+ * without the header, which mutating endpoints will reject once
+ * server-side enforcement lands.
+ */
+function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : undefined;
+}
+
 async function apiRequest(url, options = {}) {
+    // Inject X-CSRF-Token on mutating requests. Server-side enforcement
+    // rolls out endpoint-by-endpoint in phase 4h follow-ups — the header
+    // is safe to always send; unknown headers are ignored.
+    const method = (options.method || 'GET').toUpperCase();
+    if (method !== 'GET' && method !== 'HEAD') {
+        const token = getCsrfToken();
+        if (token) {
+            options.headers = { ...(options.headers || {}), 'X-CSRF-Token': token };
+        }
+    }
     const response = await fetch(url, options);
     // Some endpoints return non-2xx with a JSON error body; callers rely
     // on inspecting `data.success` / `data.message`, so pass the parsed
