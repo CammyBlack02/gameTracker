@@ -9,6 +9,7 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/external-image-service.php';
 
 $userId = requireUser();
@@ -21,6 +22,7 @@ header('Content-Type: application/json');
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
 }
+requireCsrfToken();
 
 $imageUrl = $_POST['url'] ?? '';
 $gameId   = isset($_POST['game_id']) ? (int)$_POST['game_id'] : null;

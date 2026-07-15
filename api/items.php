@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 $userId = requireUser();
 
 header('Content-Type: application/json');
@@ -117,6 +118,7 @@ function createItem() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -172,6 +174,7 @@ function updateItem() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     $data = json_decode(file_get_contents('php://input'), true);
     $id = $data['id'] ?? 0;
@@ -246,6 +249,7 @@ function deleteItem() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     $data = json_decode(file_get_contents('php://input'), true);
     $id = $data['id'] ?? 0;

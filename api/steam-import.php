@@ -23,6 +23,7 @@ try {
     
     // Session auth via the shared helper (returns JSON 401 on failure).
     require_once __DIR__ . '/../includes/auth.php';
+    require_once __DIR__ . '/../includes/csrf.php';
     $userId = requireUser();
     
     header('Content-Type: application/json');
@@ -145,6 +146,7 @@ function importSteamLibrary() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     // Get Steam credentials from settings
     $userId = $_SESSION['user_id'];
@@ -390,6 +392,7 @@ function deletePCGames() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     try {
         $userId = $_SESSION['user_id'];
