@@ -97,7 +97,9 @@ function gt_download_and_save_cover(
         }
     }
 
-    $filename = generateUniqueFilename('cover_' . time() . '_' . uniqid() . '.' . $extension, COVERS_DIR);
+    // Pass just "cover.<ext>" — generateUniqueFilename adds the _time_uniqid.
+    // Pre-uniquifying here caused the doubled-suffix bug (#63).
+    $filename = generateUniqueFilename('cover.' . $extension, COVERS_DIR);
     $targetPath = COVERS_DIR . $filename;
 
     if (!file_put_contents($targetPath, $imageData)) {
