@@ -1,9 +1,8 @@
 // Load background image on page load
 async function loadBackgroundImage() {
     try {
-        const response = await fetch('api/settings.php?action=get');
-        const data = await response.json();
-        
+        const data = await apiGet('api/settings.php?action=get');
+
         if (data.success && data.settings.background_image) {
             document.body.style.backgroundImage = `url(uploads/${data.settings.background_image})`;
             document.body.classList.add('custom-background');
@@ -29,9 +28,8 @@ async function loadItemDetail() {
     }
     
     try {
-        const response = await fetch(`api/items.php?action=get&id=${itemId}`);
-        const data = await response.json();
-        
+        const data = await apiGet(`api/items.php?action=get&id=${itemId}`);
+
         if (data.success) {
             displayItemDetail(data.item);
         } else {
@@ -172,16 +170,8 @@ document.getElementById('deleteItemBtn')?.addEventListener('click', async () => 
     }
     
     try {
-        const response = await fetch('api/items.php?action=delete', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ id: window.currentItem.id })
-        });
-        
-        const data = await response.json();
-        
+        const data = await apiPostJson('api/items.php?action=delete', { id: window.currentItem.id });
+
         if (data.success) {
             showNotification('Item deleted successfully', 'success');
             setTimeout(() => {
@@ -308,18 +298,12 @@ if (frontImageInput) {
             
             try {
                 console.log('Sending upload request...');
-                const response = await fetch('api/upload.php', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                console.log('Upload response status:', response.status);
-                const data = await response.json();
+                const data = await apiPostForm('api/upload.php', formData);
                 console.log('Upload response data:', data);
-                
+
                 if (data.success) {
                     // Update the preview
-                    document.getElementById('itemFrontImagePreview').innerHTML = 
+                    document.getElementById('itemFrontImagePreview').innerHTML =
                         `<img src="uploads/covers/${data.image_path}" alt="Front Image" style="max-width: 200px;">`;
                     
                     // Store the image path for form submission
@@ -367,18 +351,12 @@ if (backImageInput) {
             
             try {
                 console.log('Sending upload request...');
-                const response = await fetch('api/upload.php', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                console.log('Upload response status:', response.status);
-                const data = await response.json();
+                const data = await apiPostForm('api/upload.php', formData);
                 console.log('Upload response data:', data);
-                
+
                 if (data.success) {
                     // Update the preview
-                    document.getElementById('itemBackImagePreview').innerHTML = 
+                    document.getElementById('itemBackImagePreview').innerHTML =
                         `<img src="uploads/covers/${data.image_path}" alt="Back Image" style="max-width: 200px;">`;
                     
                     // Store the image path for form submission
@@ -466,18 +444,9 @@ document.getElementById('editItemForm')?.addEventListener('submit', async functi
     console.log('Current item back_image:', window.currentItem?.back_image);
     
     try {
-        const response = await fetch('api/items.php?action=update', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        });
-        
-        console.log('Update response status:', response.status);
-        const data = await response.json();
+        const data = await apiPostJson('api/items.php?action=update', formData);
         console.log('Update response data:', data);
-        
+
         if (data.success) {
             showNotification('Item updated successfully', 'success');
             hideModal('editItemModal');

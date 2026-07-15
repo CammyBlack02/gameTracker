@@ -17,8 +17,7 @@ document.getElementById('logoutBtn').addEventListener('click', async function() 
 
 async function loadUsers() {
     try {
-        const response = await fetch('api/admin.php?action=list');
-        const data = await response.json();
+        const data = await apiGet('api/admin.php?action=list');
 
         if (data.success) {
             displayUsers(data.users);

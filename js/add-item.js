@@ -76,16 +76,8 @@ function setupAddItemForm() {
             }
             
             try {
-                const response = await fetch('api/items.php?action=create', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
-                });
-                
-                const data = await response.json();
-                
+                const data = await apiPostJson('api/items.php?action=create', formData);
+
                 if (data.success) {
                     showNotification('Item added successfully!', 'success');
                     hideModal('addItemModal');
@@ -234,13 +226,8 @@ async function uploadItemImage(fileInput, type) {
     formData.append('type', 'cover');
     
     try {
-        const response = await fetch('api/upload.php', {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
+        const data = await apiPostForm('api/upload.php', formData);
+
         if (data.success) {
             const previewId = type === 'front' ? 'addItemFrontImagePreview' : 'addItemBackImagePreview';
             document.getElementById(previewId).innerHTML = 

@@ -958,16 +958,8 @@ function setupAddGameForm() {
             };
             
             try {
-                const response = await fetch('api/games.php?action=create', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
-                });
-                
-                const data = await response.json();
-                
+                const data = await apiPostJson('api/games.php?action=create', formData);
+
                 if (data.success) {
                     showNotification('Game added successfully!', 'success');
                     form.reset();
@@ -1357,24 +1349,19 @@ async function uploadAddFormCoverImage(fileInput, type) {
     formData.append('type', 'cover');
     
     try {
-        const response = await fetch('api/upload.php', {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
+        const data = await apiPostForm('api/upload.php', formData);
+
         if (data.success) {
             const previewId = type === 'front' ? 'addFrontCoverPreview' : 'addBackCoverPreview';
-            document.getElementById(previewId).innerHTML = 
+            document.getElementById(previewId).innerHTML =
                 `<img src="${data.url}" alt="${type} cover" style="max-width: 200px;">`;
-            
+
             if (type === 'front') {
                 window.addGameFrontCover = data.image_path;
             } else {
                 window.addGameBackCover = data.image_path;
             }
-            
+
             showNotification('Image uploaded successfully', 'success');
         } else {
             showNotification(data.message || 'Failed to upload image', 'error');
@@ -1453,9 +1440,8 @@ async function loadGameDetail() {
     }
     
     try {
-        const response = await fetch(`api/games.php?action=get&id=${gameId}`);
-        const data = await response.json();
-        
+        const data = await apiGet(`api/games.php?action=get&id=${gameId}`);
+
         if (data.success) {
             displayGameDetail(data.game);
         } else {
@@ -1837,16 +1823,8 @@ function setupEditGameForm() {
             };
             
             try {
-                const response = await fetch('api/games.php?action=update', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
-                });
-                
-                const data = await response.json();
-                
+                const data = await apiPostJson('api/games.php?action=update', formData);
+
                 if (data.success) {
                     showNotification('Game updated successfully!', 'success');
                     hideModal('editGameModal');
@@ -2675,18 +2653,13 @@ async function uploadCoverImage(fileInput, type) {
     formData.append('type', 'cover');
     
     try {
-        const response = await fetch('api/upload.php', {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
+        const data = await apiPostForm('api/upload.php', formData);
+
         if (data.success) {
             const previewId = type === 'front' ? 'frontCoverPreview' : 'backCoverPreview';
-            document.getElementById(previewId).innerHTML = 
+            document.getElementById(previewId).innerHTML =
                 `<img src="${data.url}" alt="${type} cover" style="max-width: 200px;">`;
-            
+
             // Update game data - store the full path, not just filename
             if (type === 'front') {
                 window.currentGame.front_cover_image = data.image_path; // This is just the filename
@@ -2725,13 +2698,8 @@ async function uploadExtraImage(fileInput) {
     formData.append('game_id', window.currentGame.id);
     
     try {
-        const response = await fetch('api/upload.php', {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
+        const data = await apiPostForm('api/upload.php', formData);
+
         if (data.success) {
             // Reload game detail to show new image
             loadGameDetail();
@@ -2778,9 +2746,8 @@ function setupPriceFetching() {
             fetchBtn.textContent = 'Fetching...';
             
             try {
-                const response = await fetch(`api/pricecharting.php?title=${encodeURIComponent(title)}&platform=${encodeURIComponent(platform)}`);
-                const data = await response.json();
-                
+                const data = await apiGet(`api/pricecharting.php?title=${encodeURIComponent(title)}&platform=${encodeURIComponent(platform)}`);
+
                 if (data.success && data.price) {
                     document.getElementById('editPricechartingPrice').value = data.price;
                     showNotification('Price fetched successfully', 'success');
@@ -2813,9 +2780,8 @@ function setupDeleteGame() {
             
             if (confirm(`Are you sure you want to delete "${window.currentGame.title}"? This action cannot be undone.`)) {
                 try {
-                    const response = await fetch(`api/games.php?action=delete&id=${window.currentGame.id}`);
-                    const data = await response.json();
-                    
+                    const data = await apiGet(`api/games.php?action=delete&id=${window.currentGame.id}`);
+
                     if (data.success) {
                         showNotification('Game deleted successfully', 'success');
                         setTimeout(() => {
@@ -2926,9 +2892,8 @@ async function setupHeroStats() {
     
     try {
         // Fetch stats
-        const response = await fetch('api/stats.php?action=get');
-        const data = await response.json();
-        
+        const data = await apiGet('api/stats.php?action=get');
+
         if (data.success && data.stats) {
             const stats = data.stats;
             
