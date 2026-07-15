@@ -125,6 +125,8 @@ if (!$profileUserId) {
     <script src="js/image-split.js"></script>
     <script src="js/games.js"></script>
     <script src="js/render/coverflow.js"></script>
+    <script src="js/render/grid.js"></script>
+    <script src="js/render/list.js"></script>
     <script src="js/items.js"></script>
     <script src="js/filters.js"></script>
     <script src="js/user-profile.js"></script>
