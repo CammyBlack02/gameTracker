@@ -109,19 +109,25 @@ async function loadGames() {
                     allGames = allGames.concat(data.games);
                 }
 
-                // Render + refresh filters after every page so the grid
-                // populates progressively. Filters re-apply saved state
-                // each time; harmless when they're stable across pages.
-                window.allGames = allGames;
-                displayGames(allGames);
-                updateFilters();
-
+                // Determine if more pages come after this one BEFORE
+                // deciding whether to render.
                 if (data.pagination) {
                     hasMore = data.pagination.has_more === true && page < data.pagination.total_pages;
-                    page++;
                 } else {
                     hasMore = false;
                 }
+
+                // Render only on the first page (fast paint) and after the
+                // final page (settled full grid). Skipping the middle pages
+                // avoids the mid-load stutter that comes from repeated
+                // innerHTML replacements as more games stream in.
+                if (page === 1 || !hasMore) {
+                    window.allGames = allGames;
+                    displayGames(allGames);
+                    updateFilters();
+                }
+
+                page++;
             } else {
                 throw new Error(data.message || 'Failed to load games');
             }
