@@ -87,6 +87,8 @@ requireAdmin();
     </div>
     
     <script src="js/main.js"></script>
+    
+    <script src="js/api.js"></script>
     <script src="js/admin-dashboard.js"></script>
     <style>
         .admin-section {

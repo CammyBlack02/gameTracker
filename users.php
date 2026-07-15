@@ -30,6 +30,8 @@
     </div>
     
     <script src="js/main.js"></script>
+    
+    <script src="js/api.js"></script>
     <script src="js/users.js"></script>
     <style>
         .users-grid {
