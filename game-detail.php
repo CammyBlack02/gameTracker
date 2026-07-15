@@ -258,6 +258,7 @@
     <script src="js/api.js"></script>
     <script src="js/image-split.js"></script>
     <script src="js/games.js"></script>
+    <script src="js/render/coverflow.js"></script>
     <script src="js/game-detail.js"></script>
     <?php include __DIR__ . '/includes/footer.php'; ?>
 </body>
