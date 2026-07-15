@@ -598,7 +598,7 @@ function setupDeleteGame() {
             
             if (confirm(`Are you sure you want to delete "${window.currentGame.title}"? This action cannot be undone.`)) {
                 try {
-                    const data = await apiGet(`api/games.php?action=delete&id=${window.currentGame.id}`);
+                    const data = await apiPost(`api/games.php?action=delete&id=${window.currentGame.id}`);
 
                     if (data.success) {
                         showNotification('Game deleted successfully', 'success');

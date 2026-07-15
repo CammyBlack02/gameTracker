@@ -49,7 +49,7 @@ document.getElementById('backgroundForm').addEventListener('submit', async funct
 document.getElementById('removeBackgroundBtn').addEventListener('click', async function() {
     if (confirm('Are you sure you want to remove the background image?')) {
         try {
-            const data = await apiGet('api/settings.php?action=remove_background');
+            const data = await apiPost('api/settings.php?action=remove_background');
 
             if (data.success) {
                 showNotification('Background image removed', 'success');
