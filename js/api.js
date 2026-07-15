@@ -23,6 +23,10 @@ async function apiGet(url) {
     return apiRequest(url);
 }
 
+async function apiPost(url) {
+    return apiRequest(url, { method: 'POST' });
+}
+
 async function apiPostJson(url, body) {
     return apiRequest(url, {
         method: 'POST',
