@@ -255,27 +255,7 @@
     
     <script src="js/main.js"></script>
     <script src="js/games.js"></script>
-    <script>
-        // Load background image on page load
-        async function loadBackgroundImage() {
-            try {
-                const response = await fetch('api/settings.php?action=get');
-                const data = await response.json();
-                
-                if (data.success && data.settings.background_image) {
-                    document.body.style.backgroundImage = `url(uploads/${data.settings.background_image})`;
-                    document.body.classList.add('custom-background');
-                }
-            } catch (error) {
-                console.error('Error loading background:', error);
-            }
-        }
-        
-        loadBackgroundImage();
-        
-        // Setup dark mode toggle
-        setupDarkMode();
-    </script>
+    <script src="js/game-detail.js"></script>
     <?php include __DIR__ . '/includes/footer.php'; ?>
 </body>
 </html>
