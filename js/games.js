@@ -2235,73 +2235,15 @@ function setupImageSplitTool() {
     }
     
     async function performAutoSplit(imageUrl, context) {
-        // Remove _thumb from URL to get full-size image
-        let fullSizeUrl = imageUrl;
-        if (imageUrl.includes('_thumb')) {
-            fullSizeUrl = imageUrl.replace('_thumb', '');
-        }
-        
-        // Detect image source to determine split percentage
-        const isRedditImage = fullSizeUrl.includes('i.redd.it') || fullSizeUrl.includes('preview.redd.it');
-        const splitPercentage = isRedditImage ? 0.50 : 0.53; // Reddit: 50%, Covers Project: 53%
-        
-        // Check if URL is external (needs proxy)
-        const isExternalUrl = fullSizeUrl.startsWith('http://') || fullSizeUrl.startsWith('https://');
-        const proxyUrl = isExternalUrl ? `api/image-proxy.php?url=${encodeURIComponent(fullSizeUrl)}` : fullSizeUrl;
-        
-        // Load the image
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        
-        img.onload = async function() {
-            try {
-                // Create full resolution canvases
-                const frontCanvas = document.createElement('canvas');
-                const backCanvas = document.createElement('canvas');
-                
-                const imgWidth = img.width;
-                const imgHeight = img.height;
-                
-                // Vertical split at detected percentage
-                const splitX = Math.floor(imgWidth * splitPercentage);
-                
-                // Front cover (right side) - Full resolution
-                frontCanvas.width = imgWidth - splitX;
-                frontCanvas.height = imgHeight;
-                const frontCtx = frontCanvas.getContext('2d');
-                frontCtx.drawImage(img, splitX, 0, imgWidth - splitX, imgHeight, 0, 0, imgWidth - splitX, imgHeight);
-                
-                // Back cover (left side) - Full resolution
-                backCanvas.width = splitX;
-                backCanvas.height = imgHeight;
-                const backCtx = backCanvas.getContext('2d');
-                backCtx.drawImage(img, 0, 0, splitX, imgHeight, 0, 0, splitX, imgHeight);
-                
-                // Convert to data URLs
-                const frontDataUrl = frontCanvas.toDataURL('image/jpeg', 0.95);
-                const backDataUrl = backCanvas.toDataURL('image/jpeg', 0.95);
-                
-                // Store the split images
+        splitCoverImage(imageUrl, {
+            onSuccess: async ({ frontDataUrl, backDataUrl }) => {
                 await uploadSplitImages(frontDataUrl, backDataUrl, context);
-                
                 showNotification('Cover images auto-split successfully!', 'success');
-            } catch (error) {
-                console.error('Error performing auto split:', error);
-                showNotification('Error performing auto split', 'error');
-            }
-        };
-        
-        img.onerror = function() {
-            // If full-size fails, try the original URL
-            if (fullSizeUrl !== imageUrl) {
-                const fallbackProxyUrl = isExternalUrl ? `api/image-proxy.php?url=${encodeURIComponent(imageUrl)}` : imageUrl;
-                img.src = fallbackProxyUrl;
-            } else {
-                showNotification('Failed to load image for auto split', 'error');
-            }
-        };
-        
-        img.src = proxyUrl;
+            },
+            onError: (message) => {
+                showNotification(message, 'error');
+            },
+        });
     }
     
     function openSplitModal(imageUrl, context) {
