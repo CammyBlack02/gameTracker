@@ -43,12 +43,7 @@ document.getElementById('registerForm').addEventListener('submit', async functio
     formData.append('confirm_password', confirmPassword);
 
     try {
-        const response = await fetch('api/auth.php?action=register', {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
+        const data = await apiPostForm('api/auth.php?action=register', formData);
 
         if (data.success) {
             // Redirect to dashboard
