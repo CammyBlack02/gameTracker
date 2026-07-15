@@ -46,7 +46,10 @@ git pull --ff-only
 
 if [ -f package.json ]; then
     echo "==> npm ci (reproducible install)"
-    npm ci --omit=optional --no-audit --no-fund
+    # NOTE: do NOT pass --omit=optional. Rollup ships its platform-specific
+    # native binaries as optional deps (@rollup/rollup-linux-x64-gnu etc.),
+    # and Vite fails at build time if they're missing. See npm/cli#4828.
+    npm ci --no-audit --no-fund
 
     echo "==> npm run build (Vite bundles for js/dist)"
     npm run build
