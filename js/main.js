@@ -213,6 +213,30 @@ function escapeHtml(text) {
 }
 
 /**
+ * Tagged template that auto-escapes interpolated values for safe HTML
+ * assembly (phase 4i, Fable §3). Wraps escapeHtml() around every `${…}`.
+ *
+ *     const url = 'x"onerror=alert(1) "';
+ *     html`<img src="${url}">`
+ *     // -> '<img src="x&quot;onerror=alert(1) &quot;">'
+ *
+ * Attacker-controlled quotes can't break out of attribute values, and
+ * script-injection-via-attribute is closed. Use for any HTML string
+ * that gets assigned to innerHTML / outerHTML.
+ *
+ * Existing sites that use raw template literals with escapeHtml() calls
+ * mixed in continue to work — migration is incremental. Prefer this
+ * helper for new render code and when auditing existing hotspots.
+ */
+function html(strings, ...values) {
+    let result = strings[0];
+    for (let i = 0; i < values.length; i++) {
+        result += escapeHtml(values[i] == null ? '' : String(values[i])) + strings[i + 1];
+    }
+    return result;
+}
+
+/**
  * Get image URL — handles local paths, data: URIs, and external URLs
  * (proxied via api/image-proxy.php to dodge CORS + SSRF-gate them).
  * Priority: local files > external URLs (via proxy) > data URIs.
