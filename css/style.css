@@ -540,6 +540,14 @@ body.dark-mode .tab-button.active {
     animation: fadeInUp 0.5s ease-out backwards;
     display: flex;
     flex-direction: column;
+    /* Skip layout + paint for cards off-screen. With 800+ cards, this
+       turns the final "swap 50 cards for 883" render from an O(N)
+       layout thrash into an O(visible) one. contain-intrinsic-size
+       gives the browser a placeholder height so the scrollbar and
+       document height stay correct while off-screen cards are
+       collapsed. Chrome 98+, Safari 18+, FF 125+. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
 }
 
 .game-card:hover {
