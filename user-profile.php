@@ -123,6 +123,7 @@ if (!$profileUserId) {
     <script src="js/api.js"></script>
     <script src="js/user-profile-init.js"></script>
     <script src="js/image-split.js"></script>
+    <script src="js/forms/game-form.js"></script>
     <script src="js/games.js"></script>
     <script src="js/render/coverflow.js"></script>
     <script src="js/render/grid.js"></script>
