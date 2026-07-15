@@ -57,12 +57,12 @@ function getItemImageUrl(imagePath) {
 function displayItemDetail(item) {
     const container = document.getElementById('itemDetailContainer');
     
-    const frontImage = item.front_image 
-        ? `<img src="${getItemImageUrl(item.front_image)}" alt="Front Image" class="cover-image">`
+    const frontImage = item.front_image
+        ? `<img src="${escapeHtml(getItemImageUrl(item.front_image))}" alt="Front Image" class="cover-image">`
         : '<div class="cover-placeholder">No Front Image</div>';
-    
-    const backImage = item.back_image 
-        ? `<img src="${getItemImageUrl(item.back_image)}" alt="Back Image" class="cover-image">`
+
+    const backImage = item.back_image
+        ? `<img src="${escapeHtml(getItemImageUrl(item.back_image))}" alt="Back Image" class="cover-image">`
         : '<div class="cover-placeholder">No Back Image</div>';
     
     const extraImages = item.extra_images && item.extra_images.length > 0
@@ -213,8 +213,8 @@ function populateEditForm(item) {
     
     if (item.front_image) {
         const frontImageUrl = getItemImageUrl(item.front_image);
-        document.getElementById('itemFrontImagePreview').innerHTML = 
-            `<img src="${frontImageUrl}" alt="Front Image" style="max-width: 200px;">`;
+        document.getElementById('itemFrontImagePreview').innerHTML =
+            `<img src="${escapeHtml(frontImageUrl)}" alt="Front Image" style="max-width: 200px;">`;
         
         // Populate URL field if it's a URL
         const frontUrlInput = document.getElementById('editItemFrontImageUrl');
@@ -237,8 +237,8 @@ function populateEditForm(item) {
     }
     if (item.back_image) {
         const backImageUrl = getItemImageUrl(item.back_image);
-        document.getElementById('itemBackImagePreview').innerHTML = 
-            `<img src="${backImageUrl}" alt="Back Image" style="max-width: 200px;">`;
+        document.getElementById('itemBackImagePreview').innerHTML =
+            `<img src="${escapeHtml(backImageUrl)}" alt="Back Image" style="max-width: 200px;">`;
         
         // Populate URL field if it's a URL
         const backUrlInput = document.getElementById('editItemBackImageUrl');
@@ -477,7 +477,7 @@ function setupEditItemUrlInputs() {
                     new URL(url);
                     const preview = document.getElementById('itemFrontImagePreview');
                     if (preview) {
-                        preview.innerHTML = `<img src="${url}" alt="Front Image" style="max-width: 200px;" onerror="this.parentElement.innerHTML='<span style=\'color:red;\'>Invalid image URL</span>'">`;
+                        preview.innerHTML = `<img src="${escapeHtml(url)}" alt="Front Image" style="max-width: 200px;" onerror="this.parentElement.innerHTML='<span style=\'color:red;\'>Invalid image URL</span>'">`;
                     }
                     if (window.currentItem) {
                         window.currentItem.front_image = url;
@@ -542,7 +542,7 @@ function setupEditItemUrlInputs() {
                     new URL(url);
                     const preview = document.getElementById('itemBackImagePreview');
                     if (preview) {
-                        preview.innerHTML = `<img src="${url}" alt="Back Image" style="max-width: 200px;" onerror="this.parentElement.innerHTML='<span style=\'color:red;\'>Invalid image URL</span>'">`;
+                        preview.innerHTML = `<img src="${escapeHtml(url)}" alt="Back Image" style="max-width: 200px;" onerror="this.parentElement.innerHTML='<span style=\'color:red;\'>Invalid image URL</span>'">`;
                     }
                     if (window.currentItem) {
                         window.currentItem.back_image = url;
