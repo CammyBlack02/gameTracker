@@ -10,6 +10,7 @@
  */
 
 require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 // Check if running from command line
 $isCLI = (php_sapi_name() === 'cli');
@@ -179,6 +180,7 @@ if ($isCLI) {
     <html lang="en">
     <head>
         <meta charset="UTF-8">
+    <meta name="csrf-token" content="<?php echo htmlspecialchars(getCsrfToken()); ?>">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="robots" content="noindex, nofollow">
         <title>Change Admin Credentials</title>
