@@ -496,8 +496,10 @@ function downloadExternalImage($imageUrl, $gameId = null, $type = 'front') {
         }
     }
     
-    // Generate unique filename
-    $filename = generateUniqueFilename('cover_' . time() . '_' . uniqid() . '.' . $extension, COVERS_DIR);
+    // Generate unique filename. Pass just "cover.<ext>" so generateUniqueFilename
+    // appends ONE _time_uniqid — passing a pre-uniquified name caused a doubled
+    // suffix bug (issue #63): cover_TS1_HASH1_TS2_HASH2.jpg
+    $filename = generateUniqueFilename('cover.' . $extension, COVERS_DIR);
     $targetPath = COVERS_DIR . $filename;
     
     // Save image
