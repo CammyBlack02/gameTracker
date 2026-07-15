@@ -641,7 +641,7 @@ function setupLogout() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async function() {
             try {
-                const data = await apiGet('api/auth.php?action=logout');
+                const data = await apiPost('api/auth.php?action=logout');
                 if (data.success) {
                     window.location.href = 'index.php';
                 }
