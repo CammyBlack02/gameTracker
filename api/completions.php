@@ -22,6 +22,7 @@ try {
     
     // Session auth via the shared helper (returns JSON 401 on failure).
     require_once __DIR__ . '/../includes/auth.php';
+    require_once __DIR__ . '/../includes/csrf.php';
     $userId = requireUser();
     
     header('Content-Type: application/json');
@@ -160,6 +161,7 @@ function createCompletion() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -237,6 +239,7 @@ function updateCompletion() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     $data = json_decode(file_get_contents('php://input'), true);
     $id = $data['id'] ?? 0;
@@ -318,6 +321,7 @@ function deleteCompletion() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
 
     $id = $_GET['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];
@@ -356,6 +360,7 @@ function linkCompletion() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     $data = json_decode(file_get_contents('php://input'), true);
     $completionId = $data['completion_id'] ?? 0;

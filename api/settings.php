@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 $userId = requireUser();
 
 header('Content-Type: application/json');
@@ -49,6 +50,7 @@ function setBackgroundImage() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     if (!isset($_FILES['background_image'])) {
         sendJsonResponse(['success' => false, 'message' => 'No file uploaded'], 400);
@@ -99,6 +101,7 @@ function removeBackgroundImage() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
 
     $userId = $_SESSION['user_id'];
     
@@ -124,6 +127,7 @@ function setSteamCredentials() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     $data = json_decode(file_get_contents('php://input'), true);
     

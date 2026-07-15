@@ -50,6 +50,7 @@ try {
     
     // Session auth via the shared helper (returns JSON 401 on failure).
     require_once __DIR__ . '/../includes/auth.php';
+    require_once __DIR__ . '/../includes/csrf.php';
     $userId = requireUser();
     
     header('Content-Type: application/json');
@@ -356,6 +357,7 @@ function createGame() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -513,6 +515,7 @@ function updateGame() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     $data = json_decode(file_get_contents('php://input'), true);
     $id = $data['id'] ?? 0;
@@ -685,6 +688,7 @@ function deleteGame() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
 
     $id = $_GET['id'] ?? 0;
     $currentUserId = $_SESSION['user_id'];

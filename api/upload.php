@@ -13,6 +13,7 @@ ob_start();
 
 try {
     require_once __DIR__ . '/../includes/auth.php';
+    require_once __DIR__ . '/../includes/csrf.php';
     require_once __DIR__ . '/../includes/thumbnail.php';
 
     // Session auth via the shared helper (returns JSON 401 on failure).
@@ -29,6 +30,7 @@ try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
     }
+    requireCsrfToken();
     
     if (!isset($_FILES['image'])) {
         sendJsonResponse(['success' => false, 'message' => 'No file uploaded'], 400);
