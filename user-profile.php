@@ -119,6 +119,8 @@ if (!$profileUserId) {
     </div>
     
     <script src="js/main.js"></script>
+    
+    <script src="js/api.js"></script>
     <script src="js/user-profile-init.js"></script>
     <script src="js/image-split.js"></script>
     <script src="js/games.js"></script>

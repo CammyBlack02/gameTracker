@@ -224,6 +224,8 @@ if ($isCLI) {
         </div>
         
         <script src="js/main.js"></script>
+        
+        <script src="js/api.js"></script>
         <script src="js/change-admin-credentials.js"></script>
         <?php include __DIR__ . '/includes/footer.php'; ?>
     </body>
