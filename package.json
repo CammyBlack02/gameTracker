@@ -3,11 +3,13 @@
   "private": true,
   "description": "Dev tooling for the GameTracker web frontend (js/**). Not shipped or served — see docs/superpowers/plans/2026-07-10-phase4-frontend-roadmap.md.",
   "scripts": {
-    "lint": "eslint js/"
+    "lint": "eslint js/",
+    "build": "vite build"
   },
   "devDependencies": {
     "eslint": "^9.17.0",
     "globals": "^15.14.0",
-    "prettier": "^3.4.2"
+    "prettier": "^3.4.2",
+    "vite": "^6.0.7"
   }
 }
