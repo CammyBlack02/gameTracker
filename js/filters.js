@@ -134,6 +134,68 @@ function restoreFilterState() {
 }
 
 /**
+ * Repopulate the Platform + Genre dropdowns from the current `allGames`
+ * list, then restore any saved filter selection and re-run applyFilters.
+ * Called after games.js loads the collection, and by user-profile.js
+ * after loading another user's games. Reads `allGames` and `escapeHtml`
+ * from the global scope (populated by games.js and main.js).
+ */
+function updateFilters() {
+    // Get unique platforms and genres
+    const platforms = [...new Set(allGames.map(g => g.platform).filter(Boolean))].sort();
+    const genres = [...new Set(allGames.map(g => g.genre).filter(Boolean))].sort();
+
+    // Get saved filter state before updating
+    const saved = localStorage.getItem('gameFilters');
+    let savedPlatform = '';
+    let savedGenre = '';
+    if (saved) {
+        try {
+            const filterState = JSON.parse(saved);
+            savedPlatform = filterState.platform || '';
+            savedGenre = filterState.genre || '';
+        } catch (e) {
+            // Ignore parse errors
+        }
+    }
+
+    // Update platform filter
+    const platformFilter = document.getElementById('platformFilter');
+    if (platformFilter) {
+        const currentValue = savedPlatform || platformFilter.value;
+        platformFilter.innerHTML = '<option value="">All Platforms</option>' +
+            platforms.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+        // Restore saved value if it exists in the options
+        if (currentValue && platformFilter.querySelector(`option[value="${escapeHtml(currentValue)}"]`)) {
+            platformFilter.value = currentValue;
+        }
+    }
+
+    // Update genre filter
+    const genreFilter = document.getElementById('genreFilter');
+    if (genreFilter) {
+        const currentValue = savedGenre || genreFilter.value;
+        genreFilter.innerHTML = '<option value="">All Genres</option>' +
+            genres.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+        // Restore saved value if it exists in the options
+        if (currentValue && genreFilter.querySelector(`option[value="${escapeHtml(currentValue)}"]`)) {
+            genreFilter.value = currentValue;
+        }
+    }
+
+    // Restore all filter state after dropdowns are updated
+    if (typeof restoreFilterState === 'function') {
+        setTimeout(() => {
+            restoreFilterState();
+            // Apply filters after restoring state
+            if (typeof applyFilters === 'function') {
+                applyFilters();
+            }
+        }, 50);
+    }
+}
+
+/**
  * Apply all filters and update display
  */
 function applyFilters() {
