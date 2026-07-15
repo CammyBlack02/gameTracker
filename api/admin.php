@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 $userId = requireUser();
 
 header('Content-Type: application/json');
@@ -29,6 +30,7 @@ switch ($action) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
         }
+        requireCsrfToken();
         if (!$isAdmin) {
             sendJsonResponse(['success' => false, 'message' => 'Admin access required'], 403);
         }
@@ -39,6 +41,7 @@ switch ($action) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             sendJsonResponse(['success' => false, 'message' => 'Method not allowed'], 405);
         }
+        requireCsrfToken();
         if (!$isAdmin) {
             sendJsonResponse(['success' => false, 'message' => 'Admin access required'], 403);
         }
