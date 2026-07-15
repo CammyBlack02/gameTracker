@@ -619,7 +619,7 @@ async function deleteCompletion(id) {
     }
     
     try {
-        const data = await apiGet(`api/completions.php?action=delete&id=${id}`);
+        const data = await apiPost(`api/completions.php?action=delete&id=${id}`);
 
         if (data.success) {
             loadCompletions();
