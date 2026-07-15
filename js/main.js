@@ -81,7 +81,7 @@ function updateDarkModeIcon(isDark) {
 async function handleLogout() {
     if (confirm('Are you sure you want to logout?')) {
         try {
-            const data = await apiGet('api/auth.php?action=logout');
+            const data = await apiPost('api/auth.php?action=logout');
 
             if (data.success) {
                 window.location.href = 'index.php';
