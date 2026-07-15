@@ -1,9 +1,8 @@
 // Load current settings
 async function loadSettings() {
     try {
-        const response = await fetch('api/settings.php?action=get');
-        const data = await response.json();
-        
+        const data = await apiGet('api/settings.php?action=get');
+
         if (data.success && data.settings.background_image) {
             const preview = document.getElementById('backgroundPreview');
             preview.innerHTML = `<img src="uploads/${data.settings.background_image}" alt="Background" style="max-width: 100%; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">`;
@@ -28,13 +27,8 @@ document.getElementById('backgroundForm').addEventListener('submit', async funct
     formData.append('background_image', fileInput.files[0]);
     
     try {
-        const response = await fetch('api/settings.php?action=set_background', {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
+        const data = await apiPostForm('api/settings.php?action=set_background', formData);
+
         if (data.success) {
             showNotification('Background image updated successfully!', 'success');
             loadSettings();
@@ -55,9 +49,8 @@ document.getElementById('backgroundForm').addEventListener('submit', async funct
 document.getElementById('removeBackgroundBtn').addEventListener('click', async function() {
     if (confirm('Are you sure you want to remove the background image?')) {
         try {
-            const response = await fetch('api/settings.php?action=remove_background');
-            const data = await response.json();
-            
+            const data = await apiGet('api/settings.php?action=remove_background');
+
             if (data.success) {
                 showNotification('Background image removed', 'success');
                 document.getElementById('backgroundPreview').innerHTML = '<p>No background image set</p>';
@@ -77,9 +70,8 @@ document.getElementById('removeBackgroundBtn').addEventListener('click', async f
 // Load Steam settings
 async function loadSteamSettings() {
     try {
-        const response = await fetch('api/settings.php?action=get');
-        const data = await response.json();
-        
+        const data = await apiGet('api/settings.php?action=get');
+
         if (data.success && data.settings) {
             if (data.settings.steam_api_key) {
                 document.getElementById('steamApiKey').value = data.settings.steam_api_key;
@@ -106,19 +98,11 @@ document.getElementById('steamForm').addEventListener('submit', async function(e
     }
     
     try {
-        const response = await fetch('api/settings.php?action=set_steam', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                steam_api_key: apiKey,
-                steam_user_id: steamId
-            })
+        const data = await apiPostJson('api/settings.php?action=set_steam', {
+            steam_api_key: apiKey,
+            steam_user_id: steamId
         });
-        
-        const data = await response.json();
-        
+
         if (data.success) {
             showNotification('Steam credentials saved successfully!', 'success');
             // Enable import button if credentials are now configured
@@ -144,18 +128,11 @@ document.getElementById('testSteamBtn').addEventListener('click', async function
     
     // Save credentials first
     try {
-        const saveResponse = await fetch('api/settings.php?action=set_steam', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                steam_api_key: apiKey,
-                steam_user_id: steamId
-            })
+        const saveData = await apiPostJson('api/settings.php?action=set_steam', {
+            steam_api_key: apiKey,
+            steam_user_id: steamId
         });
-        
-        const saveData = await saveResponse.json();
+
         if (!saveData.success) {
             showNotification('Failed to save credentials: ' + saveData.message, 'error');
             return;
@@ -171,9 +148,8 @@ document.getElementById('testSteamBtn').addEventListener('click', async function
     resultDiv.innerHTML = '<p>Testing connection...</p>';
     
     try {
-        const response = await fetch('api/steam-import.php?action=test_connection');
-        const data = await response.json();
-        
+        const data = await apiGet('api/steam-import.php?action=test_connection');
+
         if (data.success) {
             resultDiv.innerHTML = `<p style="color: var(--success-color);">✓ ${data.message}</p>`;
         } else {
@@ -312,9 +288,8 @@ document.getElementById('importSteamBtn').addEventListener('click', async functi
 // Check if Steam credentials are configured and enable import button
 async function checkSteamImportAvailability() {
     try {
-        const response = await fetch('api/settings.php?action=get');
-        const data = await response.json();
-        
+        const data = await apiGet('api/settings.php?action=get');
+
         const importBtn = document.getElementById('importSteamBtn');
         if (importBtn) {
             if (data.success && data.settings) {
@@ -342,9 +317,8 @@ checkSteamImportAvailability();
 // Load background image on body if set
 async function loadBackgroundImage() {
     try {
-        const response = await fetch('api/settings.php?action=get');
-        const data = await response.json();
-        
+        const data = await apiGet('api/settings.php?action=get');
+
         if (data.success && data.settings.background_image) {
             document.body.style.backgroundImage = `url(uploads/${data.settings.background_image})`;
             document.body.classList.add('custom-background');

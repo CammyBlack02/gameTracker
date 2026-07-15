@@ -22,9 +22,8 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 async function loadGames() {
     try {
-        const response = await fetch('api/games.php?action=list');
-        const data = await response.json();
-        
+        const data = await apiGet('api/games.php?action=list');
+
         if (data.success) {
             allGames = data.games;
             updatePlatformFilter();
@@ -43,9 +42,8 @@ async function loadGames() {
  */
 async function loadItems() {
     try {
-        const response = await fetch('api/items.php?action=list');
-        const data = await response.json();
-        
+        const data = await apiGet('api/items.php?action=list');
+
         if (data.success) {
             allItems = data.items;
         }
@@ -105,9 +103,8 @@ async function loadStats() {
     if (isPhysical !== null) params.append('is_physical', isPhysical);
     
     try {
-        const response = await fetch(`api/stats.php?action=get&${params.toString()}`);
-        const data = await response.json();
-        
+        const data = await apiGet(`api/stats.php?action=get&${params.toString()}`);
+
         if (data.success) {
             currentStats = data.stats;
             displayStats();
@@ -488,19 +485,11 @@ async function saveTopItems() {
     const itemIds = selectedTopItems.map(item => item.id);
     
     try {
-        const response = await fetch('api/stats.php?action=update-top', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                type: currentTopType,
-                item_ids: itemIds
-            })
+        const data = await apiPostJson('api/stats.php?action=update-top', {
+            type: currentTopType,
+            item_ids: itemIds
         });
-        
-        const data = await response.json();
-        
+
         if (data.success) {
             hideModal('topItemsModal');
             loadStats(); // Reload stats to show updated top items
@@ -522,8 +511,7 @@ function setupLogout() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async function() {
             try {
-                const response = await fetch('api/auth.php?action=logout');
-                const data = await response.json();
+                const data = await apiGet('api/auth.php?action=logout');
                 if (data.success) {
                     window.location.href = 'index.php';
                 }

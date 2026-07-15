@@ -19,8 +19,7 @@ document.getElementById('logoutBtn').addEventListener('click', async function ()
 
 async function loadUsers() {
     try {
-        const response = await fetch('api/admin.php?action=list');
-        const data = await response.json();
+        const data = await apiGet('api/admin.php?action=list');
 
         if (data.success) {
             displayUsers(data.users);
@@ -88,18 +87,11 @@ function deleteUser(userId, username) {
     showModal('deleteUserModal');
 }
 
-function confirmDeleteUser() {
+async function confirmDeleteUser() {
     const userId = document.getElementById('deleteUserId').value;
 
-    fetch('api/admin.php?action=delete', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ user_id: parseInt(userId) })
-    })
-    .then(response => response.json())
-    .then(data => {
+    try {
+        const data = await apiPostJson('api/admin.php?action=delete', { user_id: parseInt(userId) });
         if (data.success) {
             hideModal('deleteUserModal');
             loadUsers();
@@ -107,11 +99,10 @@ function confirmDeleteUser() {
         } else {
             alert('Error: ' + (data.message || 'Failed to delete user'));
         }
-    })
-    .catch(error => {
+    } catch (error) {
         console.error('Error:', error);
         alert('Error deleting user. Please try again.');
-    });
+    }
 }
 
 document.getElementById('resetPasswordForm').addEventListener('submit', async function (e) {
@@ -135,18 +126,10 @@ document.getElementById('resetPasswordForm').addEventListener('submit', async fu
     }
 
     try {
-        const response = await fetch('api/admin.php?action=reset_password', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                user_id: parseInt(userId),
-                password: newPassword
-            })
+        const data = await apiPostJson('api/admin.php?action=reset_password', {
+            user_id: parseInt(userId),
+            password: newPassword
         });
-
-        const data = await response.json();
 
         if (data.success) {
             hideModal('resetPasswordModal');

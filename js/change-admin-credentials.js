@@ -27,12 +27,7 @@ document.getElementById('changeCredentialsForm').addEventListener('submit', asyn
     }
 
     try {
-        const response = await fetch('change-admin-credentials.php', {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
+        const data = await apiPostForm('change-admin-credentials.php', formData);
 
         if (data.success) {
             successDiv.textContent = data.message || 'Credentials updated successfully!';

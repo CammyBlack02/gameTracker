@@ -138,9 +138,8 @@ window.loadItems = async function loadItems(category = '') {
             }
         }
         
-        const response = await fetch(url);
-        const data = await response.json();
-        
+        const data = await apiGet(url);
+
         if (data.success) {
             let items = data.items || [];
             
