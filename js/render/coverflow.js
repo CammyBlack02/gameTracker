@@ -70,8 +70,8 @@ function createCoverFlowItem(game, index) {
                         <div class="coverflow-box-edge coverflow-box-edge-top"></div>
                         <div class="coverflow-box-edge coverflow-box-edge-right"></div>
                         <div class="coverflow-box-edge coverflow-box-edge-bottom"></div>
-                        <img src="${frontCoverUrl || placeholder}" 
-                             alt="${escapeHtml(game.title)}" 
+                        <img src="${escapeHtml(frontCoverUrl || placeholder)}"
+                             alt="${escapeHtml(game.title)}"
                              class="coverflow-cover"
                              onerror="this.src='${placeholder}';">
                     </div>
@@ -81,8 +81,8 @@ function createCoverFlowItem(game, index) {
                         <div class="coverflow-box-edge coverflow-box-edge-top"></div>
                         <div class="coverflow-box-edge coverflow-box-edge-right"></div>
                         <div class="coverflow-box-edge coverflow-box-edge-bottom"></div>
-                        <img src="${backCoverUrl}" 
-                             alt="${escapeHtml(game.title)} Back" 
+                        <img src="${escapeHtml(backCoverUrl)}"
+                             alt="${escapeHtml(game.title)} Back"
                              class="coverflow-cover"
                              onerror="this.onerror=null; this.src='${placeholder}';">
                     </div>
