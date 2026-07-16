@@ -17,6 +17,7 @@ final class SyncEngine {
     let context: ModelContext
     let syncAPI: SyncAPI
     let status: SyncStatus
+    let imagesAPI: ImagesAPI?
 
     /// Tracks whether sync has been attempted at all in this process
     /// lifetime. Used by `runOnceIfNeeded` so that the per-tab
@@ -24,10 +25,11 @@ final class SyncEngine {
     /// of on every tab switch / foreground return.
     private var hasSyncedThisSession = false
 
-    init(context: ModelContext, syncAPI: SyncAPI, status: SyncStatus) {
+    init(context: ModelContext, syncAPI: SyncAPI, status: SyncStatus, imagesAPI: ImagesAPI? = nil) {
         self.context = context
         self.syncAPI = syncAPI
         self.status = status
+        self.imagesAPI = imagesAPI
     }
 
     /// Sync once per app launch. Calls `runOnce` on the first
@@ -50,7 +52,7 @@ final class SyncEngine {
             // 1+2: pull
             let meta = fetchOrCreateMeta()
             let changes = try await syncAPI.fetchChanges(since: meta.lastSyncedAt)
-            ChangeApplier(context: context).apply(changes)
+            ChangeApplier(context: context, imagesAPI: imagesAPI).apply(changes)
             meta.lastSyncedAt = changes.serverNow
 
             // 3+4: push

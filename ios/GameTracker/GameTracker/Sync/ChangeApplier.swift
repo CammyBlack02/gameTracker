@@ -4,8 +4,16 @@ import SwiftData
 /// Applies a `ChangesResponseDTO` to the local SwiftData store. The
 /// rules are intentionally conservative: never overwrite a local pending
 /// edit (those are reconciled via the push step's conflict detection).
+///
+/// When an existing game/item's cover field changes as a result of a
+/// sync (e.g. the user edited the cover on the web), `imagesAPI` — if
+/// provided — is asked to purge the on-disk cover cache for that
+/// record. Without this, the next render re-uses a stale cached JPEG.
+/// See issue #43. Optional so unit tests can construct the applier
+/// without wiring an ImagesAPI + cache directory.
 struct ChangeApplier {
     let context: ModelContext
+    var imagesAPI: ImagesAPI? = nil
 
     func apply(_ response: ChangesResponseDTO) {
         for dto in response.games           { applyGame(dto) }
@@ -23,9 +31,15 @@ struct ChangeApplier {
         if let g = existing {
             // Don't clobber local edits.
             guard g.syncState == .synced else { return }
+            let coverChanged =
+                g.frontCoverImage != dto.frontCoverImage
+                || g.backCoverImage != dto.backCoverImage
             copy(dto, into: g)
             g.syncState = .synced
             g.lastSyncedAt = parseDate(dto.updatedAt)
+            if coverChanged {
+                imagesAPI?.invalidateGameCover(gameServerId: dto.id)
+            }
         } else {
             let g = Game(title: dto.title, platform: dto.platform, syncState: .synced)
             g.serverId = dto.id
@@ -39,9 +53,15 @@ struct ChangeApplier {
         let existing = fetchItem(serverId: dto.id)
         if let i = existing {
             guard i.syncState == .synced else { return }
+            let coverChanged =
+                i.frontImage != dto.frontImage
+                || i.backImage != dto.backImage
             copy(dto, into: i)
             i.syncState = .synced
             i.lastSyncedAt = parseDate(dto.updatedAt)
+            if coverChanged {
+                imagesAPI?.invalidateItemCover(itemServerId: dto.id)
+            }
         } else {
             let i = Item(title: dto.title, category: dto.category, syncState: .synced)
             i.serverId = dto.id
