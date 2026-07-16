@@ -11,6 +11,7 @@ ini_set('display_errors', 0);
 
 // Load functions first so sendJsonResponse is available
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/thumbnail.php';
 
 // Load database configuration (MySQL) - this also handles session configuration
 require_once __DIR__ . '/../includes/config.php';
@@ -507,7 +508,12 @@ function downloadExternalImage($imageUrl, $gameId = null, $type = 'front') {
         error_log("Failed to save image to: $targetPath");
         return false;
     }
-    
+
+    // Generate thumbnail (best-effort; failure is non-fatal). Matches the
+    // upload + external-image-service paths — without this, list/grid views
+    // that request the _thumb variant get 404s. Root cause of #59 + #63.
+    gt_generate_thumbnail($targetPath, gt_thumbnail_path($targetPath), 512);
+
     return $filename;
 }
 
