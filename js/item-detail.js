@@ -265,7 +265,6 @@ function populateEditForm(item) {
 document.querySelectorAll('.upload-image-btn[data-target^="editItem"]').forEach(btn => {
     btn.addEventListener('click', function() {
         const targetId = this.dataset.target;
-        console.log('Upload button clicked, target:', targetId);
         const fileInput = document.getElementById(targetId);
         if (fileInput) {
             fileInput.click();
@@ -279,10 +278,8 @@ document.querySelectorAll('.upload-image-btn[data-target^="editItem"]').forEach(
 const frontImageInput = document.getElementById('editItemFrontImage');
 if (frontImageInput) {
     frontImageInput.addEventListener('change', async function() {
-        console.log('Front image file selected:', this.files);
         if (this.files && this.files[0]) {
             const file = this.files[0];
-            console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
             
             // Check file size (5MB limit - matches php.ini)
             const maxSize = 5 * 1024 * 1024; // 5MB in bytes
@@ -297,9 +294,7 @@ if (frontImageInput) {
             formData.append('type', 'cover');
             
             try {
-                console.log('Sending upload request...');
                 const data = await apiPostForm('api/upload.php', formData);
-                console.log('Upload response data:', data);
 
                 if (data.success) {
                     // Update the preview
@@ -309,7 +304,6 @@ if (frontImageInput) {
                     // Store the image path for form submission
                     if (!window.currentItem) window.currentItem = {};
                     window.currentItem.front_image = data.image_path;
-                    console.log('Image path stored:', data.image_path);
                     
                     showNotification('Front image uploaded successfully', 'success');
                 } else {
@@ -332,10 +326,8 @@ if (frontImageInput) {
 const backImageInput = document.getElementById('editItemBackImage');
 if (backImageInput) {
     backImageInput.addEventListener('change', async function() {
-        console.log('Back image file selected:', this.files);
         if (this.files && this.files[0]) {
             const file = this.files[0];
-            console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
             
             // Check file size (5MB limit - matches php.ini)
             const maxSize = 5 * 1024 * 1024; // 5MB in bytes
@@ -350,9 +342,7 @@ if (backImageInput) {
             formData.append('type', 'cover');
             
             try {
-                console.log('Sending upload request...');
                 const data = await apiPostForm('api/upload.php', formData);
-                console.log('Upload response data:', data);
 
                 if (data.success) {
                     // Update the preview
@@ -362,7 +352,6 @@ if (backImageInput) {
                     // Store the image path for form submission
                     if (!window.currentItem) window.currentItem = {};
                     window.currentItem.back_image = data.image_path;
-                    console.log('Image path stored:', data.image_path);
                     
                     showNotification('Back image uploaded successfully', 'success');
                 } else {
@@ -439,13 +428,9 @@ document.getElementById('editItemForm')?.addEventListener('submit', async functi
         formData.quantity = parseInt(quantityInput.value) || 1;
     }
     
-    console.log('Submitting form with data:', formData);
-    console.log('Current item front_image:', window.currentItem?.front_image);
-    console.log('Current item back_image:', window.currentItem?.back_image);
     
     try {
         const data = await apiPostJson('api/items.php?action=update', formData);
-        console.log('Update response data:', data);
 
         if (data.success) {
             showNotification('Item updated successfully', 'success');
