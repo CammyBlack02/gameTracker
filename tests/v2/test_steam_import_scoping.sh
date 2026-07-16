@@ -35,8 +35,17 @@ COOKIE=$(mktemp)
 curl -sS -c "$COOKIE" -X POST "$BASE_URL/api/auth.php?action=login" \
   -d "username=$TEST_USER&password=$TEST_PASS" > /dev/null
 
+# Grab the session's CSRF token from the meta tag rendered on any authed
+# HTML page. Every mutating v1 endpoint requires X-CSRF-Token now
+# (phase 4h enforcement).
+CSRF_TOKEN=$(curl -sS -b "$COOKIE" "$BASE_URL/dashboard.php" \
+  | sed -n 's/.*name="csrf-token" content="\([^"]*\)".*/\1/p' \
+  | head -1)
+
 # Call deletePCGames as user A.
-curl -sS -b "$COOKIE" -X POST "$BASE_URL/api/steam-import.php?action=delete_pc_games" > /dev/null
+curl -sS -b "$COOKIE" -X POST \
+  -H "X-CSRF-Token: $CSRF_TOKEN" \
+  "$BASE_URL/api/steam-import.php?action=delete_pc_games" > /dev/null
 
 # Assert user B's game still exists (this was the cross-user wipe bug).
 B_COUNT=$(mysql -u"$DB_USER" "$DB_NAME" -sNe \
