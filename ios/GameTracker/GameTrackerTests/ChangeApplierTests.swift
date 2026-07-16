@@ -102,4 +102,79 @@ final class ChangeApplierTests: XCTestCase {
         let games = try ctx.fetch(FetchDescriptor<Game>())
         XCTAssertEqual(games.count, 0)
     }
+
+    // MARK: - Cover cache invalidation on sync (issue #43)
+
+    /// A real ImagesAPI wired to a temp directory. The invalidate* methods
+    /// are pure filesystem ops on the cacheRoot — the APIClient isn't
+    /// touched by them, so we can hand it a dummy config.
+    private func makeImagesAPI() -> (ImagesAPI, URL) {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ChangeApplierTests-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let client = APIClient(baseURL: URL(string: "http://localhost")!)
+        return (ImagesAPI(client: client, cacheRoot: root), root)
+    }
+
+    private func seedCoverFile(_ root: URL, filename: String) {
+        let path = root.appendingPathComponent(filename)
+        try? "stale".data(using: .utf8)!.write(to: path, options: .atomic)
+    }
+
+    func test_cover_change_from_sync_invalidates_cached_files() throws {
+        let (_, ctx) = try InMemoryContainer.make()
+        let (imagesAPI, cacheRoot) = makeImagesAPI()
+
+        // Local game with an existing cover already cached to disk.
+        let existing = Game(title: "Halo", platform: "Xbox", syncState: .synced)
+        existing.serverId = 7
+        existing.frontCoverImage = "old-cover.jpg"
+        ctx.insert(existing)
+        try ctx.save()
+
+        seedCoverFile(cacheRoot, filename: "cover_7_front_thumb.jpg")
+        seedCoverFile(cacheRoot, filename: "cover_7_front_full.jpg")
+
+        // Sync response changes the cover reference.
+        let applier = ChangeApplier(context: ctx, imagesAPI: imagesAPI)
+        var row = gameRow(id: 7, title: "Halo")
+        row["front_cover_image"] = "new-cover.jpg"
+        applier.apply(changesResponse(games: [row]))
+        try ctx.save()
+
+        // The stale on-disk files should be gone.
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: cacheRoot.appendingPathComponent("cover_7_front_thumb.jpg").path),
+            "front thumb should be invalidated when sync changes the cover reference"
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: cacheRoot.appendingPathComponent("cover_7_front_full.jpg").path),
+            "front full should be invalidated too"
+        )
+    }
+
+    func test_cover_unchanged_from_sync_leaves_cache_intact() throws {
+        let (_, ctx) = try InMemoryContainer.make()
+        let (imagesAPI, cacheRoot) = makeImagesAPI()
+
+        let existing = Game(title: "Halo", platform: "Xbox", syncState: .synced)
+        existing.serverId = 8
+        existing.frontCoverImage = "same-cover.jpg"
+        ctx.insert(existing)
+        try ctx.save()
+
+        seedCoverFile(cacheRoot, filename: "cover_8_front_thumb.jpg")
+
+        // Sync response returns the same cover reference (some other field changed).
+        let applier = ChangeApplier(context: ctx, imagesAPI: imagesAPI)
+        var row = gameRow(id: 8, title: "Halo 2")   // title changed, cover didn't
+        row["front_cover_image"] = "same-cover.jpg"
+        applier.apply(changesResponse(games: [row]))
+        try ctx.save()
+
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: cacheRoot.appendingPathComponent("cover_8_front_thumb.jpg").path),
+            "cache must survive syncs that don't touch cover_image (avoid pointless re-downloads)"
+        )
+    }
 }
