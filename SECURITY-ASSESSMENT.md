@@ -20,9 +20,9 @@ what's actually mitigated, what's known-open, and what's accepted risk.
 - **File upload**: MIME + magic-bytes + extension checks, 5 MB size cap,
   10000×10000 dimension cap, nginx blocks PHP execution in `/uploads/`.
 - **SSRF** (Phase 1): every external-URL fetch — `image-proxy`,
-  `download-cover`, `download-external-image`, `games.php`
-  `downloadExternalImage()`, and `v2/images/cover.php`'s external HTTPS
-  branch — routes through `includes/http-fetch.php`. It resolves the
+  `download-cover`, `games.php`'s `downloadExternalImage()`, and
+  `v2/images/cover.php`'s external HTTPS branch — routes through
+  `includes/http-fetch.php`. It resolves the
   host and rejects any private/loopback/link-local/reserved IP
   (including `169.254.169.254` cloud metadata) via
   `FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE`. TLS

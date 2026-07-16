@@ -31,7 +31,6 @@ ENDPOINTS=(
   "settings.php?action=remove_background"
   "settings.php?action=set_steam"
   "upload.php"
-  "download-external-image.php"
   "import-gameeye.php"
 )
 
