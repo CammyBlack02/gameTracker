@@ -11,7 +11,7 @@ function displayGamesGridView(games, container) {
         const caseType = getCaseType(game.platform);
         const imageUrl = game.front_cover_image ? getImageUrl(game.front_cover_image, 'thumb') : null;
         const coverImage = imageUrl
-            ? `<img src="${imageUrl}" alt="${escapeHtml(game.title)}" class="game-cover ${caseType}" loading="lazy" decoding="async">`
+            ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(game.title)}" class="game-cover ${caseType}" loading="lazy" decoding="async">`
             : `<div class="game-cover-placeholder ${caseType}">${game.front_cover_image ? 'Image Error' : 'No Cover'}</div>`;
         
         return `

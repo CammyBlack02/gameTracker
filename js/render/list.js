@@ -31,7 +31,7 @@ function displayGamesListView(games, container) {
                             ${(() => {
                                 const imageUrl = game.front_cover_image ? getImageUrl(game.front_cover_image, 'thumb') : null;
                                 return imageUrl
-                                    ? `<img src="${imageUrl}" alt="${escapeHtml(game.title)}" class="list-cover-thumb ${caseType}" loading="lazy" decoding="async">`
+                                    ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(game.title)}" class="list-cover-thumb ${caseType}" loading="lazy" decoding="async">`
                                     : '';
                             })()}
                             <span>${escapeHtml(game.title)}</span>

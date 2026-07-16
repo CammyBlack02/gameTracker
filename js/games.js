@@ -307,12 +307,12 @@ function displayGameDetail(game) {
     const caseType = getCaseType(game.platform);
     const frontCoverUrl = game.front_cover_image ? getImageUrl(game.front_cover_image) : null;
     const frontCover = frontCoverUrl
-        ? `<img src="${frontCoverUrl}" alt="Front Cover" class="cover-image ${caseType}">`
+        ? `<img src="${escapeHtml(frontCoverUrl)}" alt="Front Cover" class="cover-image ${caseType}">`
         : `<div class="cover-placeholder ${caseType}">${game.front_cover_image ? 'Image Error' : 'No Front Cover'}</div>`;
-    
+
     const backCoverUrl = game.back_cover_image ? getImageUrl(game.back_cover_image) : null;
     const backCover = backCoverUrl
-        ? `<img src="${backCoverUrl}" alt="Back Cover" class="cover-image ${caseType}">`
+        ? `<img src="${escapeHtml(backCoverUrl)}" alt="Back Cover" class="cover-image ${caseType}">`
         : `<div class="cover-placeholder ${caseType}">${game.back_cover_image ? 'Image Error' : 'No Back Cover'}</div>`;
     
     const extraImages = game.extra_images && game.extra_images.length > 0
@@ -486,7 +486,7 @@ async function uploadCoverImage(fileInput, type) {
         if (data.success) {
             const previewId = type === 'front' ? 'frontCoverPreview' : 'backCoverPreview';
             document.getElementById(previewId).innerHTML =
-                `<img src="${data.url}" alt="${type} cover" style="max-width: 200px;">`;
+                `<img src="${escapeHtml(data.url)}" alt="${escapeHtml(type)} cover" style="max-width: 200px;">`;
 
             // Update game data - store the full path, not just filename
             if (type === 'front') {
