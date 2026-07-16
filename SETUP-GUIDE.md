@@ -97,6 +97,13 @@ gameTracker is a web-based application for managing personal game collections. I
 - Nginx
 - Certbot (for SSL certificates)
 - Git
+- **Node.js ≥ 18** and **npm ≥ 9** — required for the Vite build step in `scripts/deploy.sh`. Ubuntu's default `apt install nodejs` ships an old version; install from NodeSource:
+  ```bash
+  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+  node --version    # expect v20.x
+  npm --version     # expect 10.x+
+  ```
 
 ---
 
@@ -210,6 +217,11 @@ sudo rm /etc/nginx/sites-enabled/default  # Remove default site
 
 Edit `/etc/nginx/sites-available/gameTracker`:
 
+- **Substitute `YOUR_DOMAIN_OR_IP`** — the repo config has this as a placeholder for the Let's Encrypt cert path (`/etc/letsencrypt/live/YOUR_DOMAIN_OR_IP/…`). It **must** be replaced with your actual cert directory name (e.g. `cammysgametracker.duckdns.org`), or `nginx -t` will fail with a certificate-not-found error. Quick one-liner after `sudo cp`:
+  ```bash
+  sudo sed -i 's|YOUR_DOMAIN_OR_IP|your-actual-domain.example.com|g' /etc/nginx/sites-available/gameTracker
+  ```
+  Find your cert directory with: `sudo ls /etc/letsencrypt/live/`
 - Update `server_name` with your domain
 - Verify PHP-FPM socket path (usually `/var/run/php/php8.3-fpm.sock`)
 - Update `root` path if different
@@ -263,9 +275,24 @@ Certbot will automatically:
 If using dynamic IP:
 
 1. Sign up at https://www.duckdns.org
-2. Create a subdomain (e.g., `yourname.duckdns.org`)
-3. Update DNS in UniFi or use DuckDNS updater script
-4. Update Nginx `server_name` with your DuckDNS domain
+2. Create a subdomain (e.g. `yourname.duckdns.org`)
+3. Grab your token from the DuckDNS dashboard
+4. Install the updater cron so the DNS record tracks your WAN IP as it rotates (silent stale records are hard to diagnose — see the notes at the end of this file):
+   ```bash
+   mkdir -p ~/duckdns && cd ~/duckdns
+   cat > duck.sh <<'EOF'
+   #!/bin/sh
+   echo url="https://www.duckdns.org/update?domains=YOUR-SUBDOMAIN&token=YOUR-TOKEN&ip=" \
+     | curl -k -o ~/duckdns/duck.log -K -
+   EOF
+   chmod 700 duck.sh
+   # Substitute your subdomain + token above, then arm the cron (5-min interval — DuckDNS's own recommendation)
+   ( crontab -l 2>/dev/null; echo "*/5 * * * * ~/duckdns/duck.sh >/dev/null 2>&1" ) | crontab -
+   # Test
+   ./duck.sh && cat duck.log      # expect: OK
+   ```
+5. Update Nginx `server_name` with your DuckDNS domain
+6. Configure a port-forward on your router (WAN 80+443 → the VM's LAN IP). If the VM's DHCP lease ever changes, update the port-forward destination or give the VM a static reservation.
 
 ---
 
@@ -435,9 +462,22 @@ Important log locations:
 
 ```bash
 cd /var/www/gameTracker
-sudo git pull origin main
-sudo systemctl reload nginx
-sudo systemctl restart php8.3-fpm
+./scripts/deploy.sh
+```
+
+`scripts/deploy.sh` wraps `git pull --ff-only && npm ci && npm run build`. The preflight checks for Node ≥ 18 and prints the install command if it's missing.
+
+You only need to reload nginx / restart php-fpm when the nginx config or PHP-FPM config itself changes:
+```bash
+sudo systemctl reload nginx       # after editing nginx-gameTracker.conf
+sudo systemctl restart php8.3-fpm # rarely needed
+```
+
+If the nginx config changed in the pull (`nginx-gameTracker.conf`), copy it into place first:
+```bash
+sudo cp nginx-gameTracker.conf /etc/nginx/sites-available/gameTracker
+sudo sed -i 's|YOUR_DOMAIN_OR_IP|your-actual-domain.example.com|g' /etc/nginx/sites-available/gameTracker
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ---
