@@ -190,19 +190,16 @@ function filterWheelGames() {
     }
     
     if (!games || games.length === 0) {
-        console.log('No games available for spin wheel');
         wheelGames = [];
         return;
     }
     
-    console.log('Filtering games, total available:', games.length);
     
     const platformFilter = document.getElementById('wheelPlatformFilter')?.value || '';
     const genreFilter = document.getElementById('wheelGenreFilter')?.value || '';
     const playedFilter = document.getElementById('wheelPlayedFilter')?.value || '';
     const typeFilter = document.getElementById('wheelTypeFilter')?.value || '';
     
-    console.log('Filters:', { platformFilter, genreFilter, playedFilter, typeFilter });
     
     let filteredGames = games.filter(game => {
         // Platform filter - exact match (but skip if we're in platform selection stage)
@@ -250,7 +247,6 @@ function filterWheelGames() {
         // Platform already filtered, go straight to games
         wheelStage = 'game';
         wheelGames = filteredGames;
-        console.log('Platform filter set, using game stage, games:', wheelGames.length);
     } else if (wheelStage === 'platform' && filteredGames.length > MAX_GAMES_ON_WHEEL) {
         // Get unique platforms from filtered games
         const platforms = [...new Set(filteredGames.map(g => g.platform).filter(Boolean))];
@@ -260,13 +256,10 @@ function filterWheelGames() {
             platform: platform,
             isPlatform: true
         }));
-        console.log('Using platform stage, platforms:', wheelGames.length);
     } else if (wheelStage === 'game') {
         wheelGames = filteredGames;
-        console.log('Using game stage, games:', wheelGames.length);
     } else {
         wheelGames = filteredGames;
-        console.log('Single stage, games:', wheelGames.length);
     }
     
     // Hide result if no games match
@@ -458,7 +451,6 @@ function drawWheel() {
     }
     
     if (wheelGames.length === 0) {
-        console.log('No games to draw on wheel');
         // Draw empty state
         wheelCtx.clearRect(0, 0, wheelCanvas.width, wheelCanvas.height);
         wheelCtx.fillStyle = '#f0f0f0';
@@ -516,7 +508,6 @@ function drawWheel() {
         wheelCtx.restore();
     });
     
-    console.log('Wheel drawn with', wheelGames.length, wheelStage === 'platform' ? 'platforms' : 'games');
 }
 
 /**
