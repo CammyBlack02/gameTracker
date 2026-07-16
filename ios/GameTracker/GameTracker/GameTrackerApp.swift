@@ -99,7 +99,7 @@ private struct RootViewContainer: View {
                 Color.clear
                     .task {
                         if engine == nil {
-                            let e = SyncEngine(context: context, syncAPI: syncAPI, status: status)
+                            let e = SyncEngine(context: context, syncAPI: syncAPI, status: status, imagesAPI: imagesAPI)
                             engine = e
                             trigger = SyncTrigger(engine: e)
                         }
