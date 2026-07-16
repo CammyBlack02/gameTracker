@@ -415,9 +415,7 @@ async function linkCompletion(completionId) {
     if (!query) return;
     
     // Search games via API on-demand (more efficient than loading all)
-    console.log('Searching for games matching:', query);
     const searchResults = await searchGamesForLinking(query, completion?.platform);
-    console.log(`Found ${searchResults.length} potential matches`);
     
     // Normalize query for better matching
     const normalizedQuery = normalizeTitle(query);
@@ -546,24 +544,14 @@ async function linkCompletion(completionId) {
     }
     
     const matches = scoredMatches.map(m => m.game);
-    
-    // Debug: log top matches
-    console.log('Top matches:', scoredMatches.slice(0, 5).map(m => ({
-        title: m.game.title,
-        score: m.score,
-        platform: m.game.platform
-    })));
-    
+
     // Check if the exact game exists in search results
     const exactMatch = searchResults.find(g => {
         const normalized = normalizeTitle(g.title);
         return normalized === normalizedQuery || normalized.includes(normalizedQuery);
     });
     if (exactMatch) {
-        console.log('Exact match found:', exactMatch.title);
     } else {
-        console.log('No exact match found. Searched through:', searchResults.length, 'games');
-        console.log('Sample results:', searchResults.slice(0, 10).map(g => g.title));
     }
     
     if (matches.length === 1) {
