@@ -231,33 +231,41 @@ function setupCoverImageFetch() {
             fetchBtn.textContent = 'Fetching...';
             
             try {
-                const url = `api/cover-image.php?title=${encodeURIComponent(title)}&platform=${encodeURIComponent(platform || '')}`;
-                
-                const response = await fetch(url);
-                
-                if (!response.ok) {
-                    const text = await response.text();
-                    console.error('HTTP error response:', text);
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                if (data.success && data.image_url) {
-                    // Store the URL directly instead of downloading
-                    const previewId = 'addFrontCoverPreview';
-                    document.getElementById(previewId).innerHTML = 
-                        `<img src="${data.image_url}" alt="Cover" style="max-width: 200px;">`;
-                    
-                    window.addGameFrontCover = data.image_url;
-                    showNotification('Cover image URL fetched!', 'success');
+                const path = `cover-image.php?title=${encodeURIComponent(title)}` +
+                             `&platform=${encodeURIComponent(platform || '')}`;
+
+                const result = await apiV2Get(path);
+
+                // html`` escapes the interpolated URL for the attribute
+                // context (phase 4i). The URL is server-built from
+                // TheGamesDB's CDN path, but src="${...}" is the exact
+                // hotspot shape Fable §3 flagged, so escape it regardless.
+                document.getElementById('addFrontCoverPreview').innerHTML =
+                    html`<img src="${result.image_url}" alt="Cover" style="max-width: 200px;">`;
+
+                window.addGameFrontCover = result.image_url;
+                showNotification('Cover image URL fetched!', 'success');
+            } catch (err) {
+                if (err instanceof V2ApiError) {
+                    let msg;
+                    switch (err.code) {
+                        case 'not_found':
+                        case 'no_boxart':
+                            msg = 'Could not find cover image automatically. Please upload manually.';
+                            break;
+                        case 'api_key_missing':
+                            msg = 'TheGamesDB API key not configured. Add it in Settings.';
+                            break;
+                        case 'upstream_auth_failed':
+                            msg = 'TheGamesDB rejected the API key. Please check it in Settings.';
+                            break;
+                        default:
+                            msg = err.message;
+                    }
+                    showNotification(msg, 'error');
                 } else {
-                    console.warn('No image URL in response:', data);
-                    showNotification(data.message || 'Could not find cover image automatically. TheGamesDB API may be unavailable. Please upload manually.', 'error');
+                    showNotification('Error fetching cover image. Please check your connection or upload manually.', 'error');
                 }
-            } catch (error) {
-                console.error('Error fetching cover:', error);
-                showNotification('Error fetching cover image. Please check your internet connection or upload manually.', 'error');
             } finally {
                 fetchBtn.disabled = false;
                 fetchBtn.textContent = 'Auto-fetch Cover';
