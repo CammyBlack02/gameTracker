@@ -39,6 +39,27 @@ what's actually mitigated, what's known-open, and what's accepted risk.
 - **Method safety** (Phase 1): every mutating v1 action requires POST
   (returns 405 otherwise). Combined with `SameSite=Lax`, this closes
   the GET-triggered CSRF vector.
+- **v2 dual-auth** (Phase 5): `v2_require_auth()` accepts a Bearer token
+  (iOS) *or* an active session (browser). The browser is deliberately
+  never issued a Bearer token — an HttpOnly session cookie cannot be read
+  by injected JS, whereas any token the frontend could attach could also
+  be exfiltrated by XSS. The session path enforces CSRF on every mutating
+  method, and `validateCsrfToken()` uses `hash_equals`.
+  - Accepting sessions widened the browser-reachable v2 surface from
+    nothing to every `v2_require_auth()` caller. The read-only endpoints
+    (`images/cover.php`, `images/extra.php`, `pricecharting.php`,
+    `metacritic.php`) now carry explicit `v2_require_method('GET')`
+    guards, so what a session can reach is deliberate.
+  - `external-image.php` is the one endpoint that changes state on GET
+    (it must, because iOS calls it with GET). Since `SameSite=Lax` sends
+    the cookie on a top-level cross-site navigation, that shape is
+    CSRF-able for session callers, so it calls
+    `v2_require_csrf_if_session()` and demands a token on *every* method.
+    Bearer callers are exempt: a browser never attaches a Bearer token
+    automatically, so there is no forgery vector to close.
+  - v2 validates CSRF via `includes/csrf-core.php`, a dependency-free
+    file, specifically so that including CSRF helpers does not drag
+    `includes/auth.php` (and the v1 surface) into every v2 request.
 
 ## Known-open (accepted risk, tracked)
 

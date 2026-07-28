@@ -1,40 +1,20 @@
 <?php
 /**
- * CSRF Protection Helper Functions
+ * CSRF Protection Helper Functions (v1-facing).
+ *
+ * The token primitives — generateCsrfToken(), getCsrfToken(),
+ * validateCsrfToken() — now live in includes/csrf-core.php, which has no
+ * dependencies of its own. /api/v2/ includes that file directly so it never
+ * inherits a v1 include chain. This file is the v1 surface and is otherwise
+ * unchanged: every existing caller of csrf.php keeps working.
  *
  * isAdmin() / requireAdmin() moved to includes/auth.php in Phase 2a.
  * Any legacy caller that included csrf.php expecting those functions
  * still works — we re-export them via the require_once below.
  */
 
+require_once __DIR__ . '/csrf-core.php';
 require_once __DIR__ . '/auth.php';
-
-/**
- * Generate a CSRF token and store it in session
- */
-function generateCsrfToken() {
-    if (!isset($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
-    return $_SESSION['csrf_token'];
-}
-
-/**
- * Get the current CSRF token
- */
-function getCsrfToken() {
-    return $_SESSION['csrf_token'] ?? generateCsrfToken();
-}
-
-/**
- * Validate CSRF token
- */
-function validateCsrfToken($token) {
-    if (!isset($_SESSION['csrf_token'])) {
-        return false;
-    }
-    return hash_equals($_SESSION['csrf_token'], $token);
-}
 
 /**
  * Enforce CSRF token on a mutating request. Reads the token from either
@@ -46,9 +26,8 @@ function validateCsrfToken($token) {
  * Callers should invoke this AFTER the REQUEST_METHOD !== 'POST' check
  * and BEFORE any state change.
  *
- * Introduced in phase 4h/01 but not yet CALLED from any endpoint — the
- * enforcement rollout is staged per follow-up PRs. This function is
- * dormant until then.
+ * Introduced dormant in phase 4h/01; enforcement landed across the v1
+ * mutating endpoints in 4h/02 and 4h/03, so this is live now.
  */
 function requireCsrfToken() {
     $token = $_SERVER['HTTP_X_CSRF_TOKEN']
