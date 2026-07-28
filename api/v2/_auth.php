@@ -25,7 +25,48 @@
  *   $userId = v2_require_auth($pdo);
  */
 
-require_once __DIR__ . '/../../includes/csrf.php';
+// csrf-core.php, NOT csrf.php: csrf.php require_once's includes/auth.php,
+// which would pull requireUser()/requireAdmin()/isAdmin()/currentUserId()/
+// gt_is_api_route() into every v2 request and re-establish the v1→v2
+// coupling Phase 2c removed. csrf-core.php has no dependencies.
+require_once __DIR__ . '/../../includes/csrf-core.php';
+
+/**
+ * Which credential path satisfied the last v2_require_auth() call:
+ * 'bearer', 'session', or null if it hasn't run / didn't succeed.
+ * Read it with v2_auth_method().
+ */
+$GLOBALS['_v2_auth_method'] = null;
+
+/**
+ * How the current request authenticated — 'bearer' | 'session' | null.
+ *
+ * Endpoints that change state but must stay GET-reachable for iOS (see
+ * external-image.php) use this to demand CSRF from browser sessions
+ * without imposing it on Bearer clients.
+ */
+function v2_auth_method(): ?string {
+    return $GLOBALS['_v2_auth_method'] ?? null;
+}
+
+/**
+ * Enforce a CSRF token regardless of HTTP method. Intended for endpoints
+ * that mutate state on GET (a shape we keep only for iOS back-compat).
+ * No-op for Bearer callers — a Bearer token is not sent automatically by
+ * a browser, so there is no forgery vector to close.
+ */
+function v2_require_csrf_if_session(): void {
+    if (v2_auth_method() !== 'session') {
+        return;
+    }
+    $token = $_SERVER['HTTP_X_CSRF_TOKEN']
+          ?? $_POST['csrf_token']
+          ?? $_GET['csrf_token']
+          ?? '';
+    if (!validateCsrfToken($token)) {
+        v2_error('invalid_csrf', 'Invalid or missing CSRF token', 403);
+    }
+}
 
 function v2_extract_bearer(): ?string {
     // Try standard Apache/Nginx header first.
@@ -117,12 +158,15 @@ function _v2_try_session(bool $requireCsrf): ?int {
 function v2_require_auth(PDO $pdo, bool $requireCsrfIfSession = true): int {
     $userId = _v2_try_bearer($pdo);
     if ($userId !== null) {
+        $GLOBALS['_v2_auth_method'] = 'bearer';
         return $userId;
     }
     $userId = _v2_try_session($requireCsrfIfSession);
     if ($userId !== null) {
+        $GLOBALS['_v2_auth_method'] = 'session';
         return $userId;
     }
+    $GLOBALS['_v2_auth_method'] = null;
     v2_error(
         'missing_token',
         'Authorization: Bearer <token> or valid session required',

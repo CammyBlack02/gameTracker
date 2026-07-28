@@ -61,6 +61,58 @@ req POST "/api/v2/_ping.php" "" -b "$COOKIE"
 assert_eq "403" "$HTTP_STATUS" "session POST no CSRF = 403"
 assert_contains '"error":"invalid_csrf"' "$RESPONSE_BODY" "invalid_csrf code"
 
+# --- Case 7: Session + POST + WRONG CSRF → 403
+# Distinct from case 6: exercises the hash_equals mismatch branch rather
+# than the "token absent" branch.
+blue "Case 7: session + POST + wrong CSRF → 403 invalid_csrf"
+req POST "/api/v2/_ping.php" "" -b "$COOKIE" -H "X-CSRF-Token: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+assert_eq "403" "$HTTP_STATUS" "session POST wrong CSRF = 403"
+assert_contains '"error":"invalid_csrf"' "$RESPONSE_BODY" "invalid_csrf code"
+
+# --- Case 8: Bearer precedence — invalid Bearer alongside a valid session
+# must still 401, not silently fall through to the session credential.
+blue "Case 8: invalid Bearer + valid session cookie → 401 (fails closed)"
+req GET "/api/v2/_ping.php" "" -b "$COOKIE" -H "Authorization: Bearer 1111111111111111111111111111111111111111111111111111111111111111"
+assert_eq "401" "$HTTP_STATUS" "bad Bearer beats good session = 401"
+assert_contains '"error":"invalid_token"' "$RESPONSE_BODY" "invalid_token code"
+
+# --- Case 9: DELETE counts as mutating for the CSRF gate
+blue "Case 9: session + DELETE + no CSRF → 405 or 403, never 200"
+req DELETE "/api/v2/_ping.php" "" -b "$COOKIE"
+[[ "$HTTP_STATUS" == "403" || "$HTTP_STATUS" == "405" ]] \
+  && green "  PASS: session DELETE without CSRF rejected ($HTTP_STATUS)" && PASS_COUNT=$((PASS_COUNT+1)) \
+  || { red "  FAIL: session DELETE without CSRF got $HTTP_STATUS"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+# --- Case 10: read-only endpoints are GET-only (method guards)
+blue "Case 10: POST to a read-only v2 endpoint → 405"
+req POST "/api/v2/images/cover.php?id=1" "" -b "$COOKIE" -H "X-CSRF-Token: $CSRF"
+assert_eq "405" "$HTTP_STATUS" "POST to images/cover.php = 405"
+assert_contains '"error":"method_not_allowed"' "$RESPONSE_BODY" "method_not_allowed code"
+
+# --- Case 11: a read-only GET still works for a session caller with no CSRF
+blue "Case 11: session + GET on read-only endpoint, no CSRF → not 403"
+req GET "/api/v2/pricecharting.php?title=Halo&platform=Xbox" "" -b "$COOKIE"
+[[ "$HTTP_STATUS" != "403" ]] \
+  && green "  PASS: read-only GET not CSRF-gated ($HTTP_STATUS)" && PASS_COUNT=$((PASS_COUNT+1)) \
+  || { red "  FAIL: read-only GET wrongly demanded CSRF"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+# --- Case 12: state-changing GET (external-image) DOES demand CSRF from a
+# session caller, because SameSite=Lax sends the cookie on cross-site
+# top-level navigation. Bearer callers (iOS) are unaffected — case 13.
+blue "Case 12: session + GET external-image, no CSRF → 403 invalid_csrf"
+req GET "/api/v2/external-image.php?url=https://example.com/x.jpg&game_id=1" "" -b "$COOKIE"
+assert_eq "403" "$HTTP_STATUS" "session GET external-image no CSRF = 403"
+assert_contains '"error":"invalid_csrf"' "$RESPONSE_BODY" "invalid_csrf code"
+
+# --- Case 13: the same call with a Bearer token is NOT CSRF-gated (iOS path).
+# Any status other than 403 proves the gate didn't fire; the download itself
+# may well fail on the dummy URL, which is fine.
+blue "Case 13: Bearer + GET external-image → not CSRF-gated"
+req GET "/api/v2/external-image.php?url=https://example.com/x.jpg&game_id=1" "" -H "Authorization: Bearer $TOKEN"
+[[ "$HTTP_STATUS" != "403" ]] \
+  && green "  PASS: Bearer path not CSRF-gated ($HTTP_STATUS)" && PASS_COUNT=$((PASS_COUNT+1)) \
+  || { red "  FAIL: Bearer path wrongly demanded CSRF"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
 # --- Cleanup
 blue "Cleanup: revoke Bearer token"
 curl -sS -X POST "$BASE_URL/api/v2/auth/revoke.php" \

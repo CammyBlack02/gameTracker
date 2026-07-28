@@ -18,6 +18,19 @@ require_once __DIR__ . '/../../includes/external-image-service.php';
 
 $userId = v2_require_auth($pdo);
 
+// This endpoint CHANGES STATE (downloads a remote file into uploads/covers/
+// and UPDATEs the games row) but must stay GET-reachable because the iOS
+// client calls it with GET (ProxiesAPI.swift: client.get). That combination
+// is CSRF-able for the session credential path added by dual-auth: with
+// SameSite=Lax the cookie rides along on a top-level cross-site navigation.
+//
+// So demand a CSRF token from session callers on EVERY method, not just
+// mutating ones. Bearer callers are unaffected — a Bearer token is never
+// attached automatically by a browser, so there is no forgery vector.
+// A GET caller may pass it as ?csrf_token=, since a header is awkward for
+// an <img>-style request.
+v2_require_csrf_if_session();
+
 // Accept POST (v1-compatible) and GET (backwards-compat with any caller
 // that still uses GET — but the service enforces the same auth checks).
 $imageUrl = $_POST['url']     ?? $_GET['url']     ?? '';
