@@ -10,6 +10,10 @@ require_once __DIR__ . '/../../../includes/config.php';
 require_once __DIR__ . '/../../../includes/thumbnail.php';
 require_once __DIR__ . '/../_auth.php';
 
+// Read-only endpoint: GET only. Explicit guard so the surface a browser
+// session can reach (new, via dual-auth) is deliberate rather than incidental.
+v2_require_method('GET');
+
 $userId = v2_require_auth($pdo);
 
 $id   = (int)($_GET['id'] ?? 0);

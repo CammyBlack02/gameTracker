@@ -4,7 +4,7 @@
 
 **Goal:** Migrate `api/cover-image.php` off v1 by adding dual-auth (Bearer OR session+CSRF) to `v2_require_auth()`, standing up `api/v2/cover-image.php`, switching the browser caller, then deleting v1. Sequenced across 4 PRs.
 
-**Architecture:** Extend `v2_require_auth()` with a second credential path that accepts the browser's HttpOnly session cookie plus CSRF token, using `validateCsrfToken()` from `includes/csrf.php`. iOS's Bearer path is unchanged (Bearer wins first). Browser never gains bearer tokens — HttpOnly session cookies are strictly better against XSS.
+**Architecture:** Extend `v2_require_auth()` with a second credential path that accepts the browser's HttpOnly session cookie plus CSRF token, using `validateCsrfToken()` from `includes/csrf-core.php` (a dependency-free file; including `includes/csrf.php` from v2 would transitively pull in `includes/auth.php` and re-establish the v1 coupling Phase 2c removed). iOS's Bearer path is unchanged (Bearer wins first). Browser never gains bearer tokens — HttpOnly session cookies are strictly better against XSS.
 
 **Tech Stack:** PHP 8+ (v1 sessions, v2 endpoints, `includes/*.php`), vanilla JS (`js/api.js`, `js/forms/game-form.js`), bash test harness (`tests/v2/*.sh` using `lib.sh` helpers, curl, jq).
 
@@ -248,11 +248,13 @@ Full new file content:
  *
  * For endpoints that MUST reject session auth (e.g. auth/revoke where
  * requiring a Bearer forces the client to prove token possession):
- *   $userId = v2_require_auth($pdo, requireCsrfIfSession: false, bearerOnly: true);
- * (bearerOnly currently unused; if we ever need it, add it here.)
+ *   $userId = v2_require_auth($pdo, requireCsrfIfSession: false);
+ * (No bearerOnly parameter exists: auth/token.php and auth/revoke.php
+ *  call v2_extract_bearer() directly rather than v2_require_auth(), so
+ *  they already require proof of token possession.)
  */
 
-require_once __DIR__ . '/../../includes/csrf.php';
+require_once __DIR__ . '/../../includes/csrf-core.php';
 
 function v2_extract_bearer(): ?string {
     // Try standard Apache/Nginx header first.

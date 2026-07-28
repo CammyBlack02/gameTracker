@@ -13,6 +13,10 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/_auth.php';
 require_once __DIR__ . '/../../includes/external-apis.php';
 
+// Read-only endpoint: GET only. Explicit guard so the surface a browser
+// session can reach (new, via dual-auth) is deliberate rather than incidental.
+v2_require_method('GET');
+
 v2_require_auth($pdo);
 
 $title    = trim((string)($_GET['title'] ?? ''));
