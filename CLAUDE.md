@@ -19,6 +19,42 @@ Consequences:
 - `~/gameTracker` is a **stale pre-v2 leftover** (SQLite `database/games.db`, an old
   `game-detail.php`). It is not deployed, not a git repo, and not the app. Ignore it.
 
+### Merging a PR from this checkout deploys everything else on main
+
+`gh pr merge` run from here performs a local `git pull` as a side effect. That pull
+brings down **every commit that has landed on `main` since this checkout last
+fetched** — not just the PR being merged. Because PHP has no build step, all of it
+is live the instant it touches disk.
+
+This is not hypothetical. On 2026-07-28, merging a docs-only PR (#74) fast-forwarded
+the live tree and silently deployed #71 and #72, which had been merged from another
+machine days earlier and never pulled here. One of them changed `api/games.php`. It
+happened to be a safe fix, but the same mechanism would just as happily deploy a
+half-finished refactor.
+
+The server is an intermittently-powered laptop, so this checkout is routinely days
+behind `main` — which makes the gap wider than intuition suggests.
+
+Before merging or pulling from here, look at what is about to ship:
+
+```bash
+git fetch && git log --oneline HEAD..origin/main
+```
+
+Then either merge from a non-production clone, or pull deliberately via
+`scripts/deploy.sh`. After any pull, check whether the incoming diff needs more than
+a file copy:
+
+```bash
+# Vite bundles are stale if any of these changed
+git diff --name-only HEAD@{1}..HEAD | grep -E '^(js/|css/|package(-lock)?\.json|vite\.config\.js)'
+#   -> ./scripts/deploy.sh
+
+# Schema changes need the migration runner
+git diff --name-only HEAD@{1}..HEAD | grep -E '^database/'
+#   -> php database/migrate.php
+```
+
 ## Stack
 
 | Piece | Version / location |
