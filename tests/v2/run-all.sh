@@ -51,4 +51,18 @@ for test in "$SCRIPT_DIR"/test_*.sh; do
   echo
 done
 
+# CLI suites (tests/cli/). They talk to the database in-process rather than
+# over HTTP, but they need the same GT_DB_* environment exported above, so they
+# ride along with this runner instead of getting a second one. Guarded with
+# nullglob so an empty directory is not treated as a literal filename.
+shopt -s nullglob
+for test in "$PROJECT_ROOT"/tests/cli/test_*.sh; do
+  echo "=== cli/$(basename "$test") ==="
+  if ! bash "$test"; then
+    OVERALL_FAIL=1
+  fi
+  echo
+done
+shopt -u nullglob
+
 exit $OVERALL_FAIL

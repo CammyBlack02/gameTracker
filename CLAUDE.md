@@ -125,6 +125,12 @@ Two mechanisms coexist, and this is a known wart:
 ## Commands
 
 ```bash
+# gt — the CLI (src/Cli/, autoloaded from src/autoload.php via PSR-4).
+# Talks to the database in-process; --json is the default output.
+./bin/gt help
+./bin/gt whoami --user=<username|id>   # or GT_USER env
+./bin/gt db:info                       # target DB, schema state, migration ledger
+
 # Deploy (git pull --ff-only + npm ci + vite build, with a Node >= 18 preflight)
 ./scripts/deploy.sh
 
