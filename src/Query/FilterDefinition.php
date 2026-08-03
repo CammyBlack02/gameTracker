@@ -49,4 +49,24 @@ final class FilterDefinition
             ['missing', 'sort', 'limit', 'page', 'per-page'],
         );
     }
+
+    /**
+     * Flags that narrow which rows match, excluding presentation flags.
+     *
+     * A write needs to know whether the caller actually restricted the row set:
+     * `--limit=1` is not a selector, and treating it as one would let
+     * `gt games set --limit=1 --set-played` silently target the whole table.
+     *
+     * @return list<string>
+     */
+    public function selectorNames(): array
+    {
+        return array_merge(
+            array_keys($this->exact),
+            array_keys($this->like),
+            array_keys($this->booleans),
+            array_keys($this->ranges),
+            ['missing'],
+        );
+    }
 }
