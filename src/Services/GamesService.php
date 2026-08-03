@@ -81,6 +81,27 @@ final class GamesService
     }
 
     /**
+     * How many of the user's games a filter matches, ignoring paging.
+     *
+     * Used by write commands to preview a change before applying it.
+     */
+    public static function countMatching(PDO $pdo, int $userId, FilterSet $filters): int
+    {
+        $where = '`user_id` = ?';
+        $params = [$userId];
+
+        if ($filters->whereSql !== '') {
+            $where .= ' AND ' . $filters->whereSql;
+            $params = array_merge($params, $filters->params);
+        }
+
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM games WHERE {$where}");
+        $stmt->execute($params);
+
+        return (int)$stmt->fetchColumn();
+    }
+
+    /**
      * A single game with its extra images.
      *
      * $isAdmin reproduces the endpoint's admin override, which could read any

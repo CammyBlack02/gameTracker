@@ -6,6 +6,7 @@ use GameTracker\Cli\Commands\DbInfoCommand;
 use GameTracker\Cli\Commands\Games\GetCommand as GamesGetCommand;
 use GameTracker\Cli\Commands\Games\ListCommand as GamesListCommand;
 use GameTracker\Cli\Commands\Games\PlatformsCommand as GamesPlatformsCommand;
+use GameTracker\Cli\Commands\Games\SetCommand as GamesSetCommand;
 use GameTracker\Cli\Commands\Items\GetCommand as ItemsGetCommand;
 use GameTracker\Cli\Commands\Items\ListCommand as ItemsListCommand;
 use GameTracker\Cli\Commands\WhoamiCommand;
@@ -37,6 +38,7 @@ final class Application
         'games list' => GamesListCommand::class,
         'games get' => GamesGetCommand::class,
         'games platforms' => GamesPlatformsCommand::class,
+        'games set' => GamesSetCommand::class,
         'items list' => ItemsListCommand::class,
         'items get' => ItemsGetCommand::class,
     ];
