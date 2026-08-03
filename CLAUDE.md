@@ -125,10 +125,9 @@ Two mechanisms coexist, and this is a known wart:
 ## Commands
 
 ```bash
-# gt — the CLI (src/Cli, src/Query, src/Services; PSR-4 via src/autoload.php).
-# Talks to the database in-process. Output auto-detects: table on a terminal,
-# JSON when piped. --json / --table force either.
-# Read-only as of sub-project #1 — enforced by tests/cli/test_readonly_guard.sh.
+# gt — the CLI (src/Cli, src/Query, src/Write, src/Journal, src/Services;
+# PSR-4 via src/autoload.php). Talks to the database in-process. Output
+# auto-detects: table on a terminal, JSON when piped. --json / --table force.
 ./bin/gt help
 ./bin/gt whoami --user=<username|id>        # or GT_USER env
 ./bin/gt db info                            # target DB, schema state, ledger
@@ -140,10 +139,25 @@ Two mechanisms coexist, and this is a known wart:
 ./bin/gt items list --category=Controller
 ./bin/gt items get <id>
 
+# Writes (sub-project #2). --yes is required when an operation affects more
+# than one row; a single row applies immediately. Every applied write is
+# journalled to ~/.gt/journal (GT_JOURNAL_DIR overrides) and revertable.
+./bin/gt games set <id> --set-genre=RPG
+./bin/gt games set --platform="PS2" --set-platform="PlayStation 2" --yes
+./bin/gt games set <id> --clear-description   # sets NULL
+./bin/gt undo --list
+./bin/gt undo [<journal-id>] [--yes] [--force]
+
 # Filters are AND-only, per-resource, and allowlisted: an unknown flag or
 # column exits 2 rather than being ignored. Exit codes: 0 ok, 1 domain error,
 # 2 usage, 3 bootstrap/database.
-# See docs/superpowers/specs/2026-08-03-gt-cli-design.md
+#
+# A bulk write with no selector is refused; pass --all to mean every row.
+# Write SQL lives only in src/Services/Write/ — enforced by
+# tests/cli/test_readonly_guard.sh, which also asserts that directory is not
+# empty so the guard cannot pass vacuously.
+# See docs/superpowers/specs/2026-08-03-gt-cli-design.md and
+#     docs/superpowers/specs/2026-08-03-gt-cli-mutations-design.md
 
 # Deploy (git pull --ff-only + npm ci + vite build, with a Node >= 18 preflight)
 ./scripts/deploy.sh
