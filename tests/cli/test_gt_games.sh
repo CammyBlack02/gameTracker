@@ -118,4 +118,33 @@ run_gt games list "$USER_FLAG" --table --limit=1
 assert_eq "0" "$GT_CODE" "--table renders"
 assert_contains "title" "$GT_OUT" "table has a title header"
 
+blue "games get"
+
+FIXTURE_ID=$(fixture_mysql -N -e "SELECT id FROM games WHERE title = 'FIXTURE Okami' LIMIT 1")
+OTHER_ID=$(fixture_mysql -N -e "SELECT id FROM games WHERE title = 'FIXTURE Not Mine' LIMIT 1")
+
+assert_eq "FIXTURE Okami" "$("$GT" games get "$FIXTURE_ID" "$USER_FLAG" 2>/dev/null | jq -r '.title')" "games get returns the row"
+assert_eq "array" "$("$GT" games get "$FIXTURE_ID" "$USER_FLAG" 2>/dev/null | jq -r '.extra_images | type')" "games get includes extra_images"
+
+run_gt games get 999999 "$USER_FLAG"
+assert_eq "1" "$GT_CODE" "missing game = 1"
+assert_contains "999999" "$GT_OUT" "names the missing id"
+
+# Another user's game must be refused, and refused differently from missing.
+run_gt games get "$OTHER_ID" "$USER_FLAG"
+assert_eq "1" "$GT_CODE" "another user's game = 1"
+assert_contains "another user" "$GT_OUT" "distinguishes denied from missing"
+
+run_gt games get "$USER_FLAG"
+assert_eq "2" "$GT_CODE" "games get with no id = 2"
+
+run_gt games get notanumber "$USER_FLAG"
+assert_eq "2" "$GT_CODE" "non-numeric id = 2"
+
+blue "games platforms"
+
+assert_eq "PS2,PS3,Xbox 360" "$("$GT" games platforms "$USER_FLAG" 2>/dev/null | jq -r '.platforms[]' | sort | paste -sd, -)" "platforms are distinct, sorted, and scoped"
+# PC belongs only to the other user's fixture row.
+assert_eq "0" "$("$GT" games platforms "$USER_FLAG" 2>/dev/null | jq '[.platforms[] | select(. == "PC")] | length')" "platforms excludes other users"
+
 summarize
