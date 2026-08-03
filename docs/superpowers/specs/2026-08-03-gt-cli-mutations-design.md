@@ -25,13 +25,13 @@ happens and reversible after it happens.
 ## Commands
 
 ```
-gt games set <id> --set-<field>=<value> [--yes]        # single row
-gt games set <filters> --set-<field>=<value> [--yes]   # bulk, filters from #1
-gt games create --set-title=… --set-platform=… [--yes]
-gt games delete <id> [--yes]
-gt games delete <filters> [--yes]
+gt games set <id> --set-<field>=<value>                 # single row, applies now
+gt games set <filters> --set-<field>=<value> --yes      # bulk, filters from #1
+gt games create --set-title=… --set-platform=…          # applies now
+gt games delete <id> --yes                              # delete always confirms
+gt games delete <filters> --yes
 gt items set / create / delete                          # same shape
-gt undo [--list] [<journal-id>] [--force]
+gt undo [--list] [<journal-id>] [--yes] [--force]
 ```
 
 **Selection versus assignment.** Row selection reuses sub-project #1's filter
@@ -84,8 +84,21 @@ Per-resource allowlists, mirroring the filter design. `id`, `user_id`,
 
 ## Safety rails
 
-**1. Dry-run is the default.** Without `--yes` nothing is written. The command
-reports how many rows would change and shows the assignments:
+**1. `--yes` is required when an operation affects more than one row, or when it
+deletes.** Otherwise the write applies immediately.
+
+The rule is about blast radius, not about which command you typed. A single-row
+`set` or a `create` touches exactly one row you named explicitly, is journalled,
+and is one `gt undo` away from being reverted — demanding confirmation there would
+train the operator to pass `--yes` reflexively, which is precisely how the flag
+stops meaning anything.
+
+`delete` is the deliberate exception. A mistyped id in `set` writes a field to the
+wrong game; the same typo in `delete` removes a game. The magnitudes are different
+enough to justify the inconsistency.
+
+When confirmation is required, the unconfirmed run is a dry run: it reports what
+would change and writes nothing.
 
 ```
 $ gt games set --platform="PS2" --set-platform="PlayStation 2"
@@ -93,9 +106,9 @@ would update 0 rows matching --platform=PS2
   (no rows matched — did you mean "PlayStation 2"? see: gt games platforms)
 ```
 
-Single-row writes require `--yes` too. Consistency matters more than the
-keystrokes: an agent scripting 202 invocations passes the flag once in a loop,
-while a human typing one command gets the same confirmation everywhere.
+Note that journalling is unconditional — it does not depend on `--yes`. Every
+applied write is reversible, confirmed or not. That is what makes relaxing the
+flag safe rather than merely convenient.
 
 **2. A bulk write with no selector is refused.** `--all` is required to target
 every row the user owns. Without this rule, `gt games set --set-played --yes`
@@ -105,15 +118,15 @@ typo the syntax permits.
 **3. No arbitrary row cap.** 202 rows is a legitimate target; a cap would only
 teach the operator to pass `--force` reflexively. The dry-run count is the guard.
 
-**5. A bulk operation is one transaction.** All matched rows change or none do;
+**4. A bulk operation is one transaction.** All matched rows change or none do;
 partial application never occurs. If zero rows match, the command reports
 `0 rows` and exits 0 **without writing a journal entry** — there is nothing to
 undo, and an empty entry would clutter `gt undo --list`.
 
-**6. `create` writes one row per invocation.** There is no bulk create; importing
+**5. `create` writes one row per invocation.** There is no bulk create; importing
 many rows at once is sub-project #4's job.
 
-**4. Ownership is enforced in the writer, not the caller.** Every statement is
+**6. Ownership is enforced in the writer, not the caller.** Every statement is
 scoped by a bound `user_id`. `--admin` does not grant cross-user *writes* — it
 exists for reads only. A write to another user's row is a domain error.
 
@@ -170,11 +183,13 @@ applies a change that was never made". Failures land on the safe side.
 `gt undo` reverts the most recent committed, unreverted entry. `gt undo --list`
 shows recent entries newest-first. `gt undo <journal-id>` targets one.
 
-**Undo is itself a write, so it follows the same rule as every other write:** it
-prints what it would restore and requires `--yes` to act. `--list` is read-only
-and needs nothing. Exempting undo would be a defensible convenience, but a
-recovery action is exactly when a hasty command is most likely, and seeing the
-row count before restoring is worth one extra flag.
+**Undo is itself a write and inherits the same rule**: reverting a single-row
+entry applies immediately; reverting a multi-row entry, or one that restores a
+delete, requires `--yes`. `--list` is read-only and needs nothing.
+
+That falls out of the blast-radius rule rather than being a special case —
+undoing a 202-row bulk edit is a 202-row write, and deserves the same preview the
+original did.
 
 Undo marks the entry `reverted_at`; re-undoing the same entry is refused. Undo
 does not itself create a journal entry — that would invite recursion for no
