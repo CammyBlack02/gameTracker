@@ -43,8 +43,11 @@ if ($currentMemoryLimit !== '-1') {
 }
 @ini_set('max_execution_time', '300');
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
+// Start session if not already started.
+// GT_CLI is defined by bin/gt before this file is required. A CLI process has
+// no browser, no cookie jar and no request to authenticate, so starting a
+// session there only writes junk session files on every invocation.
+if (!defined('GT_CLI') && session_status() === PHP_SESSION_NONE) {
     // Secure session configuration
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
                (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
@@ -123,6 +126,12 @@ try {
     // No per-request DDL runs here — see Phase 2b in
     // docs/superpowers/plans/2026-07-10-phase2b-migrations.md.
 } catch (PDOException $e) {
+    // CLI first: die() exits with status 0, which would make `gt` report success
+    // on a failed connection and silently break any script that checks $?.
+    // Throw instead so bin/gt can report it on STDERR and exit non-zero.
+    if (defined('GT_CLI')) {
+        throw new RuntimeException('Database connection failed: ' . $e->getMessage(), 0, $e);
+    }
     // Check if we're in an API context (output buffering active and JSON header expected)
     if (ob_get_level() > 0 && (php_sapi_name() === 'cli-server' || strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false)) {
         // In API context, throw exception instead of die()
