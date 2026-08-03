@@ -3,7 +3,9 @@
 namespace GameTracker\Cli;
 
 use GameTracker\Cli\Commands\DbInfoCommand;
+use GameTracker\Cli\Commands\Games\GetCommand as GamesGetCommand;
 use GameTracker\Cli\Commands\Games\ListCommand as GamesListCommand;
+use GameTracker\Cli\Commands\Games\PlatformsCommand as GamesPlatformsCommand;
 use GameTracker\Cli\Commands\WhoamiCommand;
 use GameTracker\Domain\DomainException;
 use PDO;
@@ -31,6 +33,8 @@ final class Application
         'whoami' => WhoamiCommand::class,
         'db info' => DbInfoCommand::class,
         'games list' => GamesListCommand::class,
+        'games get' => GamesGetCommand::class,
+        'games platforms' => GamesPlatformsCommand::class,
     ];
 
     /** Global flags consumed here, never forwarded to commands. */
