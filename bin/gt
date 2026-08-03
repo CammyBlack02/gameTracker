@@ -1,0 +1,45 @@
+#!/usr/bin/env php
+<?php
+/**
+ * gameTracker command line entry point.
+ *
+ * Design: docs/superpowers/specs/2026-08-03-gt-cli-design.md
+ *
+ * GT_CLI is defined before includes/config.php is required. The config file
+ * checks for it to skip web-only behaviour (session startup) and to throw
+ * instead of die() on a failed connection — die() would exit 0 and make a
+ * broken connection look like success to any caller checking $?.
+ *
+ * config.php is required at global scope on purpose, so $pdo lands in the
+ * global namespace exactly as it does for a web request. Requiring it inside a
+ * function would scope $pdo locally and break the `global $pdo` that existing
+ * v1 code relies on.
+ */
+
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit(1);
+}
+
+define('GT_CLI', true);
+
+$gtRoot = dirname(__DIR__);
+
+require_once $gtRoot . '/src/autoload.php';
+
+// help/--version must not depend on a working database.
+$early = \GameTracker\Cli\Application::earlyExit($argv);
+if ($early !== null) {
+    exit($early);
+}
+
+try {
+    require_once $gtRoot . '/includes/config.php';
+} catch (Throwable $e) {
+    fwrite(STDERR, 'error: ' . $e->getMessage() . "\n");
+    exit(\GameTracker\Cli\Application::EXIT_BOOTSTRAP);
+}
+
+exit(\GameTracker\Cli\Application::main($argv, $pdo ?? null));
