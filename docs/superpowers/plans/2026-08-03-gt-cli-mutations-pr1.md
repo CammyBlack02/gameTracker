@@ -355,10 +355,11 @@ final class WriteDefinition
 
         foreach ($this->writable as $column) {
             $names[] = 'set-' . $column;
-
-            if ($this->isNullable($column)) {
-                $names[] = 'clear-' . $column;
-            }
+            // clear- is allowed for every writable column, including NOT NULL
+            // ones. Rejecting --clear-title here would surface the generic
+            // "unknown option" message; letting it through means AssignmentSet
+            // can say why it is impossible, which is the more useful failure.
+            $names[] = 'clear-' . $column;
         }
 
         return $names;
@@ -738,7 +739,7 @@ Adds the only file in PR1 containing write SQL, and narrows the read-only guard 
 - Produces:
   - `JournalEntry` readonly: `string $id`, `array $argv`, `int $userId`, `string $resource`, `string $operation`, `bool $committed`, `?string $revertedAt`, `array $rows`; `toArray(): array`; `static fromArray(array): self`.
   - `JournalWriter::__construct(?string $dir = null)` — defaults to `GT_JOURNAL_DIR`, else `$HOME/.gt/journal`.
-  - `JournalWriter::write(JournalEntry): string` (returns the id), `markCommitted(string $id): void`, `markReverted(string $id): void`, `read(string $id): JournalEntry`, `recent(int $limit = 20): array`, `latestRevertable(): ?JournalEntry`, `dir(): string`.
+  - `JournalWriter::newId(string $operation): string`, `write(JournalEntry): string` (returns the id), `markCommitted(string $id): void`, `markReverted(string $id): void`, `read(string $id): JournalEntry`, `recent(int $limit = 20): array`, `latestRevertable(): ?JournalEntry`, `dir(): string`.
   - `GamesWriter::applySet(PDO $pdo, int $userId, FilterSet $filters, AssignmentSet $assignments, JournalWriter $journal, array $argv): array` returning `['journal_id' => string, 'matched' => int, 'changed' => int]`.
   - `GamesWriter::revertSet(PDO $pdo, JournalEntry $entry, bool $force): array` returning `['restored' => int, 'skipped' => int]`.
 
@@ -934,13 +935,20 @@ final class JournalWriter
     }
 
     /**
-     * Build an id from a caller-supplied UTC timestamp and the operation name.
-     * Time is passed in rather than read here so the caller controls it and the
-     * value recorded matches the one reported.
+     * A fresh, sortable, collision-free id for an operation.
+     *
+     * Microsecond precision is load-bearing, not decorative: two writes inside
+     * the same second would otherwise produce the same id and the second would
+     * overwrite the first entry, silently destroying undo history. The format
+     * stays lexicographically sortable so recent() can just reverse-sort
+     * filenames.
      */
-    public static function makeId(string $utcTimestamp, string $operation): string
+    public function newId(string $operation): string
     {
-        return $utcTimestamp . '-' . $operation;
+        $stamp = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))
+            ->format('Y-m-d\TH-i-s-u\Z');
+
+        return $stamp . '-' . $operation;
     }
 
     public function write(JournalEntry $entry): string
@@ -1141,7 +1149,7 @@ final class GamesWriter
             ];
         }
 
-        $id = JournalWriter::makeId(gmdate('Y-m-d\TH-i-s\Z'), 'set');
+        $id = $journal->newId('set');
         $journal->write(new JournalEntry(
             $id,
             $argv,
