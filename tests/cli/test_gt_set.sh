@@ -120,4 +120,73 @@ echo "$GT_JSON" | jq -e '.matched == 0' > /dev/null \
   && { green "  PASS: reports 0 matched"; PASS_COUNT=$((PASS_COUNT+1)); } \
   || { red "  FAIL: expected 0 matched: $GT_JSON"; FAIL_COUNT=$((FAIL_COUNT+1)); }
 
+blue "Applying writes"
+
+export GT_JOURNAL_DIR="$(mktemp -d)"
+trap 'rm -rf "$GT_JOURNAL_DIR"' EXIT
+
+OKAMI_ID=$(fixture_id games 'FIXTURE Okami' mine)
+
+# Single row: applies immediately, no --yes required.
+run_gt_json games set "$OKAMI_ID" "$USER_FLAG" --set-genre=Puzzle
+assert_eq "0" "$GT_CODE" "single-row set exits 0"
+assert_eq "Puzzle" "$(genre_of 'FIXTURE Okami')" "single-row set applied without --yes"
+echo "$GT_JSON" | jq -e '.changed == 1 and .dry_run == false' > /dev/null \
+  && { green "  PASS: reports changed=1"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: unexpected result: $GT_JSON"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+# A journal file must exist for it.
+assert_eq "1" "$(find "$GT_JOURNAL_DIR" -name '*-set.json' | wc -l)" "one journal entry written"
+JOURNAL_FILE=$(find "$GT_JOURNAL_DIR" -name '*-set.json' | head -1)
+jq -e '.committed == true and .operation == "set"' < "$JOURNAL_FILE" > /dev/null \
+  && { green "  PASS: entry is marked committed"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: bad entry: $(cat "$JOURNAL_FILE")"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+jq -e '.rows[0].before.genre == "Action"' < "$JOURNAL_FILE" > /dev/null \
+  && { green "  PASS: entry records the before-value"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: before-value missing: $(cat "$JOURNAL_FILE")"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+# Bulk without --yes still previews and writes nothing.
+run_gt_json games set "$USER_FLAG" --platform=PS2 --set-genre=Nope
+echo "$GT_JSON" | jq -e '.dry_run == true' > /dev/null \
+  && { green "  PASS: bulk still previews without --yes"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: bulk should have previewed: $GT_JSON"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+assert_eq "Puzzle" "$(genre_of 'FIXTURE Okami')" "bulk preview changed nothing"
+
+# Bulk with --yes applies to every matched row.
+run_gt_json games set "$USER_FLAG" --platform=PS2 --set-genre=Bulk --yes
+assert_eq "0" "$GT_CODE" "bulk --yes exits 0"
+echo "$GT_JSON" | jq -e '.matched == 2 and .changed == 2' > /dev/null \
+  && { green "  PASS: bulk reports matched and changed"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: unexpected bulk result: $GT_JSON"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+assert_eq "Bulk" "$(genre_of 'FIXTURE Okami')" "bulk applied to Okami"
+assert_eq "Bulk" "$(genre_of 'FIXTURE Silent Hill')" "bulk applied to Silent Hill"
+
+blue "Clearing and booleans"
+
+run_gt games set "$OKAMI_ID" "$USER_FLAG" --clear-genre
+assert_eq "0" "$GT_CODE" "--clear- exits 0"
+assert_eq "NULL" "$(genre_of 'FIXTURE Okami')" "--clear- set the column to NULL"
+
+run_gt games set "$OKAMI_ID" "$USER_FLAG" --set-played
+assert_eq "0" "$GT_CODE" "valueless boolean set exits 0"
+assert_eq "1" "$(fixture_mysql -N -e "SELECT played FROM games WHERE id = $OKAMI_ID")" "--set-played wrote 1"
+
+run_gt games set "$OKAMI_ID" "$USER_FLAG" --set-played=0
+assert_eq "0" "$(fixture_mysql -N -e "SELECT played FROM games WHERE id = $OKAMI_ID")" "--set-played=0 wrote 0"
+
+blue "Write scoping"
+
+OTHER_ID=$(fixture_id games 'FIXTURE Not Mine' other)
+run_gt games set "$OTHER_ID" "$USER_FLAG" --set-genre=Hacked
+assert_eq "1" "$GT_CODE" "writing another user's row = 1"
+assert_contains "another user" "$GT_OUT" "explains the ownership failure"
+assert_eq "RPG" "$(fixture_mysql -N -e "SELECT genre FROM games WHERE id = $OTHER_ID")" "the other user's row is untouched"
+
+blue "Zero matches writes no journal entry"
+
+BEFORE_COUNT=$(find "$GT_JOURNAL_DIR" -name '*.json' | wc -l)
+run_gt_json games set "$USER_FLAG" --platform="NoSuchPlatform" --set-genre=A --yes
+assert_eq "0" "$GT_CODE" "zero-match apply exits 0"
+assert_eq "$BEFORE_COUNT" "$(find "$GT_JOURNAL_DIR" -name '*.json' | wc -l)" "no journal entry for zero matches"
+
 summarize

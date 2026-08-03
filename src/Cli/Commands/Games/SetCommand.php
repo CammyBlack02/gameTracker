@@ -7,10 +7,12 @@ use GameTracker\Cli\Context;
 use GameTracker\Cli\Output;
 use GameTracker\Cli\UsageException;
 use GameTracker\Cli\UserResolver;
+use GameTracker\Journal\JournalWriter;
 use GameTracker\Query\FilterCompiler;
 use GameTracker\Query\FilterSet;
 use GameTracker\Query\GamesFilters;
 use GameTracker\Services\GamesService;
+use GameTracker\Services\Write\GamesWriter;
 use GameTracker\Write\AssignmentSet;
 use GameTracker\Write\GamesWrites;
 
@@ -87,7 +89,11 @@ final class SetCommand implements Command
             return $this->preview($ctx, $matched, $assignments);
         }
 
-        return $this->applyNotImplemented($ctx, $matched, $assignments);
+        if ($single) {
+            GamesWriter::assertOwned($ctx->pdo, $userId, (int)$id);
+        }
+
+        return $this->apply($ctx, $userId, $filters, $assignments, $matched);
     }
 
     private function preview(Context $ctx, int $matched, AssignmentSet $assignments): int
@@ -111,13 +117,43 @@ final class SetCommand implements Command
         return 0;
     }
 
-    /**
-     * Placeholder for Task 2, which adds the journal and the writer. Reporting
-     * the preview here keeps this task's deliverable coherent: validation and
-     * counting work, and nothing is written.
-     */
-    private function applyNotImplemented(Context $ctx, int $matched, AssignmentSet $assignments): int
-    {
-        return $this->preview($ctx, $matched, $assignments);
+    private function apply(
+        Context $ctx,
+        int $userId,
+        FilterSet $filters,
+        AssignmentSet $assignments,
+        int $matched
+    ): int {
+        $result = GamesWriter::applySet(
+            $ctx->pdo,
+            $userId,
+            $filters,
+            $assignments,
+            new JournalWriter(),
+            array_slice($_SERVER['argv'] ?? [], 1)
+        );
+
+        if ($ctx->output->format() === Output::FORMAT_TABLE) {
+            $ctx->output->line(sprintf(
+                'matched %d, changed %d',
+                $result['matched'],
+                $result['changed']
+            ));
+            if ($result['journal_id'] !== null) {
+                $ctx->output->line('undo with: gt undo ' . $result['journal_id']);
+            }
+
+            return 0;
+        }
+
+        $ctx->output->record([
+            'dry_run' => false,
+            'matched' => $result['matched'],
+            'changed' => $result['changed'],
+            'journal_id' => $result['journal_id'],
+            'assignments' => $assignments->describe(),
+        ]);
+
+        return 0;
     }
 }
