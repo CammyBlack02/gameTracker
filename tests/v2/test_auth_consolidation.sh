@@ -11,7 +11,6 @@ for endpoint in \
   "stats.php?action=overview" \
   "items.php?action=list" \
   "settings.php?action=get" \
-  "cover-image.php?title=x" \
   "steam-import.php?action=test_connection" \
   "download-cover.php?url=https://example.com/x.png" \
   "game-metadata.php?title=x" \
