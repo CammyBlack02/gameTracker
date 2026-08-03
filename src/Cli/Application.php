@@ -3,6 +3,7 @@
 namespace GameTracker\Cli;
 
 use GameTracker\Cli\Commands\DbInfoCommand;
+use GameTracker\Cli\Commands\Games\ListCommand as GamesListCommand;
 use GameTracker\Cli\Commands\WhoamiCommand;
 use GameTracker\Domain\DomainException;
 use PDO;
@@ -29,6 +30,7 @@ final class Application
     private const COMMANDS = [
         'whoami' => WhoamiCommand::class,
         'db info' => DbInfoCommand::class,
+        'games list' => GamesListCommand::class,
     ];
 
     /** Global flags consumed here, never forwarded to commands. */
