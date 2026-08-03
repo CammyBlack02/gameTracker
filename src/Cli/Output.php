@@ -5,17 +5,26 @@ namespace GameTracker\Cli;
 /**
  * Renders command results as either JSON or an aligned text table.
  *
- * JSON is the default because the primary consumer is an agent parsing the
- * output; --table is for human eyes. Everything a command wants to show goes
- * through here so the two formats can never drift per-command.
+ * The format is auto-detected from whether STDOUT is a terminal, so neither
+ * audience has to remember a flag: a human gets a table, a pipe gets JSON.
+ * Everything a command shows goes through here so the two formats can never
+ * drift per-command.
  */
 final class Output
 {
     public const FORMAT_JSON = 'json';
     public const FORMAT_TABLE = 'table';
 
-    public function __construct(private readonly string $format = self::FORMAT_JSON)
+    private readonly string $format;
+
+    /**
+     * @param string|null $format Explicit --json/--table, or null to auto-detect.
+     */
+    public function __construct(?string $format = null)
     {
+        // Auto-detection is also why the test suite gets JSON for free: it
+        // captures output, so STDOUT is a pipe rather than a terminal.
+        $this->format = $format ?? (stream_isatty(STDOUT) ? self::FORMAT_TABLE : self::FORMAT_JSON);
     }
 
     public function format(): string

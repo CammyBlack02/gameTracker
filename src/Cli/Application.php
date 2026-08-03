@@ -4,6 +4,7 @@ namespace GameTracker\Cli;
 
 use GameTracker\Cli\Commands\DbInfoCommand;
 use GameTracker\Cli\Commands\WhoamiCommand;
+use GameTracker\Domain\DomainException;
 use PDO;
 use Throwable;
 
@@ -12,24 +13,32 @@ use Throwable;
  */
 final class Application
 {
-    public const VERSION = '0.1.0';
+    public const VERSION = '0.2.0';
 
     public const EXIT_OK = 0;
     public const EXIT_ERROR = 1;
     public const EXIT_USAGE = 2;
     public const EXIT_BOOTSTRAP = 3;
 
-    /** @var array<string, class-string<Command>> */
+    /**
+     * Keys are full command strings. Dispatch prefers the two-token match, so
+     * "games list" coexists with "whoami" without needing a nested registry.
+     *
+     * @var array<string, class-string<Command>>
+     */
     private const COMMANDS = [
-        WhoamiCommand::NAME => WhoamiCommand::class,
-        DbInfoCommand::NAME => DbInfoCommand::class,
+        'whoami' => WhoamiCommand::class,
+        'db info' => DbInfoCommand::class,
     ];
+
+    /** Global flags consumed here, never forwarded to commands. */
+    private const GLOBAL_OPTIONS = ['json', 'table', 'http', 'user', 'help', 'version'];
 
     /**
      * Handle the invocations that must work without a database — `gt help`,
      * `gt --version`, and a bare `gt`. bin/gt calls this before requiring
      * config.php, so a broken or unconfigured connection still leaves the CLI
-     * self-documenting instead of failing to explain itself.
+     * able to explain itself.
      *
      * @return int|null Exit code if handled, null to continue with a database.
      */
@@ -54,9 +63,6 @@ final class Application
             }
         }
 
-        // `gt help` on its own, or any invocation asking for help without also
-        // naming a command. `gt games list --help` falls through so the command
-        // can render its own usage later.
         if ($wantsHelp && $positional === []) {
             self::usage();
             return self::EXIT_OK;
@@ -74,13 +80,18 @@ final class Application
     {
         array_shift($argv); // script name
 
-        $format = Output::FORMAT_JSON;
+        $format = null; // null => Output auto-detects from the TTY
         $userRef = getenv('GT_USER') ?: null;
         $http = false;
         $args = [];
+        $options = [];
 
-        // Global flags may appear anywhere; anything else is positional.
         foreach ($argv as $arg) {
+            if (!str_starts_with($arg, '-')) {
+                $args[] = $arg;
+                continue;
+            }
+
             switch (true) {
                 case $arg === '--json':
                     $format = Output::FORMAT_JSON;
@@ -100,31 +111,52 @@ final class Application
                 case str_starts_with($arg, '--user='):
                     $userRef = substr($arg, strlen('--user='));
                     break;
-                case str_starts_with($arg, '-'):
+                case str_starts_with($arg, '--'):
+                    // Command-specific option. Validated against the resolved
+                    // command's allowedOptions() below, so a typo is an error
+                    // rather than a silently ignored flag.
+                    $body = substr($arg, 2);
+                    if (str_contains($body, '=')) {
+                        [$name, $value] = explode('=', $body, 2);
+                        $options[$name] = $value;
+                    } else {
+                        $options[$body] = true;
+                    }
+                    break;
+                default:
                     fwrite(STDERR, "error: unknown option '{$arg}'\n");
                     return self::EXIT_USAGE;
-                default:
-                    $args[] = $arg;
             }
         }
 
         $output = new Output($format);
-        $name = array_shift($args);
 
-        if ($name === null || $name === 'help') {
+        if ($args === [] || $args[0] === 'help') {
             self::usage();
-            return $name === null ? self::EXIT_USAGE : self::EXIT_OK;
+            return $args === [] ? self::EXIT_USAGE : self::EXIT_OK;
         }
 
-        if (!isset(self::COMMANDS[$name])) {
-            $output->error("unknown command '{$name}'. Run `gt help` for the list.");
+        [$name, $args] = self::resolve($args);
+
+        if ($name === null) {
+            self::reportUnknown($output, $args);
             return self::EXIT_USAGE;
         }
 
-        // Phase D will implement --http. Fail loudly rather than silently
-        // running in-process and reporting results the HTTP layer never saw.
+        /** @var class-string<Command> $class */
+        $class = self::COMMANDS[$name];
+
+        $unknown = array_diff(array_keys($options), $class::allowedOptions(), self::GLOBAL_OPTIONS);
+        if ($unknown !== []) {
+            $output->error(
+                "unknown option '--" . reset($unknown) . "' for `gt {$name}`. "
+                . 'Run `gt help` for the list.'
+            );
+            return self::EXIT_USAGE;
+        }
+
         if ($http) {
-            $output->error('--http is not implemented yet (planned for Phase D).');
+            $output->error('--http is not implemented yet (planned for a later sub-project).');
             return self::EXIT_USAGE;
         }
 
@@ -133,13 +165,16 @@ final class Application
             return self::EXIT_BOOTSTRAP;
         }
 
-        $ctx = new Context($pdo, $output, $userRef, $http);
-
-        /** @var class-string<Command> $class */
-        $class = self::COMMANDS[$name];
+        $ctx = new Context($pdo, $output, $userRef, $http, $options);
 
         try {
             return (new $class())->run($args, $ctx);
+        } catch (UsageException $e) {
+            $output->error($e->getMessage());
+            return self::EXIT_USAGE;
+        } catch (DomainException $e) {
+            $output->error($e->getMessage());
+            return self::EXIT_ERROR;
         } catch (Throwable $e) {
             // Full detail is fine here: the CLI runs for the operator, unlike an
             // HTTP response body where CLAUDE.md forbids leaking exception text.
@@ -148,28 +183,76 @@ final class Application
         }
     }
 
+    /**
+     * Two-token match first, then single-token.
+     *
+     * @return array{0: string|null, 1: array} Command name (null if unknown) and remaining args.
+     */
+    private static function resolve(array $args): array
+    {
+        if (count($args) >= 2) {
+            $two = $args[0] . ' ' . $args[1];
+            if (isset(self::COMMANDS[$two])) {
+                return [$two, array_slice($args, 2)];
+            }
+        }
+
+        if (isset(self::COMMANDS[$args[0]])) {
+            return [$args[0], array_slice($args, 1)];
+        }
+
+        return [null, $args];
+    }
+
+    /**
+     * A known resource with an unknown verb is a different mistake from an
+     * unknown resource, and deserves a different message: list the verbs that
+     * do exist rather than making the caller run `gt help` to find them.
+     */
+    private static function reportUnknown(Output $output, array $args): void
+    {
+        $resource = $args[0];
+        $verbs = [];
+
+        foreach (array_keys(self::COMMANDS) as $command) {
+            if (str_starts_with($command, $resource . ' ')) {
+                $verbs[] = substr($command, strlen($resource) + 1);
+            }
+        }
+
+        if ($verbs !== []) {
+            $output->error(
+                "unknown subcommand for '{$resource}'. Available: " . implode(', ', $verbs)
+            );
+            return;
+        }
+
+        $output->error("unknown command '{$resource}'. Run `gt help` for the list.");
+    }
+
     private static function usage(): void
     {
         $lines = [
             'gt ' . self::VERSION . ' — gameTracker command line',
             '',
-            'Usage: gt [global options] <command> [args]',
+            'Usage: gt [global options] <command> [args] [filters]',
             '',
             'Commands:',
         ];
 
         foreach (self::COMMANDS as $name => $class) {
-            $lines[] = sprintf('  %-10s %s', $name, $class::description());
+            $lines[] = sprintf('  %-16s %s', $name, $class::description());
         }
 
         $lines = array_merge($lines, [
-            '  help       Show this message',
+            '  help             Show this message',
             '',
             'Global options:',
-            '  --json           Machine-readable output (default)',
-            '  --table          Human-readable table output',
+            '  --json           Force machine-readable output',
+            '  --table          Force human-readable table output',
+            '                   (default: table on a terminal, JSON when piped)',
             '  --user=<ref>     Act as this user (username or id). Env: GT_USER',
-            '  --http           Drive api/v2 over HTTP instead of in-process (Phase D)',
+            '  --http           Drive api/v2 over HTTP instead of in-process (not yet)',
             '  --version, -V    Print version',
             '',
             'Exit codes: 0 ok, 1 error, 2 usage, 3 bootstrap/database',
