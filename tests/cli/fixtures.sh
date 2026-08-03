@@ -18,17 +18,56 @@ fixture_mysql() {
   MYSQL_PWD="${GT_DB_PASS:-}" mysql $host_flag -u"${GT_DB_USER:-root}" "${GT_DB_NAME:-gameTracker_test}" "$@"
 }
 
+# Fixtures own a dedicated user rather than sharing $TEST_USER.
+#
+# The v2 suites create their own games under testuser ("Test Game", "Upload Test
+# Game") and run before the CLI suites in run-all.sh, so sharing that account
+# leaked their rows into every filter expectation. Cleaning by title prefix was
+# not enough — isolation has to be by owner, which also makes these suites
+# immune to run-order changes.
+FIXTURE_USER="gtfixture"
+
 # Resolve user ids by username so fixtures do not assume auto-increment values.
 fixture_user_id() {
   fixture_mysql -N -e "SELECT id FROM users WHERE username = '$1'"
 }
 
+# Look up a fixture row's id by title, scoped by ownership.
+#
+# $1 table, $2 title, $3 "mine" (owned by the fixture user) or "other".
+# Scoping matters: a title-only lookup can match another user's identically
+# named row, and then `gt <res> get <id>` correctly refuses it as someone
+# else's — producing a confusing empty result rather than a clear failure.
+fixture_id() {
+  local op="="
+  [[ "$3" == "other" ]] && op="<>"
+
+  fixture_mysql -N -e "
+    SELECT t.id FROM $1 t
+    JOIN users u ON t.user_id = u.id
+    WHERE t.title = '$2' AND u.username $op '$FIXTURE_USER'
+    LIMIT 1
+  "
+}
+
+# password_hash is NOT NULL but never verified: nothing authenticates as this
+# account, the CLI resolves users by name or id.
+fixture_ensure_user() {
+  fixture_mysql -e "
+    INSERT IGNORE INTO users (username, password_hash, role)
+    VALUES ('$FIXTURE_USER', 'unusable-fixture-account', 'user');
+  "
+}
+
 seed_games() {
   local uid other
-  uid=$(fixture_user_id "${TEST_USER:-testuser}")
-  other=$(fixture_mysql -N -e "SELECT id FROM users WHERE username <> '${TEST_USER:-testuser}' ORDER BY id LIMIT 1")
+  fixture_ensure_user
+  uid=$(fixture_user_id "$FIXTURE_USER")
+  other=$(fixture_mysql -N -e "SELECT id FROM users WHERE username <> '$FIXTURE_USER' ORDER BY id LIMIT 1")
 
-  fixture_mysql -e "DELETE FROM games WHERE title LIKE 'FIXTURE %'"
+  # Delete by owner, not by title: idempotent across runs and unaffected by
+  # whatever other suites have left in the table.
+  fixture_mysql -e "DELETE FROM games WHERE user_id = $uid"
 
   # played/is_physical are nullable ints, so NULL is used deliberately on two
   # rows to prove --unplayed and --digital match NULL as well as 0.
@@ -48,10 +87,11 @@ seed_games() {
 
 seed_items() {
   local uid other
-  uid=$(fixture_user_id "${TEST_USER:-testuser}")
-  other=$(fixture_mysql -N -e "SELECT id FROM users WHERE username <> '${TEST_USER:-testuser}' ORDER BY id LIMIT 1")
+  fixture_ensure_user
+  uid=$(fixture_user_id "$FIXTURE_USER")
+  other=$(fixture_mysql -N -e "SELECT id FROM users WHERE username <> '$FIXTURE_USER' ORDER BY id LIMIT 1")
 
-  fixture_mysql -e "DELETE FROM items WHERE title LIKE 'FIXTURE %'"
+  fixture_mysql -e "DELETE FROM items WHERE user_id = $uid"
 
   fixture_mysql -e "
     INSERT INTO items

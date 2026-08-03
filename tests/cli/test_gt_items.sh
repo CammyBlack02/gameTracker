@@ -8,9 +8,11 @@ source "$(dirname "$0")/fixtures.sh"
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 GT="$PROJECT_ROOT/bin/gt"
-USER_FLAG="--user=${TEST_USER:-testuser}"
 
 seed_items
+
+# Act as the dedicated fixture user, not $TEST_USER — see fixtures.sh.
+USER_FLAG="--user=$FIXTURE_USER"
 
 GT_CODE=0
 GT_OUT=""
@@ -60,8 +62,8 @@ run_gt items list "$USER_FLAG" --sort=played
 assert_eq "2" "$GT_CODE" "played is not an items sort column"
 
 blue "items get"
-ITEM_ID=$(fixture_mysql -N -e "SELECT id FROM items WHERE title = 'FIXTURE Dual Shock' LIMIT 1")
-OTHER_ITEM=$(fixture_mysql -N -e "SELECT id FROM items WHERE title = 'FIXTURE Not Mine Item' LIMIT 1")
+ITEM_ID=$(fixture_id items 'FIXTURE Dual Shock' mine)
+OTHER_ITEM=$(fixture_id items 'FIXTURE Not Mine Item' other)
 
 assert_eq "FIXTURE Dual Shock" "$("$GT" items get "$ITEM_ID" "$USER_FLAG" 2>/dev/null | jq -r '.title')" "items get returns the row"
 

@@ -10,9 +10,12 @@ source "$(dirname "$0")/fixtures.sh"
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 GT="$PROJECT_ROOT/bin/gt"
-USER_FLAG="--user=${TEST_USER:-testuser}"
 
 seed_games
+
+# Act as the dedicated fixture user, not $TEST_USER — the v2 suites put their
+# own games under testuser, and they run first.
+USER_FLAG="--user=$FIXTURE_USER"
 
 GT_CODE=0
 GT_OUT=""
@@ -120,8 +123,8 @@ assert_contains "title" "$GT_OUT" "table has a title header"
 
 blue "games get"
 
-FIXTURE_ID=$(fixture_mysql -N -e "SELECT id FROM games WHERE title = 'FIXTURE Okami' LIMIT 1")
-OTHER_ID=$(fixture_mysql -N -e "SELECT id FROM games WHERE title = 'FIXTURE Not Mine' LIMIT 1")
+FIXTURE_ID=$(fixture_id games 'FIXTURE Okami' mine)
+OTHER_ID=$(fixture_id games 'FIXTURE Not Mine' other)
 
 assert_eq "FIXTURE Okami" "$("$GT" games get "$FIXTURE_ID" "$USER_FLAG" 2>/dev/null | jq -r '.title')" "games get returns the row"
 assert_eq "array" "$("$GT" games get "$FIXTURE_ID" "$USER_FLAG" 2>/dev/null | jq -r '.extra_images | type')" "games get includes extra_images"
