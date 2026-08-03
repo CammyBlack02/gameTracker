@@ -82,6 +82,41 @@ else
     FAIL_COUNT=$((FAIL_COUNT+1))
 fi
 
+# --- Regression: v1 api/cover-image.php is retired (phase 5/05)
+#
+# Deliberately not `assert_eq 404`. nginx answers a missing .php with a 404,
+# but this harness — and CI — runs `php -S` with router.php, whose catch-all
+# (router.php:23) hands any nonexistent path to index.php and returns
+# 200 text/html. A bare status assertion would pass on prod and fail in CI.
+# What actually matters is that no v1 cover-image contract is served, so
+# assert on the tree and on the response shape instead.
+blue "Regression: v1 /api/cover-image.php is retired"
+V1_ENDPOINT="$(cd "$(dirname "$0")/../.." && pwd)/api/cover-image.php"
+
+if [[ -e "$V1_ENDPOINT" ]]; then
+    red "  FAIL: api/cover-image.php still present in the tree"
+    FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    green "  PASS: api/cover-image.php is gone from the tree"
+    PASS_COUNT=$((PASS_COUNT+1))
+fi
+
+# A live v1 endpoint answers with the v1 envelope even unauthenticated
+# ({"success":false,"message":"Authentication required"}), so treating any
+# `"success"` key or an image_url as failure keeps this assertion honest —
+# it fails if the file is restored, rather than passing on a 401.
+req GET "/api/cover-image.php?title=Halo"
+if [[ "$HTTP_STATUS" == "404" ]]; then
+    green "  PASS: v1 URL 404s (no fallback handler, as on nginx)"
+    PASS_COUNT=$((PASS_COUNT+1))
+elif echo "$RESPONSE_BODY" | grep -qE '"success"|image_url'; then
+    red "  FAIL: v1 endpoint still answering (status=$HTTP_STATUS) body=$RESPONSE_BODY"
+    FAIL_COUNT=$((FAIL_COUNT+1))
+else
+    green "  PASS: no v1 contract served (status=$HTTP_STATUS, router catch-all)"
+    PASS_COUNT=$((PASS_COUNT+1))
+fi
+
 # --- Cleanup
 blue "Cleanup: revoke Bearer token"
 curl -sS -X POST "$BASE_URL/api/v2/auth/revoke.php" \
