@@ -9,6 +9,7 @@ use GameTracker\Cli\Commands\Games\PlatformsCommand as GamesPlatformsCommand;
 use GameTracker\Cli\Commands\Games\SetCommand as GamesSetCommand;
 use GameTracker\Cli\Commands\Items\GetCommand as ItemsGetCommand;
 use GameTracker\Cli\Commands\Items\ListCommand as ItemsListCommand;
+use GameTracker\Cli\Commands\UndoCommand;
 use GameTracker\Cli\Commands\WhoamiCommand;
 use GameTracker\Domain\DomainException;
 use PDO;
@@ -35,6 +36,7 @@ final class Application
     private const COMMANDS = [
         'whoami' => WhoamiCommand::class,
         'db info' => DbInfoCommand::class,
+        'undo' => UndoCommand::class,
         'games list' => GamesListCommand::class,
         'games get' => GamesGetCommand::class,
         'games platforms' => GamesPlatformsCommand::class,
