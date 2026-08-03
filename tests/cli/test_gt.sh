@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Integration tests for bin/gt (Phase A).
+# Integration tests for bin/gt.
 #
-# Reuses tests/v2/lib.sh for the assertion helpers and counters. Unlike the v2
-# suites these tests do not need the PHP dev server — gt talks to the database
-# in-process — but they do need the GT_DB_* environment that run-all.sh exports,
-# which points at gameTracker_test.
+# Reuses tests/v2/lib.sh for assertion helpers and counters. These tests do not
+# need the PHP dev server — gt talks to the database in-process — but they do
+# need the GT_DB_* environment run-all.sh exports, pointing at gameTracker_test.
 #
 # Design: docs/superpowers/specs/2026-08-03-gt-cli-design.md
 source "$(dirname "$0")/../v2/lib.sh"
@@ -43,7 +42,9 @@ assert_contains "^gt [0-9]" "$GT_OUT" "--version prints a version"
 run_gt help
 assert_eq "0" "$GT_CODE" "help exits 0"
 assert_contains "whoami" "$GT_OUT" "help lists whoami"
-assert_contains "db:info" "$GT_OUT" "help lists db:info"
+assert_contains "db info" "$GT_OUT" "help lists db info"
+# Resource commands are asserted in their own suites, so this file stays
+# passable on its own rather than depending on a later task's registry entry.
 
 run_gt
 assert_eq "2" "$GT_CODE" "bare gt is a usage error"
@@ -55,21 +56,22 @@ run_gt nosuchcommand
 assert_eq "2" "$GT_CODE" "unknown command = 2"
 assert_contains "unknown command" "$GT_OUT" "names the problem"
 
+# A known resource with an unknown verb should list the verbs that do exist,
+# rather than the generic unknown-command message.
+run_gt games nosuchverb
+assert_eq "2" "$GT_CODE" "unknown subcommand = 2"
+assert_contains "games" "$GT_OUT" "mentions the resource"
+
 run_gt --bogus-flag whoami
 assert_eq "2" "$GT_CODE" "unknown option = 2"
 
-# --http is declared but unimplemented until Phase D. It must fail loudly
-# rather than silently running in-process, which would report results the
-# HTTP layer never produced.
 run_gt --http whoami
-assert_eq "2" "$GT_CODE" "--http refuses until Phase D"
+assert_eq "2" "$GT_CODE" "--http refuses until a later sub-project"
 assert_contains "not implemented" "$GT_OUT" "explains why --http failed"
 
 # --- whoami
 blue "whoami"
 
-# The test database has two users (admin from 000_baseline, plus testuser),
-# so an unqualified whoami must refuse to guess rather than pick one.
 run_gt whoami
 assert_eq "1" "$GT_CODE" "ambiguous user = 1"
 assert_contains "multiple users" "$GT_OUT" "refuses to guess between users"
@@ -88,11 +90,11 @@ run_gt whoami --user=ghost_user_that_does_not_exist
 assert_eq "1" "$GT_CODE" "unknown user = 1"
 assert_contains "no such user" "$GT_OUT" "names the missing user"
 
-# --- db:info
-blue "db:info"
+# --- db info
+blue "db info"
 
-run_gt_json db:info
-assert_eq "0" "$GT_CODE" "db:info exits 0"
+run_gt_json db info
+assert_eq "0" "$GT_CODE" "db info exits 0"
 
 echo "$GT_JSON" | jq -e '.database == "'"${GT_DB_NAME:-gameTracker_test}"'"' > /dev/null \
   && { green "  PASS: reports the database it is pointed at"; PASS_COUNT=$((PASS_COUNT+1)); } \
@@ -104,18 +106,22 @@ echo "$GT_JSON" | jq -e '.ledger_present == true and .migrations_applied >= 1' >
   && { green "  PASS: migration ledger present and populated"; PASS_COUNT=$((PASS_COUNT+1)); } \
   || { red "  FAIL: ledger state unexpected: $GT_JSON"; FAIL_COUNT=$((FAIL_COUNT+1)); }
 
-# --- STDOUT must stay machine-parseable
+# The old colon form must be gone, not silently aliased.
+run_gt db:info
+assert_eq "2" "$GT_CODE" "db:info is no longer a command"
+
+# --- Output discipline
 blue "Output discipline"
 
-# Warnings and errors go to STDERR precisely so JSON on STDOUT survives a pipe
-# into jq. Regression guard: a stray echo in a command would break every caller.
+# Captured output is not a TTY, so JSON is the auto-detected default. This both
+# guards the pipe-safety property and proves TTY detection picks JSON here.
 set +e
-"$GT" db:info 2>/dev/null | jq -e . > /dev/null
+"$GT" db info 2>/dev/null | jq -e . > /dev/null
 JQ_CODE=$?
 set -e
-assert_eq "0" "$JQ_CODE" "db:info STDOUT is valid JSON with STDERR discarded"
+assert_eq "0" "$JQ_CODE" "non-TTY output auto-detects JSON and parses"
 
-run_gt db:info --table
+run_gt db info --table
 assert_eq "0" "$GT_CODE" "--table renders without error"
 assert_contains "database" "$GT_OUT" "table output includes the database row"
 
