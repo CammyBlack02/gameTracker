@@ -125,11 +125,25 @@ Two mechanisms coexist, and this is a known wart:
 ## Commands
 
 ```bash
-# gt — the CLI (src/Cli/, autoloaded from src/autoload.php via PSR-4).
-# Talks to the database in-process; --json is the default output.
+# gt — the CLI (src/Cli, src/Query, src/Services; PSR-4 via src/autoload.php).
+# Talks to the database in-process. Output auto-detects: table on a terminal,
+# JSON when piped. --json / --table force either.
+# Read-only as of sub-project #1 — enforced by tests/cli/test_readonly_guard.sh.
 ./bin/gt help
-./bin/gt whoami --user=<username|id>   # or GT_USER env
-./bin/gt db:info                       # target DB, schema state, migration ledger
+./bin/gt whoami --user=<username|id>        # or GT_USER env
+./bin/gt db info                            # target DB, schema state, ledger
+./bin/gt games list --platform="PlayStation 2" --unplayed
+./bin/gt games list --missing=description   # any allowlisted column
+./bin/gt games get <id>
+./bin/gt games platforms                    # --platform matches EXACTLY; use
+                                            # this to find the stored strings
+./bin/gt items list --category=Controller
+./bin/gt items get <id>
+
+# Filters are AND-only, per-resource, and allowlisted: an unknown flag or
+# column exits 2 rather than being ignored. Exit codes: 0 ok, 1 domain error,
+# 2 usage, 3 bootstrap/database.
+# See docs/superpowers/specs/2026-08-03-gt-cli-design.md
 
 # Deploy (git pull --ff-only + npm ci + vite build, with a Node >= 18 preflight)
 ./scripts/deploy.sh

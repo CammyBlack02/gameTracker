@@ -26,6 +26,11 @@ final class WhoamiCommand implements Command
         return 'Show the acting user and their collection totals';
     }
 
+    public static function allowedOptions(): array
+    {
+        return [];
+    }
+
     public function run(array $args, Context $ctx): int
     {
         $user = UserResolver::resolve($ctx->pdo, $ctx->userRef);

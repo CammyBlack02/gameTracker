@@ -16,7 +16,7 @@ use GameTracker\Cli\Context;
  */
 final class DbInfoCommand implements Command
 {
-    public const NAME = 'db:info';
+    public const NAME = 'db info';
 
     public static function name(): string
     {
@@ -26,6 +26,11 @@ final class DbInfoCommand implements Command
     public static function description(): string
     {
         return 'Show the target database, schema state and migration ledger';
+    }
+
+    public static function allowedOptions(): array
+    {
+        return [];
     }
 
     public function run(array $args, Context $ctx): int
