@@ -22,4 +22,14 @@ final class FilterSet
         public readonly int $offset,
     ) {
     }
+
+    /**
+     * A single row by id, expressed as a FilterSet so writes can reuse the same
+     * plumbing as filtered selections instead of growing a second code path.
+     * Paging is fixed at one row; ordering is irrelevant but must be valid SQL.
+     */
+    public static function forId(int $id): self
+    {
+        return new self('`id` = ?', [$id], '`id` ASC', 1, 1, 0);
+    }
 }
