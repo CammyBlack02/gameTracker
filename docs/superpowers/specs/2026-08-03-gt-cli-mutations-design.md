@@ -197,11 +197,22 @@ benefit.
 
 ### Conflict detection
 
-Each journalled row records its `updated_at`. On undo, if the row's current
-`updated_at` differs, something else has changed it since — the web app, the iOS
-app, or another CLI run — and undo **refuses** rather than silently discarding
-that newer edit. `--force` overrides, per-command, and reports what it
-overwrote.
+Each journalled row records the `updated_at` the row holds **after** the write,
+not before it. This distinction is the whole mechanism, and getting it wrong
+breaks undo completely: the write bumps `updated_at` itself, so a pre-write
+baseline makes undo believe every row was edited behind its back and refuse to
+restore anything. The baseline has to mean *"has anything touched this row since
+my write"*.
+
+It is also a bug that hides: `updated_at` has one-second resolution, so the pre-
+and post-write values coincide whenever a write lands in the same second as the
+row's previous state. A test that does not deliberately cross a second boundary
+will pass against the broken version.
+
+On undo, if the row's current `updated_at` differs from the recorded one,
+something else has changed it since — the web app, the iOS app, or another CLI
+run — and undo **refuses** rather than silently discarding that newer edit.
+`--force` overrides, per-command, and reports what it overwrote.
 
 This is the difference between an undo that is safe to reach for and one that is
 its own hazard.

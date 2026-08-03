@@ -102,7 +102,23 @@ final class GamesWriter
             throw $e;
         }
 
-        $journal->markCommitted($id);
+        // Re-record updated_at AFTER the write. The baseline undo compares
+        // against has to mean "has anything touched this row since *my* write",
+        // and this write bumped updated_at itself — keeping the pre-write value
+        // would make undo believe every row had been edited behind its back and
+        // refuse to restore anything. The bug hid behind updated_at's
+        // one-second resolution: pre and post coincide whenever a write lands
+        // in the same second as the row's previous state.
+        $journal->write(new JournalEntry(
+            $id,
+            $argv,
+            $userId,
+            'games',
+            'set',
+            true,
+            null,
+            self::withCurrentTimestamps($pdo, $rows)
+        ));
 
         return [
             'journal_id' => $id,
@@ -112,6 +128,38 @@ final class GamesWriter
             // Reported separately rather than conflated.
             'changed' => $changed,
         ];
+    }
+
+    /**
+     * Replace each snapshotted row's updated_at with the value the row holds
+     * now, leaving the before-values untouched.
+     *
+     * @param list<array{id:int, updated_at:?string, before:array}> $rows
+     * @return list<array{id:int, updated_at:?string, before:array}>
+     */
+    private static function withCurrentTimestamps(PDO $pdo, array $rows): array
+    {
+        $ids = array_column($rows, 'id');
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        $stmt = $pdo->prepare(
+            "SELECT `id`, `updated_at` FROM games WHERE `id` IN ({$placeholders})"
+        );
+        $stmt->execute($ids);
+
+        $stamps = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $stamps[(int)$row['id']] = $row['updated_at'];
+        }
+
+        return array_map(
+            static fn(array $row): array => [
+                'id' => $row['id'],
+                'updated_at' => $stamps[$row['id']] ?? $row['updated_at'],
+                'before' => $row['before'],
+            ],
+            $rows
+        );
     }
 
     /**
