@@ -317,5 +317,34 @@ in feel (`delete`) is built on top of it.
   over `gt games list --missing=description` and `gt games set <id>
   --set-description=…`, with the research supplied by the agent.
 - Fixing the web app's shared-image-file unlink bug.
+- **Image reconciliation**, deferred to sub-project #4 by decision on
+  2026-08-03. Because `gt delete` never unlinks, orphaned files accumulate;
+  measured against production on that date:
+
+  | | |
+  |---|---|
+  | Referenced local files | 1,142 |
+  | Files on disk in `uploads/covers` | 1,190 |
+  | Orphans (on disk, unreferenced) | 99 — 52 MB, of which 28 match the doubled-filename bug's pattern |
+  | Missing (referenced, absent from disk) | 51 — 48 plausible filenames, 3 base64 remnants (`2Q==`, `9k=`) |
+  | **Games with a broken front cover** | **43** |
+
+  Three constraints for whoever builds it:
+
+  - **Prune must move files to trash, not unlink them.** A mysqldump restore
+    does not bring image files back, so deletion here is the least recoverable
+    operation in the system. `~/.gt/trash/<timestamp>/`, journalled.
+  - **Thumbnails are derived, not referenced.** 1,187 files live in
+    `uploads/covers/thumbs/` and no database row points at them. A naive
+    "delete unreferenced files" sweep would destroy every thumbnail. Keep a
+    thumb if *its source* is referenced.
+  - **Those 43 broken covers are invisible to every filter built in #1.**
+    `--missing=front_cover_image` matches NULL or empty, not a column pointing
+    at a file that no longer exists. #4 needs either audit output or a
+    `--broken-cover` predicate that stats the disk.
+
+  Repairing them requires this sub-project's write machinery — clearing the dead
+  column, or re-fetching via `api/v2/cover-image.php` — so the ordering works
+  out without #4 blocking on anything else.
 - Retiring `initializeDatabase()` or repairing the production migration ledger,
   tracked separately.
