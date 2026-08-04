@@ -1,0 +1,10 @@
+{
+  "response": {
+    "game_count": 3,
+    "games": [
+      { "appid": 220,   "name": "IMPORT Half-Life 2", "img_icon_url": "abc123" },
+      { "appid": 620,   "name": "IMPORT Portal 2",    "img_icon_url": "def456" },
+      { "appid": 12345, "name": "IMPORT Steam Only",  "img_icon_url": "ghi789" }
+    ]
+  }
+}
