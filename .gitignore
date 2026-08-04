@@ -17,6 +17,10 @@ uploads/*
 *.xls
 *.ged
 
+# ...except synthetic test fixtures. The rule above exists to keep real
+# collection exports out of the repo; these contain invented rows only.
+!tests/cli/fixtures/*.csv
+
 # Certificates (if using HTTPS)
 certs/
 
