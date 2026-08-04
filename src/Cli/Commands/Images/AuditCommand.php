@@ -41,15 +41,7 @@ final class AuditCommand implements Command
         // user's files as prunable.
         $referenced = ImageIndex::referencedFor($ctx->pdo, null);
 
-        // UPLOAD_DIR comes from includes/config.php — the same file that
-        // provides $pdo — so the disk half and the database half are guaranteed
-        // to describe one install. Deriving it from __DIR__ instead let a
-        // worktree binary read production's database while listing the
-        // worktree's (empty) uploads, reporting every file as missing.
-        $uploads = defined('UPLOAD_DIR')
-            ? rtrim(UPLOAD_DIR, '/')
-            : dirname(__DIR__, 4) . '/uploads';
-
+        $uploads = ImageIndex::uploadsDir();
         $disk = ImageIndex::onDisk($uploads);
 
         $result = Reconciler::reconcile(
