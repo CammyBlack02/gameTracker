@@ -7,6 +7,9 @@ use GameTracker\Cli\Context;
 use GameTracker\Cli\Output;
 use GameTracker\Cli\UserResolver;
 use GameTracker\Query\FilterCompiler;
+use GameTracker\Images\BrokenCover;
+use GameTracker\Images\ImageIndex;
+use GameTracker\Query\FilterSet;
 use GameTracker\Query\ItemsFilters;
 use GameTracker\Services\ItemsService;
 
@@ -26,9 +29,12 @@ final class ListCommand implements Command
         return 'List items (accessories), with filters';
     }
 
+    /** A --broken-cover scan must see every row, so paging is effectively off. */
+    private const SCAN_LIMIT = 100000;
+
     public static function allowedOptions(): array
     {
-        return ItemsFilters::definition()->flagNames();
+        return array_merge(ItemsFilters::definition()->flagNames(), ['broken-cover']);
     }
 
     public function run(array $args, Context $ctx): int
@@ -36,7 +42,36 @@ final class ListCommand implements Command
         $user = UserResolver::resolve($ctx->pdo, $ctx->userRef);
         $filters = FilterCompiler::compile(ItemsFilters::definition(), $ctx);
 
+        // See Games\ListCommand: this is a scan, not a filter.
+        $brokenCover = $ctx->flag('broken-cover');
+        if ($brokenCover) {
+            $filters = new FilterSet(
+                $filters->whereSql,
+                $filters->params,
+                $filters->orderSql,
+                1,
+                self::SCAN_LIMIT,
+                0
+            );
+        }
+
         $result = ItemsService::list($ctx->pdo, (int)$user['id'], $filters);
+
+        if ($brokenCover) {
+            $result['items'] = BrokenCover::filter(
+                $result['items'],
+                'items',
+                ImageIndex::uploadsDir()
+            );
+            $total = count($result['items']);
+            $result['pagination'] = [
+                'page' => 1,
+                'per_page' => $total,
+                'total' => $total,
+                'total_pages' => 1,
+                'has_more' => false,
+            ];
+        }
 
         if ($ctx->output->format() === Output::FORMAT_TABLE) {
             $ctx->output->rows($result['items'], self::TABLE_COLUMNS);
