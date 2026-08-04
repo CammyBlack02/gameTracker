@@ -1,7 +1,10 @@
 # Architecture diagrams — design
 
 **Date:** 2026-08-04
-**Status:** approved, not yet implemented
+**Status:** implemented — this spec ships on the branch that implements it
+(`docs-architecture-diagrams`). Corrections below marked *(corrected 2026-08-04)*
+were wrong in the approved version and were caught by review against the code;
+they are fixed here so the errors are not regenerated from this document.
 
 ## Problem
 
@@ -46,20 +49,46 @@ same blocks.
 
 **1. System context.** nginx → php-fpm → MySQL 8 on one box, with three
 consumers (browser, iPhone, `gt` running on the box itself) and the external
-services it reaches: TheGamesDB, Steam, PriceCharting, Metacritic. Includes the
+services it reaches: TheGamesDB, Steam, PriceCharting, Wikipedia. Includes the
 ops edges — DuckDNS tracking a rotating WAN IP, Let's Encrypt TLS.
 
-Must encode: every external fetch goes through `includes/http-fetch.php`, which
-rejects private/loopback/link-local/reserved IPs and revalidates each redirect
-hop.
+*(corrected 2026-08-04)* **Metacritic is not one of them.** `api/metacritic.php`
+and `api/v2/metacritic.php` both return a fixed "no longer supported" response
+and fetch nothing; scores are entered manually. Do not draw it as a dependency.
+
+*(corrected 2026-08-04)* Must encode: there are **two** exits to the internet and
+only one is gated. `includes/http-fetch.php` gates fetches of *caller-supplied*
+URLs (`api/games.php`, `api/download-cover.php`, `api/image-proxy.php`,
+`api/v2/images/cover.php`, `includes/external-image-service.php`), rejecting
+private/loopback/link-local/reserved IPs and revalidating each redirect hop.
+Requests to a **hardcoded** third-party host bypass it entirely via raw cURL:
+`api/steam-import.php`, `includes/external-apis.php`, `api/v2/cover-image.php`
+and `src/Import/CurlTransport.php` — the first two contain no call into the guard
+at all. Do not write "every external fetch goes through the guard"; that is the
+claim in `includes/http-fetch.php`'s own docblock and it is false. Sharpest
+consequence to encode: `includes/external-apis.php` scrapes a PriceCharting
+search page, extracts a product URL from the returned HTML, and fetches it with
+redirect-following on — an ungated fetch whose target is set by remote content.
 
 **2. User journey.** One game from "add it" to "it's on the phone": form → v1
-write → cover downloaded *after* the transaction commits → `updated_at` bumped →
-the phone's next delta sync collects it. This is the diagram that makes the other
-eight legible to a newcomer, so it is deliberately the least detailed.
+auth + CSRF check → cover fetched and written to a file → `INSERT` carrying that
+filename → success response → the phone's next delta sync collects it. This is
+the diagram that makes the other eight legible to a newcomer, so it is
+deliberately the least detailed.
 
-Must encode: covers download post-commit so network latency never holds row
-locks, and a failed download is non-fatal.
+*(corrected 2026-08-04)* Must encode the **real** ordering: on the v1 web path
+the cover is fetched **before** the INSERT, its filename goes into the INSERT
+itself, and the response is sent afterwards — so the user's request blocks on the
+network. There are **no transactions anywhere in `api/games.php`**, so there is
+nothing to commit and no row locks to protect. Failure behaviour on this path: a
+URL that will not fetch stays in the column *as a URL* and nothing is counted; an
+undecodable `data:` URI is a hard 400 and no row is created.
+
+The post-commit-fetch design is real but belongs to the **CLI import path** —
+`src/Services/Write/Importer.php` commits, then covers are fetched, a failed
+download is non-fatal, the row keeps a NULL cover and the failure is counted. If
+diagram 2 mentions it, it must be attributed to the import path and explicitly
+distinguished from the web create path.
 
 ### Level 2 — The two generations
 
@@ -72,8 +101,18 @@ Must encode:
   deliberately not bcrypt (cheap deterministic lookup).
 - **v2 never includes a v1 file.** Phase 2c removed the old proxy pattern that
   set `$_SESSION` and reshaped v1 responses through an output buffer.
-- Every mutating v1 action requires POST, which with `SameSite=Lax` is what
-  currently stands in for full CSRF enforcement.
+- *(corrected 2026-08-04)* **CSRF token enforcement on v1 is live**, not pending.
+  The check runs on the mutating paths of nine endpoints — `api/games.php`,
+  `api/items.php`, `api/settings.php`, `api/completions.php`, `api/admin.php`,
+  `api/upload.php`, `api/steam-import.php`, `api/stats.php`,
+  `api/import-gameeye.php` — and answers a missing or invalid token with a 403
+  that ends the request. POST-only mutation and `SameSite=Lax` are additional
+  layers, **not** substitutes. The approved version of this spec said the latter
+  two "stand in for full CSRF enforcement" and that `includes/csrf.php` was
+  waiting on the frontend rewrite; both were false.
+- *(corrected 2026-08-04)* v2 serves the iPhone app **and** the browser: `js/api.js`
+  has a session-credentialed v2 GET helper that the game form uses. Do not draw
+  the phone as v2's only consumer.
 
 **4. Data model.** All twelve tables with FK delete rules **on the edges**,
 because those rules are the behaviour:
@@ -144,8 +183,11 @@ missing on the phone, because `sync/changes.php` only returns rows newer than th
 client's cursor. Also: delete never unlinks image files, because several games
 share one path — which is what makes delete reversible.
 
-**8. iOS delta sync.** The `since` cursor; `changes.php` streaming games, items,
-`game_completions`, `game_images` plus deletion tombstones; `push.php` conflict
+**8. iOS delta sync.** The `since` cursor; `changes.php` streaming **five**
+tables — games, items, `game_completions`, `game_images`, `item_images` — plus
+deletion tombstones, and ending with `server_now` *(corrected 2026-08-04: the
+approved version listed four and omitted `item_images`; diagram 2's summary of
+the same response must match)*; `push.php` conflict
 detection comparing the client's base `updated_at` against the server's current
 value, returning the full `server_version` on conflict.
 
