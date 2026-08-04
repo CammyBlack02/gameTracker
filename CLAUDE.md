@@ -223,6 +223,31 @@ Two mechanisms coexist, and this is a known wart:
 # WHERE clause, and it turns paging off to report a true total. It branches on
 # storage mode first — URLs and data URIs are not missing files.
 
+# Health check (sub-project #5). Read-only. EXITS 1 if any check fails, so it
+# works from cron or CI rather than only when you think to look.
+./bin/gt doctor
+./bin/gt doctor --json
+
+# Checks schema (ledger, user_id foreign keys, no request-time DDL), config
+# integrity, backups and images. Orphan files report as `note`, not a failure —
+# they are untidy rather than broken, and a permanently red doctor is one
+# nobody reads.
+#
+# The config check asserts KNOWN-GOOD PROPERTIES rather than diffing
+# config.php.example: the two files legitimately differ by credentials, so a
+# diff would false-positive forever. It exists because config.php is gitignored
+# and three separate fixes never reached the live copy — the per-request DDL,
+# the GT_CLI session guard, and the GT_CLI connection-error handling.
+#
+# The backup check opens the artifact. `backup-complete` is the one that
+# matters: a truncated dump still has CREATE TABLE and a plausible size, and
+# only mysqldump's trailing marker gives it away. The nightly backups logged
+# success while writing 0-byte dumps for the app's entire life.
+#
+# Run it from the PRODUCTION checkout. Running a worktree binary against the
+# production database compares one install's rows with another's disk; the
+# image check detects that and says so rather than reporting a lost collection.
+
 # Filters are AND-only, per-resource, and allowlisted: an unknown flag or
 # column exits 2 rather than being ignored. Exit codes: 0 ok, 1 domain error,
 # 2 usage, 3 bootstrap/database.
@@ -234,7 +259,8 @@ Two mechanisms coexist, and this is a known wart:
 # See docs/superpowers/specs/2026-08-03-gt-cli-design.md,
 #     docs/superpowers/specs/2026-08-03-gt-cli-mutations-design.md and
 #     docs/superpowers/specs/2026-08-04-gt-cli-import-design.md,
-#     docs/superpowers/specs/2026-08-04-gt-cli-images-design.md
+#     docs/superpowers/specs/2026-08-04-gt-cli-images-design.md and
+#     docs/superpowers/specs/2026-08-04-gt-doctor-design.md
 
 # Deploy (git pull --ff-only + npm ci + vite build, with a Node >= 18 preflight)
 ./scripts/deploy.sh
