@@ -230,4 +230,43 @@ assert_eq "0" "$GT_CODE" "zero-match delete exits 0"
 assert_eq "$JOURNAL_BEFORE" "$(find "$GT_JOURNAL_DIR" -name '*.json' | wc -l)" \
   "no journal entry for a zero-match delete"
 
+blue "items delete"
+
+seed_items
+CARD_ID=$(fixture_id items 'FIXTURE Memory Card' mine)
+
+run_gt_json items delete "$CARD_ID" "$USER_FLAG"
+assert_eq "0" "$GT_CODE" "items delete without --yes exits 0"
+echo "$GT_JSON" | jq -e '.dry_run == true' > /dev/null \
+  && { green "  PASS: items delete previews"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: should have previewed: $GT_JSON"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+assert_eq "1" "$(fixture_mysql -N -e "SELECT COUNT(*) FROM items WHERE id = $CARD_ID")" \
+  "the preview deleted nothing"
+
+run_gt items delete "$USER_FLAG" --yes
+assert_eq "2" "$GT_CODE" "bulk items delete with no selector = 2"
+
+OTHER_ITEM2=$(fixture_id items 'FIXTURE Not Mine Item' other)
+run_gt items delete "$OTHER_ITEM2" "$USER_FLAG" --yes
+assert_eq "1" "$GT_CODE" "deleting another user's item = 1"
+
+run_gt_json items delete "$CARD_ID" "$USER_FLAG" --yes
+assert_eq "0" "$GT_CODE" "items delete --yes exits 0"
+assert_eq "0" "$(fixture_mysql -N -e "SELECT COUNT(*) FROM items WHERE id = $CARD_ID")" \
+  "the item is gone"
+assert_eq "1" "$(fixture_mysql -N -e "
+  SELECT COUNT(*) FROM deletions WHERE table_name = 'items' AND server_id = $CARD_ID")" \
+  "a tombstone was written for the item"
+
+run_gt undo "$USER_FLAG" --yes
+assert_eq "0" "$GT_CODE" "undo of an items delete exits 0"
+assert_eq "1" "$(fixture_mysql -N -e "SELECT COUNT(*) FROM items WHERE id = $CARD_ID")" \
+  "the item is restored under its original id"
+assert_eq "FIXTURE Memory Card" \
+  "$(fixture_mysql -N -e "SELECT title FROM items WHERE id = $CARD_ID")" \
+  "the restored item keeps its values"
+assert_eq "0" "$(fixture_mysql -N -e "
+  SELECT COUNT(*) FROM deletions WHERE table_name = 'items' AND server_id = $CARD_ID")" \
+  "the item's tombstone was cleared"
+
 summarize

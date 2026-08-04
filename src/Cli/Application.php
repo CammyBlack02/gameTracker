@@ -10,6 +10,7 @@ use GameTracker\Cli\Commands\Games\ListCommand as GamesListCommand;
 use GameTracker\Cli\Commands\Games\PlatformsCommand as GamesPlatformsCommand;
 use GameTracker\Cli\Commands\Games\SetCommand as GamesSetCommand;
 use GameTracker\Cli\Commands\Items\CreateCommand as ItemsCreateCommand;
+use GameTracker\Cli\Commands\Items\DeleteCommand as ItemsDeleteCommand;
 use GameTracker\Cli\Commands\Items\GetCommand as ItemsGetCommand;
 use GameTracker\Cli\Commands\Items\ListCommand as ItemsListCommand;
 use GameTracker\Cli\Commands\Items\SetCommand as ItemsSetCommand;
@@ -51,6 +52,7 @@ final class Application
         'items get' => ItemsGetCommand::class,
         'items set' => ItemsSetCommand::class,
         'items create' => ItemsCreateCommand::class,
+        'items delete' => ItemsDeleteCommand::class,
     ];
 
     /** Global flags consumed here, never forwarded to commands. */
