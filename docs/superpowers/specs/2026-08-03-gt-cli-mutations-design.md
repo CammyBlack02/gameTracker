@@ -347,13 +347,42 @@ in feel (`delete`) is built on top of it.
   2026-08-03. Because `gt delete` never unlinks, orphaned files accumulate;
   measured against production on that date:
 
+  **Corrected 2026-08-04.** The 2026-08-03 measurement took a basename with
+  `sed 's#.*/##'` over every value. Base64 data URIs contain `/`, so that turned
+  each inline image into its own tail — `…/9k=` became the "filename" `9k=` —
+  and then reported it as a file that was missing. The "43 games with a broken
+  front cover" figure and the "3 base64 remnants" were both artefacts of that
+  bug. Re-measured excluding `data:` URIs and `http` URLs:
+
   | | |
   |---|---|
-  | Referenced local files | 1,142 |
-  | Files on disk in `uploads/covers` | 1,190 |
-  | Orphans (on disk, unreferenced) | 99 — 52 MB, of which 28 match the doubled-filename bug's pattern |
-  | Missing (referenced, absent from disk) | 51 — 48 plausible filenames, 3 base64 remnants (`2Q==`, `9k=`) |
-  | **Games with a broken front cover** | **43** |
+  | Referenced filenames (unique) | 1,139 |
+  | Files on disk in `uploads/covers` + `uploads/extras`, excl. thumbs | 1,190 |
+  | Orphans (on disk, unreferenced) | 99 — 51.4 MB, of which 28 match the doubled-filename pattern |
+  | Missing (referenced, absent from disk) | 48 |
+
+  **How each column stores its image**, which is the fact the first pass missed:
+
+  | Column | data URI | http URL | filename | of those, broken |
+  |---|---|---|---|---|
+  | `games.front_cover_image` | 42 | 51 | 810 | **1** |
+  | `games.back_cover_image` | 39 | 26 | 289 | **3** |
+  | `items.front_image` | 0 | 58 | 32 | **32** |
+  | `items.back_image` | 0 | 0 | 9 | **9** |
+  | `game_images.image_path` | 0 | 0 | 4 | **4** |
+  | `item_images.image_path` | 0 | 0 | 0 | 0 |
+
+  So game covers are essentially healthy — 4 broken rows out of 1,099
+  filename-backed ones. The damage is concentrated elsewhere: **every
+  filename-backed item image is broken (41 of 41), as is every `game_images`
+  row (4 of 4).** That is not gradual rot, it is a class of files that was
+  deleted or never migrated, and it wants a cause investigated before a repair
+  is designed.
+
+  None of the 48 missing files can be recovered by renaming: matching every
+  missing name against the orphan list for a doubled-name match yields **0**
+  hits, so the orphans are unrelated duplicate saves rather than the lost
+  originals.
 
   Three constraints for whoever builds it:
 
@@ -364,10 +393,16 @@ in feel (`delete`) is built on top of it.
     `uploads/covers/thumbs/` and no database row points at them. A naive
     "delete unreferenced files" sweep would destroy every thumbnail. Keep a
     thumb if *its source* is referenced.
-  - **Those 43 broken covers are invisible to every filter built in #1.**
+  - **Broken references are invisible to every filter built in #1.**
     `--missing=front_cover_image` matches NULL or empty, not a column pointing
     at a file that no longer exists. #4 needs either audit output or a
     `--broken-cover` predicate that stats the disk.
+  - **An audit must branch on storage mode before touching the filesystem.**
+    A value is a `data:` URI, an `http(s)` URL, or a filename, and only the
+    third kind lives on disk. Treating the other two as paths is exactly the
+    bug that produced the wrong 2026-08-03 numbers, and it is an easy one to
+    repeat — 51 game front covers and 58 item front images are external URLs
+    that would otherwise read as missing files.
 
   Repairing them requires this sub-project's write machinery — clearing the dead
   column, or re-fetching via `api/v2/cover-image.php` — so the ordering works
