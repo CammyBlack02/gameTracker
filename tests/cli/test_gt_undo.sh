@@ -137,4 +137,28 @@ blue "Unknown entry"
 run_gt undo not-a-real-entry "$USER_FLAG"
 assert_eq "1" "$GT_CODE" "unknown journal id = 1"
 
+blue "Unknown resource in a journal entry"
+
+# A hand-written entry naming a resource with no reverter must fail cleanly
+# rather than reverting against the wrong table. This is the dispatch seam:
+# before it existed, every entry was reverted as if it were a games `set`.
+BOGUS_ID="2099-01-01T00-00-00-000000Z-set"
+cat > "$GT_JOURNAL_DIR/$BOGUS_ID.json" <<JSON
+{
+  "id": "$BOGUS_ID",
+  "argv": [],
+  "user_id": $(fixture_user_id "$FIXTURE_USER"),
+  "resource": "widgets",
+  "operation": "set",
+  "committed": true,
+  "reverted_at": null,
+  "rows": [{"id": 1, "updated_at": null, "before": {"title": "x"}}]
+}
+JSON
+
+run_gt undo "$BOGUS_ID" "$USER_FLAG"
+assert_eq "1" "$GT_CODE" "an unknown resource is a domain error"
+assert_contains "widgets" "$GT_OUT" "names the resource it cannot revert"
+rm -f "$GT_JOURNAL_DIR/$BOGUS_ID.json"
+
 summarize

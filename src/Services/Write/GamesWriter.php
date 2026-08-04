@@ -3,6 +3,7 @@
 namespace GameTracker\Services\Write;
 
 use GameTracker\Domain\AccessDeniedException;
+use GameTracker\Domain\BadRequestException;
 use GameTracker\Journal\JournalEntry;
 use GameTracker\Journal\JournalWriter;
 use GameTracker\Query\FilterSet;
@@ -24,8 +25,21 @@ use Throwable;
  *   - Column names come from AssignmentSet, which validated them against a
  *     WriteDefinition. Values are always bound.
  */
-final class GamesWriter
+final class GamesWriter implements ResourceWriter
 {
+    /**
+     * @return array{restored: int, skipped: int}
+     */
+    public static function revert(PDO $pdo, JournalEntry $entry, bool $force): array
+    {
+        return match ($entry->operation) {
+            'set' => self::revertSet($pdo, $entry, $force),
+            default => throw new BadRequestException(
+                "cannot revert operation '{$entry->operation}' on games"
+            ),
+        };
+    }
+
     /**
      * @return array{journal_id: ?string, matched: int, changed: int}
      */
