@@ -170,90 +170,6 @@ function getGame() {
     }
 }
 
-function findMatchingGame($title, $platform) {
-    global $pdo;
-    
-    if (empty($title) || empty($platform)) {
-        return null;
-    }
-    
-    // Normalize title for matching (remove special chars, lowercase)
-    $normalizedTitle = strtolower(trim($title));
-    $normalizedTitle = preg_replace('/[^a-z0-9\s]/', '', $normalizedTitle);
-    $normalizedTitle = preg_replace('/\s+/', ' ', $normalizedTitle);
-    
-    // Extract key words from title (first 2-3 words) for initial database filtering
-    $titleWords = explode(' ', $normalizedTitle);
-    $keyWords = array_slice($titleWords, 0, min(3, count($titleWords)));
-    $searchPattern = '%' . implode('%', $keyWords) . '%';
-    
-    // First, use database LIKE to filter down to potential matches
-    // This dramatically reduces the dataset before PHP fuzzy matching
-    $stmt = $pdo->prepare("
-        SELECT id, title, front_cover_image, back_cover_image
-        FROM games
-        WHERE platform = ?
-        AND front_cover_image IS NOT NULL
-        AND front_cover_image != ''
-        AND (
-            LOWER(REPLACE(REPLACE(REPLACE(REPLACE(title, '-', ' '), ':', ' '), '!', ' '), '.', ' ')) LIKE ?
-            OR LOWER(REPLACE(REPLACE(REPLACE(REPLACE(title, '-', ' '), ':', ' '), '!', ' '), '.', ' ')) LIKE ?
-        )
-        LIMIT 50
-    ");
-    
-    // Try with first word, then first two words
-    $firstWordPattern = '%' . ($titleWords[0] ?? '') . '%';
-    $stmt->execute([$platform, $searchPattern, $firstWordPattern]);
-    $games = $stmt->fetchAll();
-    
-    if (empty($games)) {
-        return null;
-    }
-    
-    // Find best match using fuzzy matching on the filtered results
-    $bestMatch = null;
-    $bestScore = 0;
-    
-    foreach ($games as $game) {
-        // Normalize game title
-        $gameTitle = strtolower(trim($game['title']));
-        $gameTitle = preg_replace('/[^a-z0-9\s]/', '', $gameTitle);
-        $gameTitle = preg_replace('/\s+/', ' ', $gameTitle);
-        
-        // Calculate similarity using similar_text
-        similar_text($normalizedTitle, $gameTitle, $percent);
-        
-        // Also check if one title contains the other (for partial matches)
-        if (strpos($normalizedTitle, $gameTitle) !== false || strpos($gameTitle, $normalizedTitle) !== false) {
-            $percent = max($percent, 85); // Boost partial matches
-        }
-        
-        if ($percent > $bestScore && $percent >= 80) { // 80% similarity threshold
-            $bestScore = $percent;
-            $bestMatch = $game;
-        }
-    }
-    
-    // Check if best match has local images (not external URLs)
-    if ($bestMatch) {
-        $frontCover = $bestMatch['front_cover_image'] ?? null;
-        $backCover = $bestMatch['back_cover_image'] ?? null;
-        
-        // Only return if at least one cover is a local file (not external URL)
-        $hasLocalFront = $frontCover && !preg_match('/^https?:\/\//', $frontCover);
-        $hasLocalBack = $backCover && !preg_match('/^https?:\/\//', $backCover);
-        
-        if ($hasLocalFront || $hasLocalBack) {
-            return [
-                'front_cover_image' => $hasLocalFront ? $frontCover : null,
-                'back_cover_image' => $hasLocalBack ? $backCover : null
-            ];
-        }
-    }
-    
-    return null;
-}
 
 function createGame() {
     global $pdo;
@@ -272,27 +188,28 @@ function createGame() {
     
     $userId = $_SESSION['user_id'];
     
-    // Check for matching game to reuse images (only if user hasn't provided images)
     $frontCover = $data['front_cover_image'] ?? null;
     $backCover = $data['back_cover_image'] ?? null;
-    
-    if (empty($frontCover) || empty($backCover)) {
-        $matchingGame = findMatchingGame($data['title'], $data['platform']);
-        
-        if ($matchingGame) {
-            // Use matching images only if user hasn't provided them
-            if (empty($frontCover) && !empty($matchingGame['front_cover_image'])) {
-                $frontCover = $matchingGame['front_cover_image'];
-                error_log("Reusing front cover from matching game for: {$data['title']} ({$data['platform']})");
-            }
-            
-            if (empty($backCover) && !empty($matchingGame['back_cover_image'])) {
-                $backCover = $matchingGame['back_cover_image'];
-                error_log("Reusing back cover from matching game for: {$data['title']} ({$data['platform']})");
-            }
-        }
-    }
-    
+
+    // A blank cover stays blank. This used to call findMatchingGame() and copy a
+    // similarly-titled game's cover PATH into the new row, which produced two
+    // distinct faults, both present in production data:
+    //
+    //   - The query had no user_id predicate, so it matched across every user's
+    //     collection. Three rows titled "Silent Hill 2" on PlayStation 2, owned
+    //     by three different users, ended up sharing one uploaded file — one
+    //     user's upload handed to the other two, against the rule that every
+    //     query is user-scoped.
+    //   - Its fuzzy matcher accepted anything scoring 80% on similar_text(), so
+    //     it also assigned plainly wrong art. "Prototype 2" matched "Prototype"
+    //     and inherited its cover.
+    //
+    // Sharing a path is also what made deleting a game destructive, because
+    // deleteGame unlinked the file — see the note in deleteGame.
+    //
+    // Covers are populated deliberately instead: supply one on create, or use the
+    // cover-download path. Regression test: tests/v2/test_v1_create_contract.sh.
+
     // create localised nothing before this: a data: URI or an http URL supplied
     // at creation time was stored verbatim, which is why 51 rows hold a URL and
     // 42 hold an inlined image.
@@ -585,27 +502,16 @@ function updateGame() {
     $frontCover = isset($data['front_cover_image']) ? $data['front_cover_image'] : $currentGame['front_cover_image'];
     $backCover = isset($data['back_cover_image']) ? $data['back_cover_image'] : $currentGame['back_cover_image'];
     
-    // If images are missing (empty or null), try to find matching games to reuse images
-    if (empty($frontCover) || empty($backCover)) {
-        $gameTitle = $data['title'] ?? $currentGame['title'];
-        $gamePlatform = $data['platform'] ?? $currentGame['platform'];
-        
-        $matchingGame = findMatchingGame($gameTitle, $gamePlatform);
-        
-        if ($matchingGame) {
-            // Use matching images only if current image is missing
-            if (empty($frontCover) && !empty($matchingGame['front_cover_image'])) {
-                $frontCover = $matchingGame['front_cover_image'];
-                error_log("Reusing front cover from matching game for existing game: $gameTitle ($gamePlatform)");
-            }
-            
-            if (empty($backCover) && !empty($matchingGame['back_cover_image'])) {
-                $backCover = $matchingGame['back_cover_image'];
-                error_log("Reusing back cover from matching game for existing game: $gameTitle ($gamePlatform)");
-            }
-        }
-    }
-    
+    // A blank cover stays blank on update too. This used to call
+    // findMatchingGame() and copy a similarly-titled game's cover path in, with
+    // the same two faults as the create path had — an unscoped cross-user query,
+    // and a fuzzy matcher loose enough to assign the wrong art. See the note in
+    // createGame for the production evidence.
+    //
+    // Update was the worse of the two: it fired on every save of any game whose
+    // cover happened to be blank, so a row could silently acquire someone else's
+    // file without the user touching the image at all.
+
     // Update data array with final image values
     $data['front_cover_image'] = $frontCover;
     $data['back_cover_image'] = $backCover;
@@ -723,8 +629,9 @@ function deleteGame() {
         sendJsonResponse(['success' => false, 'message' => 'Game ID is required'], 400);
     }
     
-    // Get game to verify ownership and delete images
-    $stmt = $pdo->prepare("SELECT user_id, front_cover_image, back_cover_image FROM games WHERE id = ?");
+    // Fetch the owner to distinguish 404 from 403. The cover columns used to be
+    // selected here so the files could be unlinked; they are no longer read.
+    $stmt = $pdo->prepare("SELECT user_id FROM games WHERE id = ?");
     $stmt->execute([$id]);
     $game = $stmt->fetch();
     
