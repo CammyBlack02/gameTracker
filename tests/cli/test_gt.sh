@@ -65,9 +65,12 @@ assert_contains "games" "$GT_OUT" "mentions the resource"
 run_gt --bogus-flag whoami
 assert_eq "2" "$GT_CODE" "unknown option = 2"
 
+# --http serves the read commands that have a v2 endpoint (#6a). Anything
+# else is refused rather than quietly run in process — a flag that sometimes
+# means what it says is worse than one that refuses.
 run_gt --http whoami
-assert_eq "2" "$GT_CODE" "--http refuses until a later sub-project"
-assert_contains "not implemented" "$GT_OUT" "explains why --http failed"
+assert_eq "2" "$GT_CODE" "--http refuses a command with no v2 endpoint"
+assert_contains "read-only" "$GT_OUT" "explains --http is read-only for now"
 
 # --- whoami
 blue "whoami"

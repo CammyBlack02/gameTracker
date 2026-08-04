@@ -5,6 +5,7 @@ namespace GameTracker\Cli\Commands\Items;
 use GameTracker\Cli\Command;
 use GameTracker\Cli\Context;
 use GameTracker\Cli\Output;
+use GameTracker\Cli\Http\HttpClient;
 use GameTracker\Cli\UserResolver;
 use GameTracker\Query\FilterCompiler;
 use GameTracker\Images\BrokenCover;
@@ -39,6 +40,10 @@ final class ListCommand implements Command
 
     public function run(array $args, Context $ctx): int
     {
+        if ($ctx->http) {
+            return $this->overHttp($ctx, 'api/v2/items/list.php');
+        }
+
         $user = UserResolver::resolve($ctx->pdo, $ctx->userRef);
         $filters = FilterCompiler::compile(ItemsFilters::definition(), $ctx);
 
@@ -86,6 +91,27 @@ final class ListCommand implements Command
         }
 
         $ctx->output->record($result);
+
+        return 0;
+    }
+
+    /**
+     * Run this command against a v2 endpoint instead of the service layer.
+     *
+     * Forwards every command-specific option as a query parameter. A valueless
+     * flag stays valueless so ArrayOptions::flag() reads it the same way
+     * Context::flag() does.
+     */
+    private function overHttp(Context $ctx, string $path, array $extra = []): int
+    {
+        $client = HttpClient::fromEnvironment();
+
+        $query = $extra;
+        foreach ($ctx->options as $key => $value) {
+            $query[$key] = $value === true ? true : (string)$value;
+        }
+
+        $ctx->output->record($client->get($path, $query));
 
         return 0;
     }
