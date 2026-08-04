@@ -815,10 +815,10 @@ sequenceDiagram
     Note over P: pull first
     P->>C: GET ?since=<ISO 8601 cursor>
     C->>DB: rows WHERE updated_at >= since
-    DB-->>C: games, items, game_completions, game_images
+    DB-->>C: games, items, game_completions,<br/>game_images, item_images
     C->>DB: tombstones since cursor
     DB-->>C: deletions
-    C-->>P: one streamed JSON body
+    C-->>P: one streamed JSON body,<br/>ending with server_now
 
     Note over P,U: then push
     P->>U: new[] and updated[] with each row's base updated_at
