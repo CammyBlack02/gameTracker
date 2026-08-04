@@ -10,6 +10,16 @@
 
 **Source spec:** `docs/superpowers/specs/2026-08-04-architecture-diagrams-design.md`
 
+> **The diagram bodies quoted below are a historical record of what this plan
+> asked for, not the current diagrams.** `docs/architecture/` is the source of
+> truth. A post-merge review found factual errors in the copies here — diagram 1
+> claiming a single guarded exit to the internet and listing Metacritic as a
+> dependency, diagram 3 saying CSRF enforcement was pending and that only the
+> iPhone calls v2, diagram 9 naming class names as `src/Images/…` paths. Diagram 2
+> and the `src/Images` constraint are corrected in place below because they were
+> the direct source of shipped errors; the rest are left as written. Never re-cut
+> a diagram from this file — read the code, then read `docs/architecture/`.
+
 ## Global Constraints
 
 - **Navigation is an explicit non-goal.** No function names, no line numbers.
@@ -18,8 +28,14 @@
   about (`StorageMode`, `Reconciler`). Clarified 2026-08-04 after the Task 1+2
   review found `requireUser()` in diagram 2, mandated by the plan's own text: a
   bare function name is pure navigation detail and the most rot-prone content
-  here, so it is replaced by what it does. A class arriving as a
-  `src/Images/…` path is already covered by the path carve-out.
+  here, so it is replaced by what it does. **Corrected 2026-08-04 (post-merge
+  review):** the original wording — "a class arriving as a `src/Images/…` path is
+  already covered by the path carve-out" — was wrong, and is what put three
+  non-existent paths into diagram 9. `src/Images/StorageMode`,
+  `src/Images/ImageIndex` and `src/Images/Reconciler` are not paths; the files are
+  `StorageMode.php`, `ImageIndex.php`, `Reconciler.php`. Writing a class name
+  path-style asserts a path that does not exist. The carve-out permits the **bare
+  class name**; the directory `src/Images` may be named separately.
 - **Every factual claim must trace to code or the database**, not memory. Facts in
   this plan were read from `origin/main` at `3379fce` and the live database on
   2026-08-04. **Row counts must come from `SELECT COUNT(*)`** — the first draft of
@@ -378,35 +394,47 @@ or the SSRF guard stops being the single exit.
 One game, from typing it in to it appearing on the phone. The least detailed
 diagram here on purpose — it exists to make the other eight legible.
 
+**Corrected 2026-08-04 (post-merge review).** The version originally in this plan
+inverted the create path: it showed INSERT → success → cover fetch → UPDATE, and
+reassured the reader that network latency never holds row locks. The v1 web path
+does the opposite — the cover is fetched first and its filename goes into the
+INSERT — and `api/games.php` contains no transaction at all, so there is nothing
+to commit and no lock duration to reassure anyone about. The failure behaviour was
+also the importer's, not this path's. Replaced with:
+
 ```mermaid
 sequenceDiagram
     actor You
     participant Web as "api/games.php (v1)"
-    participant DB as MySQL
     participant Net as "cover source"
+    participant DB as MySQL
     participant Sync as "api/v2/sync (v2)"
     participant Phone as iPhone
 
     You->>Web: POST action=create
-    Web->>Web: authenticate — session cookie
-    Web->>DB: INSERT games, updated_at = now
+    Web->>Web: authenticate — session cookie, then CSRF token
+    Note over Web,Net: the cover is resolved BEFORE any row exists,<br/>so your request waits on the network
+    Web->>Net: fetch the cover URL through http-fetch.php
+    Net-->>Web: image bytes, written to a file in uploads/
+    Web->>DB: INSERT games — the cover filename is part of<br/>the INSERT itself, updated_at = now
     DB-->>Web: new id
     Web-->>You: success
-
-    Note over Web,Net: the cover is fetched AFTER the row commits,<br/>so network latency never holds row locks
-    Web->>Net: fetch cover through http-fetch.php
-    Net-->>Web: image bytes
-    Web->>DB: UPDATE front_cover_image
-    Note over Web,Net: a failed download is non-fatal — the row<br/>keeps a NULL cover and the failure is counted
 
     Phone->>Sync: GET changes since <cursor>
     Sync->>DB: rows with updated_at >= cursor
     DB-->>Sync: the new row
-    Sync-->>Phone: games, items, completions, tombstones
+    Sync-->>Phone: games, items, game_completions,<br/>game_images, item_images,<br/>deletion tombstones, then server_now
 ```
 
-**Goes stale when:** the create path changes, or covers stop being fetched after
-commit.
+Accompanying prose must state: no transactions anywhere in `api/games.php`; a
+cover URL that will not fetch stays in the column as a URL with nothing counted;
+an undecodable `data:` URI is a hard 400. The post-commit fetch, NULL cover and
+counted failure belong to the CLI import path
+(`src/Services/Write/Importer.php`) and must be attributed there if mentioned.
+
+**Goes stale when:** the v1 create path reorders its fetch and INSERT,
+`api/games.php` gains a transaction, or the set of tables the delta sync streams
+changes.
 ````
 
 - [ ] **Step 2: Run the test to verify it passes**
