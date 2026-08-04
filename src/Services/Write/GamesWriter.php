@@ -34,6 +34,7 @@ final class GamesWriter implements ResourceWriter
     {
         return match ($entry->operation) {
             'set' => self::revertSet($pdo, $entry, $force),
+            'create' => self::revertCreate($pdo, $entry, $force),
             default => throw new BadRequestException(
                 "cannot revert operation '{$entry->operation}' on games"
             ),
@@ -142,6 +143,118 @@ final class GamesWriter implements ResourceWriter
             // Reported separately rather than conflated.
             'changed' => $changed,
         ];
+    }
+
+    /**
+     * Insert one game owned by $userId.
+     *
+     * user_id is appended here rather than being assignable, so a create cannot
+     * plant a row in someone else's collection. The journal entry is written
+     * after the insert because the id does not exist until then; the ordering
+     * still holds, since the pre-insert entry has nothing to protect — a crash
+     * before the marker leaves a row that undo will not remove, which is the
+     * safe direction.
+     *
+     * @return array{journal_id: string, id: int}
+     */
+    public static function applyCreate(
+        PDO $pdo,
+        int $userId,
+        AssignmentSet $assignments,
+        JournalWriter $journal,
+        array $argv
+    ): array {
+        $id = $journal->newId('create');
+
+        $journal->write(new JournalEntry(
+            $id, $argv, $userId, 'games', 'create', false, null, []
+        ));
+
+        $pdo->beginTransaction();
+
+        try {
+            $sql = 'INSERT INTO games (' . $assignments->columnListSql() . ', `user_id`) '
+                 . 'VALUES (' . $assignments->placeholders() . ', ?)';
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute(array_merge($assignments->params(), [$userId]));
+            $newId = (int)$pdo->lastInsertId();
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        $stamp = $pdo->prepare('SELECT `updated_at` FROM games WHERE `id` = ?');
+        $stamp->execute([$newId]);
+        $updatedAt = $stamp->fetchColumn();
+
+        $journal->write(new JournalEntry(
+            $id,
+            $argv,
+            $userId,
+            'games',
+            'create',
+            true,
+            null,
+            [[
+                'id' => $newId,
+                'updated_at' => $updatedAt === false ? null : $updatedAt,
+                'before' => [],
+            ]]
+        ));
+
+        return ['journal_id' => $id, 'id' => $newId];
+    }
+
+    /**
+     * Undo a create by deleting the row it made.
+     *
+     * The delete fires trg_games_after_delete, leaving a tombstone. That is
+     * correct and deliberately not cleaned up: if iOS already synced the
+     * created row, it needs to hear that the row is gone.
+     *
+     * @return array{restored: int, skipped: int}
+     */
+    public static function revertCreate(PDO $pdo, JournalEntry $entry, bool $force): array
+    {
+        $restored = 0;
+        $skipped = 0;
+
+        $pdo->beginTransaction();
+
+        try {
+            foreach ($entry->rows as $row) {
+                $check = $pdo->prepare('SELECT `updated_at` FROM games WHERE `id` = ? AND `user_id` = ?');
+                $check->execute([$row['id'], $entry->userId]);
+                $current = $check->fetchColumn();
+
+                if ($current === false) {
+                    // Already gone. Nothing to undo, and not an error.
+                    $skipped++;
+                    continue;
+                }
+
+                // Edited since it was created: removing it would discard that
+                // edit, so refuse unless forced.
+                if (!$force && $current !== $row['updated_at']) {
+                    $skipped++;
+                    continue;
+                }
+
+                $stmt = $pdo->prepare('DELETE FROM games WHERE `id` = ? AND `user_id` = ?');
+                $stmt->execute([$row['id'], $entry->userId]);
+                $restored++;
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        return ['restored' => $restored, 'skipped' => $skipped];
     }
 
     /**
