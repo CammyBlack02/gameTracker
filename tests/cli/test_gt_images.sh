@@ -183,4 +183,41 @@ assert_eq "0" "$GT_CODE" "restore exits 0"
 run_gt images prune "--restore=no-such-batch"
 assert_eq "2" "$GT_CODE" "restoring an unknown batch is a usage error"
 
+blue "--broken-cover"
+
+# Four rows, one of each storage mode plus a genuinely broken one. Only the
+# last must match: treating a URL or a data URI as a path is the bug that
+# invented 42 broken covers on 2026-08-03.
+# Control EVERY row's cover, not just the four of interest. seed_games gives
+# some rows an 'a.jpg'/'b.jpg' cover that is absent from this temp tree, and
+# those are then correctly reported broken — which would look like a predicate
+# bug rather than an uncontrolled fixture.
+fixture_mysql -e "
+  UPDATE games SET front_cover_image = 'live.jpg', back_cover_image = NULL
+    WHERE user_id = $FIXTURE_UID;
+  UPDATE games SET front_cover_image = 'https://example.com/remote.jpg'
+    WHERE user_id = $FIXTURE_UID AND title = 'FIXTURE Silent Hill';
+  UPDATE games SET front_cover_image = 'data:image/gif;base64,AAAA/BBBB//9k='
+    WHERE user_id = $FIXTURE_UID AND title = 'FIXTURE Okami';
+  UPDATE games SET front_cover_image = 'vanished.jpg'
+    WHERE user_id = $FIXTURE_UID AND title = 'FIXTURE Journey';
+"
+
+run_gt_json games list "--user=$FIXTURE_USER" --broken-cover
+assert_eq "0" "$GT_CODE" "--broken-cover exits 0"
+
+BROKEN=$(echo "$GT_JSON" | jq -r '[.games[].title] | sort | join(",")')
+assert_eq "FIXTURE Journey" "$BROKEN" \
+  "only the row naming an absent file is broken — not the URL, not the data URI"
+
+# The count must be the true total, not a page's worth.
+echo "$GT_JSON" | jq -e '.pagination.total == 1 and .pagination.has_more == false' > /dev/null \
+  && { green "  PASS: reports the true total, not a page count"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: pagination misreports a scan: $(echo "$GT_JSON" | jq -c .pagination)"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+# A row whose file exists must never be flagged.
+echo "$GT_JSON" | jq -e '[.games[].title] | index("FIXTURE Halo 3") == null' > /dev/null \
+  && { green "  PASS: a row whose file exists is not flagged"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: flagged a row whose file is present"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
 summarize
