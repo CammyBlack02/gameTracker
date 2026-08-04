@@ -770,38 +770,25 @@ function deleteGame() {
 
 function getPlatforms() {
     global $pdo;
-    
+
+    // Always scope to the caller, and ignore ?user_id= rather than rejecting
+    // it — the same contract as listGames.
+    //
+    // This NARROWS the response. v1 returned every user's platform names when
+    // no user_id was given, "for dropdown suggestions", and let ?user_id= pivot
+    // to any chosen user — the IDOR pattern Fable §1 removed from the list
+    // endpoint. The add-game datalist in js/games.js consequently suggests only
+    // platforms the caller already owns; the other three platform dropdowns
+    // build their lists client-side from allGames and are unaffected.
+    $userId = $_SESSION['user_id'];
+
     try {
-        // If user_id is provided, get platforms for that user
-        // Otherwise, get platforms from all users (for dropdown suggestions)
-        if (isset($_GET['user_id'])) {
-            $targetUserId = (int)$_GET['user_id'];
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT platform 
-                FROM games 
-                WHERE user_id = ? AND platform IS NOT NULL AND platform != '' 
-                ORDER BY platform
-            ");
-            $stmt->execute([$targetUserId]);
-        } else {
-            // Get platforms from all users
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT platform 
-                FROM games 
-                WHERE platform IS NOT NULL AND platform != '' 
-                ORDER BY platform
-            ");
-            $stmt->execute();
-        }
-        
-        $platforms = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        
         sendJsonResponse([
             'success' => true,
-            'platforms' => $platforms
+            'platforms' => GamesService::platforms($pdo, $userId),
         ]);
     } catch (Throwable $e) {
-        error_log('getPlatforms Error: ' . $e->getMessage());
+        error_log('getPlatforms failed: ' . $e->getMessage());
         sendJsonResponse(['success' => false, 'message' => 'Failed to get platforms'], 500);
     }
 }

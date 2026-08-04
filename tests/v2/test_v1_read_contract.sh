@@ -105,7 +105,7 @@ if [[ -n "$OTHER" ]]; then
   db "DELETE FROM deletions WHERE table_name = 'games' AND server_id = $OID"
 fi
 
-blue "platforms"
+blue "platforms: response shape"
 
 PLAT=$(curl -sS -b "$COOKIE" "$BASE_URL/api/games.php?action=platforms")
 echo "$PLAT" | jq -e '.success == true and (.platforms | type == "array")' > /dev/null \
@@ -115,6 +115,42 @@ echo "$PLAT" | jq -e '.success == true and (.platforms | type == "array")' > /de
 echo "$PLAT" | jq -e '[.platforms[]] | index("PS2") != null' > /dev/null \
   && { green "  PASS: platforms includes a seeded platform"; PASS_COUNT=$((PASS_COUNT+1)); } \
   || { red "  FAIL: PS2 missing from platforms: $(echo "$PLAT" | jq -c .platforms)"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+blue "platforms: scoped to the caller"
+
+# DELIBERATE BEHAVIOUR CHANGE, decided 2026-08-04. Unlike everything above,
+# these two are NOT characterisation tests: they fail against the old
+# getPlatforms and pass after the conversion.
+#
+# v1 returned EVERY user's platform names when no user_id was given ("for
+# dropdown suggestions") and honoured a ?user_id= override — the same IDOR
+# pattern Fable §1 removed from the list endpoint. GamesService::platforms is
+# scoped to one user, so js/games.js's add-game datalist now suggests only
+# platforms the caller already owns. The three other platform dropdowns
+# (filters.js, stats.js, completions.js) derive their lists client-side from
+# allGames and were already scoped, so they are unaffected.
+if [[ -n "$OTHER" ]]; then
+  # A platform string no other row can supply, so its absence is unambiguous.
+  db "DELETE FROM games WHERE user_id = $OTHER AND title = 'V1READ Theirs'"
+  db "INSERT INTO games (user_id, title, platform) VALUES ($OTHER, 'V1READ Theirs', 'V1READ-Only-Theirs')"
+  TID=$(db "SELECT id FROM games WHERE user_id = $OTHER AND title = 'V1READ Theirs'")
+
+  SCOPED=$(curl -sS -b "$COOKIE" "$BASE_URL/api/games.php?action=platforms")
+  echo "$SCOPED" | jq -e '[.platforms[]] | index("V1READ-Only-Theirs") == null' > /dev/null \
+    && { green "  PASS: another user's platform is not suggested"; PASS_COUNT=$((PASS_COUNT+1)); } \
+    || { red "  FAIL: cross-user platform leaked: $(echo "$SCOPED" | jq -c .platforms)"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+  # The override must be IGNORED, not rejected — same contract as list.
+  OVERRIDE=$(curl -sS -b "$COOKIE" "$BASE_URL/api/games.php?action=platforms&user_id=$OTHER")
+  echo "$OVERRIDE" | jq -e '.success == true
+      and ([.platforms[]] | index("V1READ-Only-Theirs") == null)
+      and ([.platforms[]] | index("PS2") != null)' > /dev/null \
+    && { green "  PASS: ?user_id= is ignored, still the caller's platforms"; PASS_COUNT=$((PASS_COUNT+1)); } \
+    || { red "  FAIL: ?user_id= override honoured or errored: $(echo "$OVERRIDE" | head -c 200)"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+  db "DELETE FROM games WHERE id = $TID"
+  db "DELETE FROM deletions WHERE table_name = 'games' AND server_id = $TID"
+fi
 
 # Clean up, tombstones included — all suites share one database.
 IDS=$(db "SELECT GROUP_CONCAT(id) FROM games WHERE user_id = $USER_ID AND title LIKE 'V1READ %'")
