@@ -95,4 +95,40 @@ jq -e ".committed == true and .operation == \"create\" and .rows[0].id == $NEW_I
   && { green "  PASS: create is journalled with its new id"; PASS_COUNT=$((PASS_COUNT+1)); } \
   || { red "  FAIL: bad create entry: $(cat "$CREATE_ENTRY")"; FAIL_COUNT=$((FAIL_COUNT+1)); }
 
+blue "items create"
+
+count_items() {
+  fixture_mysql -N -e "
+    SELECT COUNT(*) FROM items i JOIN users u ON i.user_id = u.id
+    WHERE u.username = '$FIXTURE_USER'
+  "
+}
+
+# items requires title and category. platform is nullable here, unlike games.
+run_gt items create "$USER_FLAG" --set-title="FIXTURE New Item"
+assert_eq "2" "$GT_CODE" "items create without category = 2"
+assert_contains "category" "$GT_OUT" "names the missing category"
+
+run_gt items create "$USER_FLAG" --set-category="Cable"
+assert_eq "2" "$GT_CODE" "items create without title = 2"
+
+ITEMS_BEFORE=$(count_items)
+run_gt_json items create "$USER_FLAG" --set-title="FIXTURE New Item" --set-category="Cable"
+assert_eq "0" "$GT_CODE" "items create without platform exits 0 — platform is nullable"
+assert_eq "$((ITEMS_BEFORE + 1))" "$(count_items)" "one item was added"
+
+NEW_ITEM=$(echo "$GT_JSON" | jq -r '.id')
+assert_eq "$FIXTURE_UID" \
+  "$(fixture_mysql -N -e "SELECT user_id FROM items WHERE id = $NEW_ITEM")" \
+  "the created item is owned by the acting user"
+
+# A games-only column is still rejected on the items create path.
+run_gt items create "$USER_FLAG" --set-title="X" --set-category="Y" --set-star_rating=5
+assert_eq "2" "$GT_CODE" "a games-only column is rejected on items create"
+
+# And undo removes it.
+run_gt undo "$USER_FLAG"
+assert_eq "0" "$GT_CODE" "undo of an items create exits 0"
+assert_eq "$ITEMS_BEFORE" "$(count_items)" "undo removed the created item"
+
 summarize

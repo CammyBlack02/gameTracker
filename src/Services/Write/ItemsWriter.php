@@ -27,6 +27,7 @@ final class ItemsWriter implements ResourceWriter
     {
         return match ($entry->operation) {
             'set' => self::revertSet($pdo, $entry, $force),
+            'create' => self::revertCreate($pdo, $entry, $force),
             default => throw new BadRequestException(
                 "cannot revert operation '{$entry->operation}' on items"
             ),
@@ -125,6 +126,100 @@ final class ItemsWriter implements ResourceWriter
             'matched' => count($rows),
             'changed' => $changed,
         ];
+    }
+
+    /**
+     * @return array{journal_id: string, id: int}
+     */
+    public static function applyCreate(
+        PDO $pdo,
+        int $userId,
+        AssignmentSet $assignments,
+        JournalWriter $journal,
+        array $argv
+    ): array {
+        $id = $journal->newId('create');
+
+        $journal->write(new JournalEntry(
+            $id, $argv, $userId, 'items', 'create', false, null, []
+        ));
+
+        $pdo->beginTransaction();
+
+        try {
+            $sql = 'INSERT INTO items (' . $assignments->columnListSql() . ', `user_id`) '
+                 . 'VALUES (' . $assignments->placeholders() . ', ?)';
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute(array_merge($assignments->params(), [$userId]));
+            $newId = (int)$pdo->lastInsertId();
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        $stamp = $pdo->prepare('SELECT `updated_at` FROM items WHERE `id` = ?');
+        $stamp->execute([$newId]);
+        $updatedAt = $stamp->fetchColumn();
+
+        $journal->write(new JournalEntry(
+            $id,
+            $argv,
+            $userId,
+            'items',
+            'create',
+            true,
+            null,
+            [[
+                'id' => $newId,
+                'updated_at' => $updatedAt === false ? null : $updatedAt,
+                'before' => [],
+            ]]
+        ));
+
+        return ['journal_id' => $id, 'id' => $newId];
+    }
+
+    /**
+     * @return array{restored: int, skipped: int}
+     */
+    public static function revertCreate(PDO $pdo, JournalEntry $entry, bool $force): array
+    {
+        $restored = 0;
+        $skipped = 0;
+
+        $pdo->beginTransaction();
+
+        try {
+            foreach ($entry->rows as $row) {
+                $check = $pdo->prepare('SELECT `updated_at` FROM items WHERE `id` = ? AND `user_id` = ?');
+                $check->execute([$row['id'], $entry->userId]);
+                $current = $check->fetchColumn();
+
+                if ($current === false) {
+                    $skipped++;
+                    continue;
+                }
+
+                if (!$force && $current !== $row['updated_at']) {
+                    $skipped++;
+                    continue;
+                }
+
+                $stmt = $pdo->prepare('DELETE FROM items WHERE `id` = ? AND `user_id` = ?');
+                $stmt->execute([$row['id'], $entry->userId]);
+                $restored++;
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        return ['restored' => $restored, 'skipped' => $skipped];
     }
 
     /**
