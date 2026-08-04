@@ -140,13 +140,34 @@ Two mechanisms coexist, and this is a known wart:
 ./bin/gt items get <id>
 
 # Writes (sub-project #2). --yes is required when an operation affects more
-# than one row; a single row applies immediately. Every applied write is
-# journalled to ~/.gt/journal (GT_JOURNAL_DIR overrides) and revertable.
+# than one row, and ALWAYS for delete; a single row otherwise applies
+# immediately. Without it the run is a dry run that writes nothing. Every
+# applied write is journalled to ~/.gt/journal (GT_JOURNAL_DIR overrides)
+# and revertable.
 ./bin/gt games set <id> --set-genre=RPG
 ./bin/gt games set --platform="PS2" --set-platform="PlayStation 2" --yes
 ./bin/gt games set <id> --clear-description   # sets NULL
+./bin/gt games create --set-title=… --set-platform=…   # both required
+./bin/gt games delete <id|filters> --yes
+./bin/gt items set|create|delete               # same shape; items create
+                                               # needs title and category,
+                                               # since platform is nullable
+                                               # on items and NOT NULL on games
 ./bin/gt undo --list
 ./bin/gt undo [<journal-id>] [--yes] [--force]
+
+# undo compares each row's POST-write updated_at and refuses if something else
+# touched the row since; --force overrides. delete never unlinks image files —
+# several games share one image path, so removing it would break a surviving
+# game's cover, and leaving it is what makes delete reversible.
+#
+# Undoing a delete restores the row under its original id, re-inserts the child
+# rows the cascade destroyed (game_images / item_images), relinks
+# game_completions whose game_id was set to NULL, and clears the tombstones the
+# delete wrote into `deletions`. The restore deliberately takes a FRESH
+# updated_at: api/v2/sync/changes.php only returns rows newer than the client's
+# cursor, so restoring the original timestamp would leave the row present on
+# the server and permanently missing on the phone.
 
 # Filters are AND-only, per-resource, and allowlisted: an unknown flag or
 # column exits 2 rather than being ignored. Exit codes: 0 ok, 1 domain error,

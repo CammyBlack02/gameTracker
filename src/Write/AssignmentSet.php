@@ -93,6 +93,54 @@ final class AssignmentSet
     }
 
     /**
+     * Required columns this assignment set does not supply.
+     *
+     * NOT NULL columns with no database default have to arrive with the insert;
+     * letting MySQL reject it instead would surface a driver message rather
+     * than a usage error naming the column.
+     *
+     * A column assigned NULL via --clear- counts as missing: --clear-title is
+     * already rejected for NOT NULL columns, but a resource whose required
+     * column is nullable would otherwise slip through.
+     *
+     * @return list<string>
+     */
+    public function missingRequired(WriteDefinition $def): array
+    {
+        $missing = [];
+
+        foreach ($def->requiredOnCreate as $column) {
+            if (!array_key_exists($column, $this->columns) || $this->columns[$column] === null) {
+                $missing[] = $column;
+            }
+        }
+
+        return $missing;
+    }
+
+    /**
+     * The column list for an insert, e.g. "`title`, `platform`".
+     *
+     * The statement itself is assembled in src/Services/Write/ — the read-only
+     * guard greps all of src/ for write keywords and permits them only there.
+     */
+    public function columnListSql(): string
+    {
+        return implode(', ', array_map(
+            static fn(string $c): string => '`' . $c . '`',
+            array_keys($this->columns)
+        ));
+    }
+
+    /**
+     * Placeholders matching columnListSql(), e.g. "?, ?".
+     */
+    public function placeholders(): string
+    {
+        return implode(', ', array_fill(0, count($this->columns), '?'));
+    }
+
+    /**
      * Assignments in a form suitable for output, with null preserved so a
      * cleared column is distinguishable from an empty string.
      */
