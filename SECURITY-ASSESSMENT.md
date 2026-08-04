@@ -83,9 +83,28 @@ what's actually mitigated, what's known-open, and what's accepted risk.
   - v2 validates CSRF via `includes/csrf-core.php`, a dependency-free
     file, specifically so that including CSRF helpers does not drag
     `includes/auth.php` (and the v1 surface) into every v2 request.
+- **v1 `deleteGame` scopes its own statement** (2026-08-04): the ownership
+  check is still there, but the `DELETE` now carries `AND user_id = ?`
+  for non-admins rather than trusting the preceding check. Admins keep
+  their cross-user override, which the admin dashboard depends on — the
+  predicate is conditional, not removed. Regression test:
+  `tests/v2/test_v1_delete_contract.sh`, which pins the override
+  explicitly so a later refactor cannot drop it silently.
 
 ## Known-open (accepted risk, tracked)
 
+- **Registration is open** — `api/auth.php`'s `handleRegister` has no gate
+  at all beyond rate limiting (3/hour). Anyone who can reach the site can
+  create an account. Fine for a LAN-only household install; it is the
+  first thing to decide if this is ever exposed publicly. Recorded
+  2026-08-04 when Cameron raised making the app public, and deliberately
+  deferred — **not** resolved.
+- **Backups are world-readable** — `/var/backups/gameTracker` is mode
+  `755` and holds a full `mysqldump` plus a config tarball containing DB
+  credentials. Any local account, or a compromised `www-data`, can read
+  the whole collection and the secrets; neither can *write* them, so
+  recovery itself is intact. Fix is `750` on the directory and `640` on
+  the files. Recorded 2026-08-04, deferred with the item above.
 - **CSRF on `api/auth.php`** — the only v1 endpoint with no token check.
   Login and register are pre-session, so there is no session token to
   bind to; a token there would need a separate pre-session mechanism.
