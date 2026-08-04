@@ -48,4 +48,31 @@ UNKNOWN=$(php -r '
 ' -- "$PROJECT_ROOT")
 assert_contains "UsageException" "$UNKNOWN" "an unknown profile is a usage error"
 
+blue "Importer matching (no writes yet)"
+
+seed_games
+FIXTURE_UID=$(fixture_user_id "$FIXTURE_USER")
+
+# Plant a row that one CSV record should match, so the matcher has something
+# to find. Trademark furniture and case differ deliberately.
+fixture_mysql -e "
+  INSERT INTO games (user_id, title, platform)
+  VALUES ($FIXTURE_UID, 'import halo 3™', 'Xbox 360');
+"
+
+PLAN=$(php -r '
+  require $argv[1] . "/src/autoload.php";
+  require $argv[1] . "/includes/config.php";
+  $src = new GameTracker\Import\CsvSource(
+      $argv[2],
+      GameTracker\Import\CsvProfile::named("gameeye")
+  );
+  $r = GameTracker\Services\Write\Importer::plan($pdo, (int)$argv[3], $src);
+  echo count($r["candidates"]), " ", $r["matched"], " ", $r["skipped"];
+' -- "$PROJECT_ROOT" "$CSV" "$FIXTURE_UID")
+
+assert_eq "4 1 2" "$PLAN" "matches the planted row on normalised title, leaving 4 candidates"
+
+fixture_mysql -e "DELETE FROM games WHERE user_id = $FIXTURE_UID AND title = 'import halo 3™'"
+
 summarize

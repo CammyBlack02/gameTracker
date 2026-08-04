@@ -11,6 +11,7 @@ use GameTracker\Journal\JournalEntry;
 use GameTracker\Journal\JournalWriter;
 use GameTracker\Domain\BadRequestException;
 use GameTracker\Services\Write\GamesWriter;
+use GameTracker\Services\Write\ImportReverter;
 use GameTracker\Services\Write\ItemsWriter;
 use GameTracker\Services\Write\ResourceWriter;
 
@@ -33,6 +34,7 @@ final class UndoCommand implements Command
     private const REVERTERS = [
         'games' => GamesWriter::class,
         'items' => ItemsWriter::class,
+        'import' => ImportReverter::class,
     ];
 
     public static function name(): string
