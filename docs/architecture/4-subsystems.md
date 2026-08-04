@@ -60,10 +60,10 @@ sequenceDiagram
     Note over P: pull first
     P->>C: GET ?since=<ISO 8601 cursor>
     C->>DB: rows WHERE updated_at >= since
-    DB-->>C: games, items, game_completions, game_images
+    DB-->>C: games, items, game_completions,<br/>game_images, item_images
     C->>DB: tombstones since cursor
     DB-->>C: deletions
-    C-->>P: one streamed JSON body
+    C-->>P: one streamed JSON body,<br/>ending with server_now
 
     Note over P,U: then push
     P->>U: new[] and updated[] with each row's base updated_at
@@ -86,6 +86,10 @@ Conflict detection is the phone sending back the server's `updated_at` from the
 last time it successfully read the row. If the server's current value is newer,
 something else edited it in between, and the server returns its full version
 rather than choosing a winner.
+
+The response ends with `server_now`, and that value becomes the phone's cursor for
+the next pull. It is emitted with whole-second precision, which is the other half
+of why the comparison is `>=`: the cursor the client sends back is itself rounded.
 
 **Goes stale when:** the cursor comparison, the set of streamed tables, or the
 conflict rule changes.
