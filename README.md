@@ -62,6 +62,10 @@ A self-hosted personal **video-game collection tracker**, available as both a mu
                                                   +---------------+
 ```
 
+That is the thumbnail. For the detail — the two API generations, the data model,
+the in-flight service refactor and the three subsystems worth re-reading — see
+[docs/architecture/](docs/architecture/README.md).
+
 - **iOS client**: Swift 5.10+, SwiftUI, SwiftData, SceneKit (CoverFlow), SpriteKit (Invaders). Xcode 16+. Min iOS 18.
 - **Server**: PHP 8.3 + nginx + MySQL 8, fronted by Let's Encrypt TLS.
 - **Sync**: pull-based delta sync over a single `/api/v2/sync` endpoint with conflict resolution, plus per-resource CRUD endpoints.

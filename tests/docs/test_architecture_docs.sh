@@ -132,4 +132,26 @@ done
 
 assert_eq "0" "$NO_STALE" "all $DIAGRAMS diagrams carry a 'Goes stale when' line"
 
+blue "the set is complete"
+
+# Now that all nine exist, assert the count. Until this point the suite was
+# deliberately count-agnostic so that every intermediate commit stayed green —
+# a suite that is knowingly red for several commits trains people to ignore it.
+assert_eq "9" "$DIAGRAMS" "all nine diagrams are present"
+
+for expected in README.md 1-outside.md 2-apis.md 3-refactor.md 4-subsystems.md; do
+  assert_eq "yes" "$([[ -s "$DOCS/$expected" ]] && echo yes || echo no)" \
+    "$expected is present and non-empty"
+done
+
+# Every diagram the index advertises must actually exist as a heading.
+# NOTE: adjusted from the brief's `^\| *[0-9]+\. |^\| *\| *[0-9]+\. ` — the
+# index's table has a non-empty level-label first cell on a diagram's first
+# row (e.g. "| 1 — from outside | 1. System context | ...") and an empty first
+# cell on continuation rows (e.g. "| | 2. User journey | ..."). The brief's
+# regex only matches the continuation-row shape and undercounts at 5. This
+# version matches either shape by treating the first cell as opaque.
+INDEX_ROWS=$(grep -cE '^\| *[^|]*\| *[0-9]+\. ' "$DOCS/README.md" || true)
+assert_eq "9" "$INDEX_ROWS" "the index lists all nine diagrams"
+
 summarize
