@@ -4,6 +4,7 @@ namespace GameTracker\Cli;
 
 use GameTracker\Cli\Commands\DbInfoCommand;
 use GameTracker\Cli\Commands\Games\CreateCommand as GamesCreateCommand;
+use GameTracker\Cli\Commands\Games\DeleteCommand as GamesDeleteCommand;
 use GameTracker\Cli\Commands\Games\GetCommand as GamesGetCommand;
 use GameTracker\Cli\Commands\Games\ListCommand as GamesListCommand;
 use GameTracker\Cli\Commands\Games\PlatformsCommand as GamesPlatformsCommand;
@@ -45,6 +46,7 @@ final class Application
         'games platforms' => GamesPlatformsCommand::class,
         'games set' => GamesSetCommand::class,
         'games create' => GamesCreateCommand::class,
+        'games delete' => GamesDeleteCommand::class,
         'items list' => ItemsListCommand::class,
         'items get' => ItemsGetCommand::class,
         'items set' => ItemsSetCommand::class,

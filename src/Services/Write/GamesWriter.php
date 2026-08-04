@@ -35,6 +35,7 @@ final class GamesWriter implements ResourceWriter
         return match ($entry->operation) {
             'set' => self::revertSet($pdo, $entry, $force),
             'create' => self::revertCreate($pdo, $entry, $force),
+            'delete' => self::revertDelete($pdo, $entry, $force),
             default => throw new BadRequestException(
                 "cannot revert operation '{$entry->operation}' on games"
             ),
@@ -206,6 +207,227 @@ final class GamesWriter implements ResourceWriter
         ));
 
         return ['journal_id' => $id, 'id' => $newId];
+    }
+
+    /**
+     * Delete every matching game, journalling enough to put it all back.
+     *
+     * "Enough" is more than the parent row. game_images.game_id is ON DELETE
+     * CASCADE, so those rows are destroyed outright; game_completions.game_id
+     * is ON DELETE SET NULL, so the completion survives but its link is gone —
+     * and because that is an UPDATE, no tombstone fires and iOS never hears
+     * about it. Restoring the parent alone therefore returns a game whose
+     * extra images vanished and whose completion history was silently
+     * unlinked, which the governing constraint does not permit.
+     *
+     * Image files are never unlinked. Several production games share one image
+     * path, so removing the file would break a surviving game's cover — and
+     * leaving it is what makes this operation genuinely reversible.
+     *
+     * @return array{journal_id: ?string, deleted: int}
+     */
+    public static function applyDelete(
+        PDO $pdo,
+        int $userId,
+        FilterSet $filters,
+        JournalWriter $journal,
+        array $argv
+    ): array {
+        $where = '`user_id` = ?';
+        $params = [$userId];
+
+        if ($filters->whereSql !== '') {
+            $where .= ' AND ' . $filters->whereSql;
+            $params = array_merge($params, $filters->params);
+        }
+
+        $snapStmt = $pdo->prepare("SELECT * FROM games WHERE {$where}");
+        $snapStmt->execute($params);
+        $snapshot = $snapStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if ($snapshot === []) {
+            return ['journal_id' => null, 'deleted' => 0];
+        }
+
+        $rows = [];
+        foreach ($snapshot as $row) {
+            $gameId = (int)$row['id'];
+
+            $imgStmt = $pdo->prepare('SELECT * FROM game_images WHERE `game_id` = ?');
+            $imgStmt->execute([$gameId]);
+
+            $compStmt = $pdo->prepare('SELECT `id` FROM game_completions WHERE `game_id` = ?');
+            $compStmt->execute([$gameId]);
+
+            $rows[] = [
+                'id' => $gameId,
+                'updated_at' => $row['updated_at'],
+                // The entire row: a delete has to be reconstructable, so
+                // unlike `set` this is not limited to changed columns.
+                'before' => $row,
+                'children' => [
+                    'game_images' => $imgStmt->fetchAll(PDO::FETCH_ASSOC),
+                    'game_completions' => array_map(
+                        static fn(array $c): int => (int)$c['id'],
+                        $compStmt->fetchAll(PDO::FETCH_ASSOC)
+                    ),
+                ],
+            ];
+        }
+
+        $id = $journal->newId('delete');
+        $journal->write(new JournalEntry(
+            $id, $argv, $userId, 'games', 'delete', false, null, $rows
+        ));
+
+        $pdo->beginTransaction();
+
+        try {
+            $stmt = $pdo->prepare("DELETE FROM games WHERE {$where}");
+            $stmt->execute($params);
+            $deleted = $stmt->rowCount();
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        $journal->write(new JournalEntry(
+            $id, $argv, $userId, 'games', 'delete', true, null, $rows
+        ));
+
+        return ['journal_id' => $id, 'deleted' => $deleted];
+    }
+
+    /**
+     * Restore deleted games, their children, and clear the tombstones.
+     *
+     * The conflict check is different in kind from set's: the row is gone, so
+     * there is no updated_at to compare. What can go wrong instead is that the
+     * id has been taken — by a later insert, or by a restore that already ran.
+     * Overwriting that row would destroy someone else's data to undo ours, so
+     * a taken id is skipped unless forced.
+     *
+     * @return array{restored: int, skipped: int}
+     */
+    public static function revertDelete(PDO $pdo, JournalEntry $entry, bool $force): array
+    {
+        $restored = 0;
+        $skipped = 0;
+
+        $pdo->beginTransaction();
+
+        try {
+            foreach ($entry->rows as $row) {
+                $exists = $pdo->prepare('SELECT COUNT(*) FROM games WHERE `id` = ?');
+                $exists->execute([$row['id']]);
+
+                if ((int)$exists->fetchColumn() > 0 && !$force) {
+                    $skipped++;
+                    continue;
+                }
+
+                $before = $row['before'];
+
+                // Ownership is not taken from the journal blindly: restoring a
+                // row must not move it to a different owner than the entry
+                // recorded acting as.
+                $before['user_id'] = $entry->userId;
+
+                // Drop updated_at so the column's DEFAULT CURRENT_TIMESTAMP
+                // stamps the restore with now. Writing the original value back
+                // would preserve history at the cost of correctness: iOS has
+                // already deleted this row locally in response to the
+                // tombstone, and it only re-fetches rows whose updated_at is
+                // newer than its last sync. Restored with an old timestamp,
+                // the row would exist on the server and stay missing on the
+                // phone. created_at is kept — that one is genuinely history.
+                unset($before['updated_at']);
+
+                $columns = array_keys($before);
+                $columnSql = implode(', ', array_map(
+                    static fn(string $c): string => '`' . $c . '`',
+                    $columns
+                ));
+                $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+
+                // REPLACE rather than INSERT for the --force path: with an id
+                // already taken, REPLACE deletes the squatter first. That
+                // delete fires the tombstone trigger, which is exactly why
+                // Tombstones::clear runs after this and not before.
+                $stmt = $pdo->prepare(
+                    "REPLACE INTO games ({$columnSql}) VALUES ({$placeholders})"
+                );
+                $stmt->execute(array_values($before));
+
+                self::restoreChildren($pdo, $entry->userId, $row);
+
+                Tombstones::clear($pdo, $entry->userId, 'games', [$row['id']]);
+
+                $restored++;
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        return ['restored' => $restored, 'skipped' => $skipped];
+    }
+
+    /**
+     * Put back what the cascade took: re-insert the destroyed game_images rows
+     * under their original ids and clear their tombstones, and relink the
+     * completions whose game_id was nulled.
+     *
+     * @param array{id:int, updated_at:?string, before:array, children?:array} $row
+     */
+    private static function restoreChildren(PDO $pdo, int $userId, array $row): void
+    {
+        $children = $row['children'] ?? [];
+
+        $images = $children['game_images'] ?? [];
+        $imageIds = [];
+
+        foreach ($images as $image) {
+            $image['user_id'] = $userId;
+            $imageIds[] = (int)$image['id'];
+
+            // Same reason as the parent row: sync/changes.php streams
+            // game_images as its own table filtered on its own updated_at, so
+            // a child restored with its original timestamp falls below the
+            // phone's cursor and stays missing there forever.
+            unset($image['updated_at']);
+
+            $columns = array_keys($image);
+            $columnSql = implode(', ', array_map(
+                static fn(string $c): string => '`' . $c . '`',
+                $columns
+            ));
+            $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+
+            $stmt = $pdo->prepare(
+                "REPLACE INTO game_images ({$columnSql}) VALUES ({$placeholders})"
+            );
+            $stmt->execute(array_values($image));
+        }
+
+        Tombstones::clear($pdo, $userId, 'game_images', $imageIds);
+
+        // Completions were never deleted — SET NULL only broke the link, which
+        // is why there is no tombstone to clear for them.
+        $completionIds = $children['game_completions'] ?? [];
+
+        if ($completionIds !== []) {
+            $placeholders = implode(',', array_fill(0, count($completionIds), '?'));
+            $stmt = $pdo->prepare(
+                "UPDATE game_completions SET `game_id` = ?
+                 WHERE `id` IN ({$placeholders}) AND `user_id` = ? AND `game_id` IS NULL"
+            );
+            $stmt->execute(array_merge([$row['id']], $completionIds, [$userId]));
+        }
     }
 
     /**

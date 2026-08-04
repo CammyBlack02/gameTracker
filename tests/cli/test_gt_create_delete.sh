@@ -131,4 +131,103 @@ run_gt undo "$USER_FLAG"
 assert_eq "0" "$GT_CODE" "undo of an items create exits 0"
 assert_eq "$ITEMS_BEFORE" "$(count_items)" "undo removed the created item"
 
+blue "games delete — always needs --yes"
+
+seed_games
+seed_game_children
+HALO_ID=$(fixture_id games 'FIXTURE Halo 3' mine)
+
+count_tombstones() {
+  fixture_mysql -N -e "
+    SELECT COUNT(*) FROM deletions
+    WHERE table_name = '$1' AND server_id = $2
+  "
+}
+
+# Even a single row named by id previews rather than applying. This is the one
+# place the blast-radius rule bends: a mistyped id in `set` writes a field to
+# the wrong game, the same typo in `delete` removes one.
+DELETE_BEFORE=$(count_games)
+run_gt_json games delete "$HALO_ID" "$USER_FLAG"
+assert_eq "0" "$GT_CODE" "delete without --yes exits 0"
+echo "$GT_JSON" | jq -e '.dry_run == true and .matched == 1' > /dev/null \
+  && { green "  PASS: single-row delete previews"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: delete should have previewed: $GT_JSON"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+assert_eq "$DELETE_BEFORE" "$(count_games)" "the preview deleted nothing"
+
+run_gt games delete "$USER_FLAG" --yes
+assert_eq "2" "$GT_CODE" "bulk delete with no selector = 2"
+
+run_gt games delete "$HALO_ID" "$USER_FLAG" --platform=PS2 --yes
+assert_eq "2" "$GT_CODE" "an id together with a selector = 2"
+
+OTHER_ID=$(fixture_id games 'FIXTURE Not Mine' other)
+run_gt games delete "$OTHER_ID" "$USER_FLAG" --yes
+assert_eq "1" "$GT_CODE" "deleting another user's game = 1"
+assert_eq "1" "$(fixture_mysql -N -e "SELECT COUNT(*) FROM games WHERE id = $OTHER_ID")" \
+  "the other user's game survives"
+
+blue "games delete — applies and journals its children"
+
+run_gt_json games delete "$HALO_ID" "$USER_FLAG" --yes
+assert_eq "0" "$GT_CODE" "delete --yes exits 0"
+assert_eq "0" "$(fixture_mysql -N -e "SELECT COUNT(*) FROM games WHERE id = $HALO_ID")" \
+  "the game is gone"
+
+# The cascade fired: extra images destroyed, completion unlinked but alive.
+assert_eq "0" "$(fixture_mysql -N -e "SELECT COUNT(*) FROM game_images WHERE game_id = $HALO_ID")" \
+  "cascaded game_images rows are gone"
+assert_eq "1" "$(fixture_mysql -N -e "
+  SELECT COUNT(*) FROM game_completions
+  WHERE title = 'FIXTURE Halo 3' AND game_id IS NULL")" \
+  "the completion survives with a NULL game_id"
+
+# Tombstones exist for the parent and for each cascaded image.
+assert_eq "1" "$(count_tombstones games "$HALO_ID")" "a tombstone was written for the game"
+
+DELETE_ENTRY=$(find "$GT_JOURNAL_DIR" -name '*-delete.json' | head -1)
+jq -e '.committed == true and .operation == "delete"' < "$DELETE_ENTRY" > /dev/null \
+  && { green "  PASS: delete is journalled and committed"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: bad delete entry"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+# The whole row, not just the changed columns.
+jq -e '.rows[0].before.title == "FIXTURE Halo 3" and .rows[0].before.platform == "Xbox 360" and (.rows[0].before | has("user_id"))' \
+  < "$DELETE_ENTRY" > /dev/null \
+  && { green "  PASS: the entry holds the entire row"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: entry is missing row columns: $(cat "$DELETE_ENTRY")"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+# And the children, which the parent row alone cannot reconstruct.
+jq -e '(.rows[0].children.game_images | length) == 2' < "$DELETE_ENTRY" > /dev/null \
+  && { green "  PASS: cascaded game_images are journalled"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: game_images not journalled: $(cat "$DELETE_ENTRY")"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+jq -e '(.rows[0].children.game_completions | length) == 1' < "$DELETE_ENTRY" > /dev/null \
+  && { green "  PASS: unlinked completions are journalled"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: completions not journalled: $(cat "$DELETE_ENTRY")"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+blue "games delete — bulk"
+
+seed_games
+run_gt_json games delete "$USER_FLAG" --platform=PS2
+echo "$GT_JSON" | jq -e '.dry_run == true and .matched == 2' > /dev/null \
+  && { green "  PASS: bulk delete previews 2 rows"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: unexpected bulk preview: $GT_JSON"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+run_gt_json games delete "$USER_FLAG" --platform=PS2 --yes
+echo "$GT_JSON" | jq -e '.deleted == 2' > /dev/null \
+  && { green "  PASS: bulk delete removed both rows"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: unexpected bulk delete: $GT_JSON"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+assert_eq "0" "$(fixture_mysql -N -e "
+  SELECT COUNT(*) FROM games g JOIN users u ON g.user_id = u.id
+  WHERE u.username = '$FIXTURE_USER' AND g.platform = 'PS2'")" \
+  "no PS2 rows remain"
+
+blue "games delete — zero matches writes no journal entry"
+
+JOURNAL_BEFORE=$(find "$GT_JOURNAL_DIR" -name '*.json' | wc -l)
+run_gt_json games delete "$USER_FLAG" --platform="NoSuchPlatform" --yes
+assert_eq "0" "$GT_CODE" "zero-match delete exits 0"
+assert_eq "$JOURNAL_BEFORE" "$(find "$GT_JOURNAL_DIR" -name '*.json' | wc -l)" \
+  "no journal entry for a zero-match delete"
+
 summarize
