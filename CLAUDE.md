@@ -233,6 +233,49 @@ Two mechanisms coexist, and this is a known wart:
 # WHERE clause, and it turns paging off to report a true total. It branches on
 # storage mode first — URLs and data URIs are not missing files.
 
+# Accounts and the escape hatch (sub-project #5). Both read-only.
+./bin/gt users list                            # id, username, role and what
+                                               # each account owns
+./bin/gt sql "SELECT platform, COUNT(*) c FROM games GROUP BY platform"
+./bin/gt sql "<query>" --limit=500             # default cap is 200 rows
+
+# users list is an OPERATOR command: it reports across every account rather than
+# scoping to the caller, like db info and doctor. It never selects the password
+# hash — a hash in scrollback or a piped JSON log is an offline cracking target
+# for no benefit. There is deliberately no `users delete`: deleting a user
+# CASCADEs every game, item and completion they own, which is the most
+# destructive operation available, and a confirmation prompt is not a good enough
+# guard for it.
+#
+# gt sql RUNS READS ONLY — SELECT, SHOW, EXPLAIN, DESCRIBE, WITH. There is no
+# --write flag and adding one would be a mistake: a raw write bypasses
+# journalling, `gt undo`, the deletion tombstones iOS syncs against, and the
+# updated_at bump that makes a change visible to the phone. Use the write
+# commands, or mysql if you mean to leave the safety rails.
+#
+# Enforcement is three layers, each covering a gap in the others. All three were
+# verified against MySQL 8.0.45, not assumed:
+#
+#   1. Native prepared statement. PDO has ATTR_EMULATE_PREPARES ON by default
+#      here, so query() will run "SELECT 1; <destructive statement>" — this was
+#      confirmed by losing a probe table. A native prepare rejects the second
+#      statement, closing that class structurally rather than by parsing.
+#   2. Leading-keyword allowlist, which is what stops DDL — layer 3 CANNOT,
+#      because DDL forces an implicit commit that ends the read-only transaction
+#      before executing. Comments are stripped first, so a block comment cannot
+#      hide the verb.
+#   3. START TRANSACTION READ ONLY, always rolled back. The server refuses DML
+#      inside it (error 1792). This is what catches a CTE — "WITH x AS (...)
+#      DELETE ..." passes the allowlist because its leading keyword is WITH.
+#
+# Every refusal in tests/cli/test_gt_users_sql.sh is asserted twice: that the
+# command refused, AND that the write did not happen. A refusal message with the
+# write applied behind it is the only failure that would matter.
+#
+# Known wart: a query that STARTS with "--" cannot be passed, because the global
+# option parser claims it before the command sees it. Put the comment after the
+# first keyword.
+
 # Health check (sub-project #5). Read-only. EXITS 1 if any check fails, so it
 # works from cron or CI rather than only when you think to look.
 ./bin/gt doctor
