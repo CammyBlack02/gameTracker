@@ -18,8 +18,8 @@ flowchart TB
 
     subgraph v2["v2 — api/v2/"]
         direction TB
-        v2c["iPhone app"]
-        v2a["api/v2/_auth.php<br/>bearer token auth"]
+        v2c["iPhone app — bearer token<br/>Browser — its existing session"]
+        v2a["api/v2/_auth.php<br/>bearer token, or an active session"]
         v2r["ok: { data }<br/>error: { error, message }"]
         v2c --> v2a --> v2r
     end
@@ -33,7 +33,7 @@ flowchart TB
 | | v1 | v2 |
 |---|---|---|
 | Lives in | `api/*.php` | `api/v2/` |
-| Serves | the web frontend | the iOS app |
+| Serves | the web frontend | the iOS app, and the browser for some reads |
 | Auth | session cookie | bearer token, *or* an active session |
 | Success shape | `{ success: true, ... }` | `{ data: ... }` |
 | Error shape | `{ success: false, message }` | `{ error: "slug", message }` |
@@ -47,15 +47,28 @@ Things worth knowing that the boxes cannot show:
 - **v2 never includes a v1 file.** An earlier design set `$_SESSION` and
   installed an output buffer to reshape v1 responses into v2 shape. That is gone;
   do not reintroduce it.
-- **POST-only mutation plus `SameSite=Lax` is what currently stands in for full
-  CSRF enforcement** on v1. `includes/csrf.php` exists and is waiting on the
-  frontend rewrite.
+- **CSRF token enforcement on v1 is live, not pending.** The check runs on the
+  mutating paths of nine endpoints — `api/games.php`, `api/items.php`,
+  `api/settings.php`, `api/completions.php`, `api/admin.php`, `api/upload.php`,
+  `api/steam-import.php`, `api/stats.php` and `api/import-gameeye.php` — reading
+  the token from either the `X-CSRF-Token` header or a `csrf_token` form field,
+  and answering a missing or invalid one with a 403 that ends the request before
+  any state changes. POST-only mutation and `SameSite=Lax` sit on top of that as
+  additional layers; they are not substitutes for it. The token primitives live in
+  `includes/csrf-core.php`, which has no dependencies, so `/api/v2/` can include
+  them without inheriting a v1 include chain; `includes/csrf.php` is the v1 surface
+  over it.
+- **The browser reaches v2 with its session, not a token.** `js/api.js` has a v2
+  GET helper that sends the request same-origin so the cookie rides along, and the
+  game form uses it. That is why the auth row above says "bearer token, *or* an
+  active session" — the mermaid used to show the phone as v2's only consumer,
+  which was wrong.
 - The browser is deliberately never issued a bearer token: an HttpOnly session
   cookie cannot be read by injected JS, and any token the frontend could attach
   could also be stolen.
 
-**Goes stale when:** auth or response shape changes on either generation, or the
-v1/v2 isolation rule is relaxed.
+**Goes stale when:** auth or response shape changes on either generation, the set
+of v1 endpoints enforcing CSRF changes, or the v1/v2 isolation rule is relaxed.
 
 ## 4. Data model
 

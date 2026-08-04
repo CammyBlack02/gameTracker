@@ -100,7 +100,7 @@ An image column holds a **reference**, never an image.
 
 ```mermaid
 flowchart TB
-    col["an image column"] --> mode{"src/Images/StorageMode"}
+    col["an image column"] --> mode{"StorageMode"}
     mode -->|"filename"| f["a file in uploads/"]
     mode -->|"url"| u["a remote URL"]
     mode -->|"data-uri"| d["inline base64 — converted<br/>to a file on write"]
@@ -108,9 +108,9 @@ flowchart TB
 
     f --> thumb["thumbnails:<br/>derived, referenced by nothing,<br/>so they follow their source"]
 
-    subgraph audit["gt images audit / prune"]
-        idx["src/Images/ImageIndex<br/>all the I/O, at the edge"]
-        rec["src/Images/Reconciler<br/>pure: no disk, no database"]
+    subgraph audit["gt images audit / prune — classes in src/Images"]
+        idx["ImageIndex<br/>all the I/O, at the edge"]
+        rec["Reconciler<br/>pure: no disk, no database"]
         idx --> rec
     end
 
