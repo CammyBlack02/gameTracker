@@ -73,7 +73,7 @@ sequenceDiagram
     participant Phone as iPhone
 
     You->>Web: POST action=create
-    Web->>Web: requireUser() — session cookie
+    Web->>Web: authenticate — session cookie
     Web->>DB: INSERT games, updated_at = now
     DB-->>Web: new id
     Web-->>You: success
