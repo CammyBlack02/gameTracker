@@ -74,6 +74,29 @@ final class ImageIndex
     }
 
     /**
+     * Where the image files for THIS install live.
+     *
+     * UPLOAD_DIR comes from includes/config.php — the same file that provides
+     * $pdo — so the disk half and the database half always describe one
+     * install. Deriving it from __DIR__ instead let a worktree binary read
+     * production's database while listing the worktree's empty uploads.
+     *
+     * GT_UPLOADS_DIR overrides it, which is how tests avoid the real tree.
+     * Same precedent as GT_JOURNAL_DIR.
+     */
+    public static function uploadsDir(): string
+    {
+        $override = getenv('GT_UPLOADS_DIR');
+        if (is_string($override) && $override !== '') {
+            return rtrim($override, '/');
+        }
+
+        return defined('UPLOAD_DIR')
+            ? rtrim(UPLOAD_DIR, '/')
+            : dirname(__DIR__, 2) . '/uploads';
+    }
+
+    /**
      * @return array{sources: list<string>, thumbs: list<string>}
      */
     public static function onDisk(string $uploadsDir): array

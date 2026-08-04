@@ -102,4 +102,85 @@ echo "$GT_JSON" | jq -e 'has("suspect_mismatch")' > /dev/null \
   && { green "  PASS: reports whether the numbers look like a wrong-directory mismatch"; PASS_COUNT=$((PASS_COUNT+1)); } \
   || { red "  FAIL: no suspect_mismatch field"; FAIL_COUNT=$((FAIL_COUNT+1)); }
 
+blue "gt images prune"
+
+source "$(dirname "$0")/fixtures.sh"
+seed_games
+FIXTURE_UID=$(fixture_user_id "$FIXTURE_USER")
+
+# A throwaway uploads tree and trash dir. Never the real ones.
+export GT_UPLOADS_DIR="$(mktemp -d)"
+export GT_TRASH_DIR="$(mktemp -d)"
+export GT_JOURNAL_DIR="$(mktemp -d)"
+trap 'rm -rf "$GT_UPLOADS_DIR" "$GT_TRASH_DIR" "$GT_JOURNAL_DIR"' EXIT
+
+mkdir -p "$GT_UPLOADS_DIR/covers/thumbs" "$GT_UPLOADS_DIR/extras/thumbs"
+printf 'live'   > "$GT_UPLOADS_DIR/covers/live.jpg"
+printf 'livet'  > "$GT_UPLOADS_DIR/covers/thumbs/live.jpg"
+printf 'orphan' > "$GT_UPLOADS_DIR/covers/orphan.jpg"
+printf 'orpht'  > "$GT_UPLOADS_DIR/covers/thumbs/orphan.jpg"
+
+# One fixture game references live.jpg; nothing references orphan.jpg.
+fixture_mysql -e "
+  UPDATE games SET front_cover_image = 'live.jpg'
+  WHERE user_id = $FIXTURE_UID AND title = 'FIXTURE Halo 3';
+"
+
+run_gt() { set +e; GT_OUT=$("$GT" "$@" 2>&1); GT_CODE=$?; set -e; }
+
+blue "Preview moves nothing"
+
+run_gt images prune
+assert_eq "0" "$GT_CODE" "prune without --yes exits 0"
+[[ -f "$GT_UPLOADS_DIR/covers/orphan.jpg" ]] \
+  && { green "  PASS: the preview moved nothing"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: preview moved a file"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+blue "Applying moves orphans to trash — and nowhere else"
+
+run_gt_json images prune --yes
+assert_eq "0" "$GT_CODE" "prune --yes exits 0"
+
+TRASH_ID=$(echo "$GT_JSON" | jq -r '.trash_id')
+
+[[ ! -f "$GT_UPLOADS_DIR/covers/orphan.jpg" ]] \
+  && { green "  PASS: the orphan left uploads"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: orphan still in uploads"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+# The assertion that matters. "Gone from uploads" is also what a bug that
+# unlinks them would produce, so prove the bytes are recoverable.
+if [[ -f "$GT_TRASH_DIR/$TRASH_ID/covers/orphan.jpg" ]]; then
+  green "  PASS: the orphan is IN TRASH, not deleted"; PASS_COUNT=$((PASS_COUNT+1))
+else
+  red "  FAIL: orphan not found in trash — was it unlinked?"; FAIL_COUNT=$((FAIL_COUNT+1))
+  find "$GT_TRASH_DIR" -type f | head -5
+fi
+
+if [[ -f "$GT_TRASH_DIR/$TRASH_ID/covers/thumbs/orphan.jpg" ]]; then
+  green "  PASS: the orphan's thumbnail followed it"; PASS_COUNT=$((PASS_COUNT+1))
+else
+  red "  FAIL: orphan thumbnail not in trash"; FAIL_COUNT=$((FAIL_COUNT+1))
+fi
+
+blue "A referenced file and its thumbnail are untouched"
+
+[[ -f "$GT_UPLOADS_DIR/covers/live.jpg" ]] \
+  && { green "  PASS: the referenced file survived"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: prune moved a referenced file"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+[[ -f "$GT_UPLOADS_DIR/covers/thumbs/live.jpg" ]] \
+  && { green "  PASS: the live thumbnail survived"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: prune destroyed a live thumbnail"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+blue "Restore puts them back"
+
+run_gt images prune "--restore=$TRASH_ID"
+assert_eq "0" "$GT_CODE" "restore exits 0"
+[[ -f "$GT_UPLOADS_DIR/covers/orphan.jpg" ]] \
+  && { green "  PASS: restore returned the file"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: restore did not return the file"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+run_gt images prune "--restore=no-such-batch"
+assert_eq "2" "$GT_CODE" "restoring an unknown batch is a usage error"
+
 summarize
