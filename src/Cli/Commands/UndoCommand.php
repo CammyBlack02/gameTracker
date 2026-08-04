@@ -9,7 +9,10 @@ use GameTracker\Cli\UserResolver;
 use GameTracker\Domain\NotFoundException;
 use GameTracker\Journal\JournalEntry;
 use GameTracker\Journal\JournalWriter;
+use GameTracker\Domain\BadRequestException;
 use GameTracker\Services\Write\GamesWriter;
+use GameTracker\Services\Write\ItemsWriter;
+use GameTracker\Services\Write\ResourceWriter;
 
 /**
  * Reverts a journalled write.
@@ -21,6 +24,16 @@ use GameTracker\Services\Write\GamesWriter;
 final class UndoCommand implements Command
 {
     public const NAME = 'undo';
+
+    /**
+     * Resource name as journalled => the writer that knows how to reverse it.
+     *
+     * @var array<string, class-string<ResourceWriter>>
+     */
+    private const REVERTERS = [
+        'games' => GamesWriter::class,
+        'items' => ItemsWriter::class,
+    ];
 
     public static function name(): string
     {
@@ -78,7 +91,15 @@ final class UndoCommand implements Command
             return $this->preview($ctx, $entry, $rowCount);
         }
 
-        $result = GamesWriter::revertSet($ctx->pdo, $entry, $ctx->flag('force'));
+        $writer = self::REVERTERS[$entry->resource] ?? null;
+
+        if ($writer === null) {
+            throw new BadRequestException(
+                "cannot revert '{$entry->resource}' — no writer is registered for it"
+            );
+        }
+
+        $result = $writer::revert($ctx->pdo, $entry, $ctx->flag('force'));
 
         // Only mark it reverted if something actually was. Otherwise a refusal
         // would consume the entry and leave no way to retry with --force.

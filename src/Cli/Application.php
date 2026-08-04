@@ -3,12 +3,17 @@
 namespace GameTracker\Cli;
 
 use GameTracker\Cli\Commands\DbInfoCommand;
+use GameTracker\Cli\Commands\Games\CreateCommand as GamesCreateCommand;
+use GameTracker\Cli\Commands\Games\DeleteCommand as GamesDeleteCommand;
 use GameTracker\Cli\Commands\Games\GetCommand as GamesGetCommand;
 use GameTracker\Cli\Commands\Games\ListCommand as GamesListCommand;
 use GameTracker\Cli\Commands\Games\PlatformsCommand as GamesPlatformsCommand;
 use GameTracker\Cli\Commands\Games\SetCommand as GamesSetCommand;
+use GameTracker\Cli\Commands\Items\CreateCommand as ItemsCreateCommand;
+use GameTracker\Cli\Commands\Items\DeleteCommand as ItemsDeleteCommand;
 use GameTracker\Cli\Commands\Items\GetCommand as ItemsGetCommand;
 use GameTracker\Cli\Commands\Items\ListCommand as ItemsListCommand;
+use GameTracker\Cli\Commands\Items\SetCommand as ItemsSetCommand;
 use GameTracker\Cli\Commands\UndoCommand;
 use GameTracker\Cli\Commands\WhoamiCommand;
 use GameTracker\Domain\DomainException;
@@ -20,7 +25,7 @@ use Throwable;
  */
 final class Application
 {
-    public const VERSION = '0.2.0';
+    public const VERSION = '0.3.0';
 
     public const EXIT_OK = 0;
     public const EXIT_ERROR = 1;
@@ -41,8 +46,13 @@ final class Application
         'games get' => GamesGetCommand::class,
         'games platforms' => GamesPlatformsCommand::class,
         'games set' => GamesSetCommand::class,
+        'games create' => GamesCreateCommand::class,
+        'games delete' => GamesDeleteCommand::class,
         'items list' => ItemsListCommand::class,
         'items get' => ItemsGetCommand::class,
+        'items set' => ItemsSetCommand::class,
+        'items create' => ItemsCreateCommand::class,
+        'items delete' => ItemsDeleteCommand::class,
     ];
 
     /** Global flags consumed here, never forwarded to commands. */
