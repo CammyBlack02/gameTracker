@@ -20,7 +20,9 @@ use GameTracker\Cli\Commands\Items\DeleteCommand as ItemsDeleteCommand;
 use GameTracker\Cli\Commands\Items\GetCommand as ItemsGetCommand;
 use GameTracker\Cli\Commands\Items\ListCommand as ItemsListCommand;
 use GameTracker\Cli\Commands\Items\SetCommand as ItemsSetCommand;
+use GameTracker\Cli\Commands\SqlCommand;
 use GameTracker\Cli\Commands\UndoCommand;
+use GameTracker\Cli\Commands\UsersListCommand;
 use GameTracker\Cli\Commands\WhoamiCommand;
 use GameTracker\Domain\DomainException;
 use PDO;
@@ -65,6 +67,8 @@ final class Application
         'import profiles' => ImportProfilesCommand::class,
         'images audit' => ImagesAuditCommand::class,
         'images prune' => ImagesPruneCommand::class,
+        'users list' => UsersListCommand::class,
+        'sql' => SqlCommand::class,
     ];
 
     /**
