@@ -63,6 +63,29 @@ final class ItemsService
         ];
     }
 
+    /**
+     * How many rows a filter selects, without fetching them.
+     *
+     * Writes need the count before they touch anything, both to decide whether
+     * --yes is required and to report the dry run. Mirrors
+     * GamesService::countMatching.
+     */
+    public static function countMatching(PDO $pdo, int $userId, FilterSet $filters): int
+    {
+        $where = '`user_id` = ?';
+        $params = [$userId];
+
+        if ($filters->whereSql !== '') {
+            $where .= ' AND ' . $filters->whereSql;
+            $params = array_merge($params, $filters->params);
+        }
+
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM items WHERE {$where}");
+        $stmt->execute($params);
+
+        return (int)$stmt->fetchColumn();
+    }
+
     public static function get(PDO $pdo, int $userId, int $itemId, bool $isAdmin = false): array
     {
         if ($itemId <= 0) {

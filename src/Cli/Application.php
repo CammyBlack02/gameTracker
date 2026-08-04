@@ -9,6 +9,7 @@ use GameTracker\Cli\Commands\Games\PlatformsCommand as GamesPlatformsCommand;
 use GameTracker\Cli\Commands\Games\SetCommand as GamesSetCommand;
 use GameTracker\Cli\Commands\Items\GetCommand as ItemsGetCommand;
 use GameTracker\Cli\Commands\Items\ListCommand as ItemsListCommand;
+use GameTracker\Cli\Commands\Items\SetCommand as ItemsSetCommand;
 use GameTracker\Cli\Commands\UndoCommand;
 use GameTracker\Cli\Commands\WhoamiCommand;
 use GameTracker\Domain\DomainException;
@@ -43,6 +44,7 @@ final class Application
         'games set' => GamesSetCommand::class,
         'items list' => ItemsListCommand::class,
         'items get' => ItemsGetCommand::class,
+        'items set' => ItemsSetCommand::class,
     ];
 
     /** Global flags consumed here, never forwarded to commands. */
