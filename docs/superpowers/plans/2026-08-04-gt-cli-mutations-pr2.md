@@ -46,6 +46,33 @@ Verified against production 2026-08-04.
 | `deletions` has no trigger of its own | deleting from `deletions` is safe and silent |
 | `updated_at` is `DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` on `games`, `items`, `game_completions` | any UPDATE bumps it, which is what makes CLI writes visible to iOS delta sync |
 
+**How this reaches the phone.** `api/v2/sync/changes.php` streams each table
+with `WHERE user_id = ? AND updated_at >= since` and, separately, `deletions`
+with `deleted_at >= since`. Two consequences the restore path depends on:
+
+- **A restored row must carry a fresh `updated_at`.** If the phone synced
+  between the delete and the undo it has already removed the row locally and
+  advanced its cursor; a row restored with its original timestamp falls below
+  that cursor and is never returned again. This applies to `game_images` and
+  `item_images` too — they are streamed as their own tables, on their own
+  `updated_at`.
+- **The tombstone must be cleared, not merely outlived.** Otherwise the row and
+  its tombstone arrive in the same payload and the outcome depends on whether
+  `ChangeApplier` applies deletions before or after upserts. Clearing removes
+  the ambiguity instead of betting on the ordering.
+
+**A pre-existing sync bug this plan does not fix** (verified empirically
+2026-08-04 on `gameTracker_test`, with a scratch table): an FK-cascaded
+`ON DELETE SET NULL` does **not** bump `updated_at` — MySQL performs it inside
+InnoDB, so the column's `ON UPDATE CURRENT_TIMESTAMP` never fires. When any
+game is deleted, today by the web app and tomorrow by `gt games delete`, its
+completions are unlinked with a stale `updated_at` and the sync endpoint never
+reports them, so the phone keeps showing a completion attached to a game that no
+longer exists. Undo's explicit `UPDATE game_completions SET game_id = ?` is a
+normal UPDATE and *does* bump the timestamp, so undo repairs sync state that the
+delete broke. Fixing the forward direction means touching the web app's delete
+path and is out of scope here.
+
 **The child-row problem this plan solves.** The design spec's delete/undo table says only "INSERT the row with its original id, then clear its tombstones". That restores a game whose extra images have been destroyed and whose completion history has been silently unlinked. 48 production games have completion rows and 2 completions are already orphaned from earlier web-app deletes. Under the governing constraint that is data loss, so `applyDelete` journals children and `revertDelete` restores them.
 
 ## File Structure
@@ -2175,6 +2202,12 @@ Add these methods below `applyCreate()`:
             $image['user_id'] = $userId;
             $imageIds[] = (int)$image['id'];
 
+            // Same reason as the parent row: sync/changes.php streams
+            // game_images as its own table filtered on its own updated_at, so
+            // a child restored with its original timestamp falls below the
+            // phone's cursor and stays missing there forever.
+            unset($image['updated_at']);
+
             $columns = array_keys($image);
             $columnSql = implode(', ', array_map(
                 static fn(string $c): string => '`' . $c . '`',
@@ -2599,6 +2632,11 @@ Add these methods below `applyCreate()`:
                 foreach ($row['children']['item_images'] ?? [] as $image) {
                     $image['user_id'] = $entry->userId;
                     $imageIds[] = (int)$image['id'];
+
+                    // item_images is streamed as its own table by
+                    // sync/changes.php, so the restore needs a fresh
+                    // updated_at for the same reason the parent does.
+                    unset($image['updated_at']);
 
                     $imgColumns = array_keys($image);
                     $imgColumnSql = implode(', ', array_map(
