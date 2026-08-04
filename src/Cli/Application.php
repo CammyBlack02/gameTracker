@@ -25,7 +25,7 @@ use Throwable;
  */
 final class Application
 {
-    public const VERSION = '0.2.0';
+    public const VERSION = '0.3.0';
 
     public const EXIT_OK = 0;
     public const EXIT_ERROR = 1;
