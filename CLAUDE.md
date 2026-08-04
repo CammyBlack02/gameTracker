@@ -77,8 +77,18 @@ and different include graphs.
   of the file immediately after `config.php`. Both return the `user_id` and `exit()`
   on failure (JSON 401 for `/api/` URIs, HTML redirect otherwise).
 - Response shape: `{ "success": bool, "message": string, ... }`.
-- Every mutating action requires POST (405 otherwise) — this plus `SameSite=Lax` is
-  what currently stands in for full CSRF enforcement.
+- Every mutating action requires POST (405 otherwise), and **CSRF token enforcement
+  is live** — `includes/csrf.php` answers a missing or invalid token with a 403 that
+  ends the request. It guards every *authenticated* mutating action, across
+  `games.php`, `items.php`, `settings.php`, `completions.php`, `admin.php`,
+  `upload.php`, `steam-import.php`, `stats.php` and `import-gameeye.php`. POST-only
+  and `SameSite=Lax` are additional layers, not substitutes. This file previously
+  said the opposite — that the two "stand in for full CSRF enforcement" and that
+  `csrf.php` was waiting on the frontend rewrite. Both were stale.
+- The exception is `api/auth.php`, which carries no token check: login and register
+  are pre-session, so there is no session token to bind to, and logout is POST-only
+  but tokenless, leaving forced-logout open at nuisance level. Its other writes are
+  `rate_limits` bookkeeping.
 
 **v2 — `api/v2/**`, bearer tokens, serves the iOS app**
 
@@ -335,11 +345,28 @@ Let's Encrypt cert paths. Copying it into place without substituting breaks
 
 ## Security invariants worth not breaking
 
-- **All external URL fetches go through `includes/http-fetch.php`.** It resolves the
-  host and rejects private/loopback/link-local/reserved IPs (including
-  `169.254.169.254`), keeps TLS verification on, and follows redirects manually so
-  every hop is revalidated. Never call `file_get_contents`/`curl` on a user-supplied
-  URL directly. Regression tests: `test_ssrf.sh`, `test_v2_cover_ssrf.sh`.
+- **Every fetch of a CALLER-SUPPLIED URL goes through `includes/http-fetch.php`.**
+  It resolves the host and rejects private/loopback/link-local/reserved IPs
+  (including `169.254.169.254`), keeps TLS verification on, and follows redirects
+  manually so every hop is revalidated. Never call `file_get_contents`/`curl` on a
+  user-supplied URL directly. Regression tests: `test_ssrf.sh`,
+  `test_v2_cover_ssrf.sh`. Guarded callers: `api/games.php`,
+  `api/download-cover.php`, `api/image-proxy.php`, `api/v2/images/cover.php`,
+  `includes/external-image-service.php`.
+
+  **This is not the same as "all outbound requests", and this file used to say it
+  was.** Calls to hardcoded third-party hosts bypass the helper entirely with raw
+  cURL: `api/steam-import.php` (Steam), `includes/external-apis.php`
+  (PriceCharting, Wikipedia), `api/v2/cover-image.php` (TheGamesDB),
+  `src/Import/CurlTransport.php` (Steam, from the CLI). The first two contain no
+  call into the helper at all. The false absolute originated in
+  `includes/http-fetch.php`'s own docblock and was copied from here into
+  architecture docs as fact — so keep the distinction when you edit this line.
+
+  Sharpest live consequence: `includes/external-apis.php` scrapes a PriceCharting
+  search page, extracts a product URL from the returned HTML, and fetches it with
+  redirect-following on. That is an ungated fetch whose target is set by remote
+  content. Not currently mitigated; see `SECURITY-ASSESSMENT.md`.
 - **Every query is user-scoped.** List endpoints must ignore a `?user_id=` override;
   Steam import's delete/dedup/insert are all scoped. Regression tests:
   `test_list_scoping.sh`, `test_admin_scoping.sh`, `test_steam_import_scoping.sh`.
