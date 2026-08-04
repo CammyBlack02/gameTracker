@@ -71,5 +71,3 @@ final class Check
         ];
     }
 }
-
-$leak = "DELETE FROM games WHERE id = ?";
