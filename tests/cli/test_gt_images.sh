@@ -28,4 +28,48 @@ assert_eq "data-uri" "$(mode 'data:image/jpeg;base64,AAAA/BBBB//9k=')" \
 assert_eq "data-uri" "$(mode 'DATA:image/png;base64,AAAA')" "uppercase data: scheme"
 assert_eq "url"      "$(mode 'HTTPS://example.com/a.jpg')"  "uppercase https scheme"
 
+blue "Reconciliation"
+
+RESULT=$(php -r '
+  require $argv[1]."/src/autoload.php";
+  $r = GameTracker\Images\Reconciler::reconcile(
+      ["a.jpg", "b.jpg", "gone.jpg"],        // referenced
+      ["a.jpg", "b.jpg", "orphan.jpg"],      // on disk
+      ["a.jpg", "orphan.jpg"]                // thumbs
+  );
+  echo implode(",", $r["orphans"]), "|",
+       implode(",", $r["missing"]), "|",
+       implode(",", $r["prunableThumbs"]), "|",
+       $r["keptThumbs"];
+' -- "$PROJECT_ROOT")
+
+assert_eq "orphan.jpg|gone.jpg|orphan.jpg|1" "$RESULT" \
+  "orphans, missing, and thumbs following their source"
+
+blue "A thumbnail whose source is referenced is never prunable"
+
+SAFE=$(php -r '
+  require $argv[1]."/src/autoload.php";
+  $r = GameTracker\Images\Reconciler::reconcile(["live.jpg"], ["live.jpg"], ["live.jpg"]);
+  echo count($r["prunableThumbs"]), " ", $r["keptThumbs"];
+' -- "$PROJECT_ROOT")
+
+assert_eq "0 1" "$SAFE" "a live thumbnail is kept"
+
+blue "The production shape: most thumbs must survive"
+
+# 1,089 of 1,187 production thumbnails have a referenced source. A reconciler
+# that judged thumbnails on their own would mark every one prunable, which is
+# the failure this asserts against in miniature.
+SHAPE=$(php -r '
+  require $argv[1]."/src/autoload.php";
+  $referenced = []; $disk = []; $thumbs = [];
+  for ($i = 0; $i < 100; $i++) { $referenced[] = "live$i.jpg"; $disk[] = "live$i.jpg"; $thumbs[] = "live$i.jpg"; }
+  for ($i = 0; $i < 5; $i++)   { $disk[] = "dead$i.jpg"; $thumbs[] = "dead$i.jpg"; }
+  $r = GameTracker\Images\Reconciler::reconcile($referenced, $disk, $thumbs);
+  echo count($r["orphans"]), " ", count($r["prunableThumbs"]), " ", $r["keptThumbs"];
+' -- "$PROJECT_ROOT")
+
+assert_eq "5 5 100" "$SHAPE" "only the 5 dead thumbs are prunable, all 100 live ones survive"
+
 summarize
