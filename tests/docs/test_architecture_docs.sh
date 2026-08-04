@@ -80,11 +80,27 @@ blue "every repo path named in the docs exists"
 
 # The real rot detector. Only repo-relative paths are checked: a token starting
 # with ~ or / is external (~/.gt/trash, /etc/nginx/...) and not ours to verify.
+#
+# Two sources, deliberately. Prose paths are backticked, but paths inside a
+# mermaid block are not — mermaid has no inline-code syntax, so they sit bare
+# inside node labels. Checking only backticked tokens meant the diagrams, the
+# one place a stale path does the most damage, were the one place never checked:
+# three class names written path-style (src/Images/StorageMode and two
+# siblings) shipped green while README.md advertised this as the check that
+# actually catches drift.
+PATH_TOKEN='(api|src|tests|includes|js|css|database|scripts|docs|bin|ios)/[A-Za-z0-9_./*-]+'
 MISSING=0
 CHECKED=0
+IN_MERMAID=0
 for f in "$DOCS"/*.md; do
   [[ -e "$f" ]] || continue
-  # Backticked tokens beginning with a real top-level directory of this repo.
+  # Bare path-like tokens inside ```mermaid ... ``` blocks. `<br/>` and the
+  # quotes/brackets around a label are not in the token class, so a label like
+  # api/games.php<br/>api/items.php yields both paths and no junk.
+  MERMAID_TOKENS=$(awk '/^```mermaid$/{inb=1; next} /^```$/{inb=0} inb' "$f" \
+                     | grep -oE "$PATH_TOKEN" || true)
+  IN_MERMAID=$((IN_MERMAID + $(printf '%s' "$MERMAID_TOKENS" | grep -c . || true)))
+
   while IFS= read -r p; do
     [[ -z "$p" ]] && continue
     CHECKED=$((CHECKED+1))
@@ -92,8 +108,9 @@ for f in "$DOCS"/*.md; do
       red "    $(basename "$f"): '$p' does not exist"
       MISSING=$((MISSING+1))
     fi
-  done < <(grep -oE '`(api|src|tests|includes|js|css|database|scripts|docs|bin|ios)/[A-Za-z0-9_./*-]+`' "$f" \
-             | tr -d '`' | grep -v '[*]' | sort -u)
+  done < <( { grep -oE '`'"$PATH_TOKEN"'`' "$f" | tr -d '`'; printf '%s\n' "$MERMAID_TOKENS"; } \
+              | sed 's/[.,]*$//' \
+              | grep -v '[*]' | grep -vE '^[~/]' | grep -v '^$' | sort -u )
 done
 
 assert_eq "0" "$MISSING" "all $CHECKED repo paths named in the docs exist"
@@ -103,6 +120,17 @@ if [[ "$CHECKED" -gt 0 ]]; then
   PASS_COUNT=$((PASS_COUNT+1))
 else
   red "  FAIL: no repo paths found — the existence check above was vacuous"
+  FAIL_COUNT=$((FAIL_COUNT+1))
+fi
+
+# Third non-vacuity guard, specific to the hole this closes: if the mermaid
+# extraction silently stops matching, CHECKED stays healthy on prose paths
+# alone and the diagram half goes quiet without failing.
+if [[ "$IN_MERMAID" -gt 0 ]]; then
+  green "  PASS: $IN_MERMAID of those came from inside mermaid blocks"
+  PASS_COUNT=$((PASS_COUNT+1))
+else
+  red "  FAIL: no paths found inside mermaid blocks — the diagram half is vacuous"
   FAIL_COUNT=$((FAIL_COUNT+1))
 fi
 
