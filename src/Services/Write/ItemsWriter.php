@@ -28,6 +28,7 @@ final class ItemsWriter implements ResourceWriter
         return match ($entry->operation) {
             'set' => self::revertSet($pdo, $entry, $force),
             'create' => self::revertCreate($pdo, $entry, $force),
+            'delete' => self::revertDelete($pdo, $entry, $force),
             default => throw new BadRequestException(
                 "cannot revert operation '{$entry->operation}' on items"
             ),
@@ -180,6 +181,159 @@ final class ItemsWriter implements ResourceWriter
         ));
 
         return ['journal_id' => $id, 'id' => $newId];
+    }
+
+    /**
+     * Delete every matching item, journalling the whole row and the
+     * item_images rows the cascade destroys.
+     *
+     * Simpler than the games case: item_images is the only child, and there is
+     * no items equivalent of game_completions' SET NULL relationship.
+     *
+     * @return array{journal_id: ?string, deleted: int}
+     */
+    public static function applyDelete(
+        PDO $pdo,
+        int $userId,
+        FilterSet $filters,
+        JournalWriter $journal,
+        array $argv
+    ): array {
+        $where = '`user_id` = ?';
+        $params = [$userId];
+
+        if ($filters->whereSql !== '') {
+            $where .= ' AND ' . $filters->whereSql;
+            $params = array_merge($params, $filters->params);
+        }
+
+        $snapStmt = $pdo->prepare("SELECT * FROM items WHERE {$where}");
+        $snapStmt->execute($params);
+        $snapshot = $snapStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if ($snapshot === []) {
+            return ['journal_id' => null, 'deleted' => 0];
+        }
+
+        $rows = [];
+        foreach ($snapshot as $row) {
+            $itemId = (int)$row['id'];
+
+            $imgStmt = $pdo->prepare('SELECT * FROM item_images WHERE `item_id` = ?');
+            $imgStmt->execute([$itemId]);
+
+            $rows[] = [
+                'id' => $itemId,
+                'updated_at' => $row['updated_at'],
+                'before' => $row,
+                'children' => [
+                    'item_images' => $imgStmt->fetchAll(PDO::FETCH_ASSOC),
+                ],
+            ];
+        }
+
+        $id = $journal->newId('delete');
+        $journal->write(new JournalEntry(
+            $id, $argv, $userId, 'items', 'delete', false, null, $rows
+        ));
+
+        $pdo->beginTransaction();
+
+        try {
+            $stmt = $pdo->prepare("DELETE FROM items WHERE {$where}");
+            $stmt->execute($params);
+            $deleted = $stmt->rowCount();
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        $journal->write(new JournalEntry(
+            $id, $argv, $userId, 'items', 'delete', true, null, $rows
+        ));
+
+        return ['journal_id' => $id, 'deleted' => $deleted];
+    }
+
+    /**
+     * @return array{restored: int, skipped: int}
+     */
+    public static function revertDelete(PDO $pdo, JournalEntry $entry, bool $force): array
+    {
+        $restored = 0;
+        $skipped = 0;
+
+        $pdo->beginTransaction();
+
+        try {
+            foreach ($entry->rows as $row) {
+                $exists = $pdo->prepare('SELECT COUNT(*) FROM items WHERE `id` = ?');
+                $exists->execute([$row['id']]);
+
+                if ((int)$exists->fetchColumn() > 0 && !$force) {
+                    $skipped++;
+                    continue;
+                }
+
+                $before = $row['before'];
+                $before['user_id'] = $entry->userId;
+
+                // See GamesWriter::revertDelete: dropping updated_at lets the
+                // column default stamp the restore with now, which is what
+                // makes the row visible to iOS delta sync after the phone has
+                // already acted on the tombstone.
+                unset($before['updated_at']);
+
+                $columns = array_keys($before);
+                $columnSql = implode(', ', array_map(
+                    static fn(string $c): string => '`' . $c . '`',
+                    $columns
+                ));
+                $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+
+                $stmt = $pdo->prepare(
+                    "REPLACE INTO items ({$columnSql}) VALUES ({$placeholders})"
+                );
+                $stmt->execute(array_values($before));
+
+                $imageIds = [];
+                foreach ($row['children']['item_images'] ?? [] as $image) {
+                    $image['user_id'] = $entry->userId;
+                    $imageIds[] = (int)$image['id'];
+
+                    // item_images is streamed as its own table by
+                    // sync/changes.php, so the restore needs a fresh
+                    // updated_at for the same reason the parent does.
+                    unset($image['updated_at']);
+
+                    $imgColumns = array_keys($image);
+                    $imgColumnSql = implode(', ', array_map(
+                        static fn(string $c): string => '`' . $c . '`',
+                        $imgColumns
+                    ));
+                    $imgPlaceholders = implode(', ', array_fill(0, count($imgColumns), '?'));
+
+                    $imgStmt = $pdo->prepare(
+                        "REPLACE INTO item_images ({$imgColumnSql}) VALUES ({$imgPlaceholders})"
+                    );
+                    $imgStmt->execute(array_values($image));
+                }
+
+                Tombstones::clear($pdo, $entry->userId, 'item_images', $imageIds);
+                Tombstones::clear($pdo, $entry->userId, 'items', [$row['id']]);
+
+                $restored++;
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        return ['restored' => $restored, 'skipped' => $skipped];
     }
 
     /**
