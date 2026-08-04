@@ -20,7 +20,12 @@
   bare function name is pure navigation detail and the most rot-prone content
   here, so it is replaced by what it does. A class arriving as a
   `src/Images/…` path is already covered by the path carve-out.
-- **Every factual claim must trace to code or the database**, not memory. Facts in this plan were read from `origin/main` at `3379fce` and the live database on 2026-08-04.
+- **Every factual claim must trace to code or the database**, not memory. Facts in
+  this plan were read from `origin/main` at `3379fce` and the live database on
+  2026-08-04. **Row counts must come from `SELECT COUNT(*)`** — the first draft of
+  this plan took them from `information_schema.tables.table_rows`, which for
+  InnoDB is an optimiser estimate, and it under-reported `games` by 17% (1,042
+  against a real 1,261). An estimate is not a fact.
 - **No stated repo path may fail to exist.** Task 1's test enforces this.
 - **Diagram 6 must be marked aspirational** both visually (dashed borders) and in prose.
 - **Every diagram carries a `**Goes stale when:**` line.** Task 1's test enforces this.
@@ -539,7 +544,7 @@ Row counts **as of 2026-08-04** — a dated snapshot, not a standing fact:
 
 | Table | Rows |
 |---|---|
-| `games` | 1,042 |
+| `games` | 1,261 |
 | `items` | 108 |
 | `game_completions` | 51 |
 | `api_tokens` | 17 |
