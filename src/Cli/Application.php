@@ -30,7 +30,7 @@ use Throwable;
  */
 final class Application
 {
-    public const VERSION = '0.5.0';
+    public const VERSION = '0.7.0';
 
     public const EXIT_OK = 0;
     public const EXIT_ERROR = 1;
@@ -64,6 +64,16 @@ final class Application
         'images audit' => ImagesAuditCommand::class,
         'images prune' => ImagesPruneCommand::class,
     ];
+
+    /**
+     * Commands --http can serve, because a v2 endpoint exists for them.
+     *
+     * Anything absent is refused rather than quietly run in process: the
+     * parity suite would otherwise pass while proving nothing.
+     *
+     * @var list<string>
+     */
+    private const HTTP_CAPABLE = ['games list', 'games get', 'items list', 'items get'];
 
     /** Global flags consumed here, never forwarded to commands. */
     private const GLOBAL_OPTIONS = ['json', 'table', 'http', 'user', 'help', 'version'];
@@ -189,8 +199,15 @@ final class Application
             return self::EXIT_USAGE;
         }
 
-        if ($http) {
-            $output->error('--http is not implemented yet (planned for a later sub-project).');
+        // --http drives the v2 endpoints instead of calling services in
+        // process. Read-only for now: a write with --http is refused rather
+        // than silently falling back, because a flag that sometimes means what
+        // it says is worse than one that refuses.
+        if ($http && !in_array($name, self::HTTP_CAPABLE, true)) {
+            $output->error(
+                "`gt {$name}` cannot run over --http yet — it is read-only for now. "
+                . 'Drop --http to run it in process.'
+            );
             return self::EXIT_USAGE;
         }
 

@@ -5,6 +5,7 @@ namespace GameTracker\Cli\Commands\Games;
 use GameTracker\Cli\Command;
 use GameTracker\Cli\Context;
 use GameTracker\Cli\Output;
+use GameTracker\Cli\Http\HttpClient;
 use GameTracker\Cli\UserResolver;
 use GameTracker\Query\FilterCompiler;
 use GameTracker\Images\BrokenCover;
@@ -40,6 +41,13 @@ final class ListCommand implements Command
 
     public function run(array $args, Context $ctx): int
     {
+        // --http sends the same command to api/v2/games/list.php. The filter
+        // flags become query parameters unchanged, which is the point: one
+        // vocabulary, two transports.
+        if ($ctx->http) {
+            return $this->overHttp($ctx, 'api/v2/games/list.php');
+        }
+
         $user = UserResolver::resolve($ctx->pdo, $ctx->userRef);
         $filters = FilterCompiler::compile(GamesFilters::definition(), $ctx);
 
@@ -90,6 +98,27 @@ final class ListCommand implements Command
         }
 
         $ctx->output->record($result);
+
+        return 0;
+    }
+
+    /**
+     * Run this command against a v2 endpoint instead of the service layer.
+     *
+     * Forwards every command-specific option as a query parameter. A valueless
+     * flag stays valueless so ArrayOptions::flag() reads it the same way
+     * Context::flag() does.
+     */
+    private function overHttp(Context $ctx, string $path): int
+    {
+        $client = HttpClient::fromEnvironment();
+
+        $query = [];
+        foreach ($ctx->options as $key => $value) {
+            $query[$key] = $value === true ? true : (string)$value;
+        }
+
+        $ctx->output->record($client->get($path, $query));
 
         return 0;
     }
