@@ -72,4 +72,34 @@ SHAPE=$(php -r '
 
 assert_eq "5 5 100" "$SHAPE" "only the 5 dead thumbs are prunable, all 100 live ones survive"
 
+blue "gt images audit"
+
+GT="$PROJECT_ROOT/bin/gt"
+GT_CODE=0; GT_JSON=""
+run_gt_json() { set +e; GT_JSON=$("$GT" "$@" 2>/dev/null); GT_CODE=$?; set -e; }
+
+run_gt_json images audit
+assert_eq "0" "$GT_CODE" "images audit exits 0"
+
+echo "$GT_JSON" | jq -e 'has("by_mode") and has("orphans") and has("missing") and has("thumbnails")' > /dev/null \
+  && { green "  PASS: reports modes, orphans, missing and thumbnails"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: unexpected audit shape: $GT_JSON"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+# Audit is read-only — it must never report having written.
+echo "$GT_JSON" | jq -e '.dry_run != false' > /dev/null \
+  && { green "  PASS: audit is read-only"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: audit reported a write"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+# It must classify by storage mode, not treat every value as a path.
+echo "$GT_JSON" | jq -e '.by_mode["games.front_cover_image"] | has("data-uri") and has("url") and has("filename")' > /dev/null \
+  && { green "  PASS: reports per-column storage modes"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: by_mode missing storage modes"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
+# The mismatch guard: prune consumes these numbers, so an audit pointed at the
+# wrong uploads directory must say so rather than reporting every live file as
+# an orphan candidate.
+echo "$GT_JSON" | jq -e 'has("suspect_mismatch")' > /dev/null \
+  && { green "  PASS: reports whether the numbers look like a wrong-directory mismatch"; PASS_COUNT=$((PASS_COUNT+1)); } \
+  || { red "  FAIL: no suspect_mismatch field"; FAIL_COUNT=$((FAIL_COUNT+1)); }
+
 summarize
