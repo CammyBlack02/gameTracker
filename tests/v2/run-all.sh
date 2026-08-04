@@ -63,6 +63,16 @@ for test in "$PROJECT_ROOT"/tests/cli/test_*.sh; do
   fi
   echo
 done
+
+# Docs suites (tests/docs/). These read files only — no server, no database —
+# but they ride along here so CI runs them with everything else.
+for test in "$PROJECT_ROOT"/tests/docs/test_*.sh; do
+  echo "=== docs/$(basename "$test") ==="
+  if ! bash "$test"; then
+    OVERALL_FAIL=1
+  fi
+  echo
+done
 shopt -u nullglob
 
 exit $OVERALL_FAIL
