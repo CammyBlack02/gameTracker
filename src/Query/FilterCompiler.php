@@ -2,7 +2,6 @@
 
 namespace GameTracker\Query;
 
-use GameTracker\Cli\Context;
 use GameTracker\Cli\UsageException;
 
 /**
@@ -18,7 +17,7 @@ final class FilterCompiler
     public const DEFAULT_PER_PAGE = 100;
     public const MAX_PER_PAGE = 1000;
 
-    public static function compile(FilterDefinition $def, Context $ctx): FilterSet
+    public static function compile(FilterDefinition $def, OptionSource $ctx): FilterSet
     {
         $conditions = [];
         $params = [];
@@ -83,7 +82,7 @@ final class FilterCompiler
         );
     }
 
-    private static function orderSql(FilterDefinition $def, Context $ctx): string
+    private static function orderSql(FilterDefinition $def, OptionSource $ctx): string
     {
         $raw = $ctx->option('sort') ?? $def->defaultSort;
 
@@ -103,7 +102,7 @@ final class FilterCompiler
     /**
      * @return array{0: int, 1: int, 2: int} page, perPage, offset
      */
-    private static function paging(Context $ctx): array
+    private static function paging(OptionSource $ctx): array
     {
         // --limit is the interactive shorthand for --per-page.
         $perPage = $ctx->intOption('limit', $ctx->intOption('per-page', self::DEFAULT_PER_PAGE));

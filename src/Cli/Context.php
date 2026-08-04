@@ -2,6 +2,7 @@
 
 namespace GameTracker\Cli;
 
+use GameTracker\Query\OptionSource;
 use PDO;
 
 /**
@@ -11,7 +12,7 @@ use PDO;
  * docs/superpowers/specs/2026-08-03-gt-cli-design.md: identity and the database
  * handle travel as parameters, so user scoping stays visible instead of hidden.
  */
-final class Context
+final class Context implements OptionSource
 {
     public function __construct(
         public readonly PDO $pdo,
