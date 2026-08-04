@@ -647,6 +647,22 @@ function deleteGame() {
     // Delete the game. game_images cascades; game_completions is ON DELETE SET
     // NULL, so completion rows survive with a null game_id — see the note below.
     //
+    // Unlink the completions OURSELVES, before the delete.
+    //
+    // Deleting a game is meant to keep its completion history and just unlink it,
+    // and the FK already does that — game_completions.game_id is ON DELETE SET
+    // NULL. The problem is that nobody downstream ever finds out. An FK-driven
+    // SET NULL does NOT fire `on update CURRENT_TIMESTAMP` (verified against MySQL
+    // 8.0.45: updated_at was byte-identical before and after), and it is an UPDATE
+    // so no deletion tombstone fires either. api/v2/sync/changes.php only returns
+    // rows whose updated_at is newer than the client's cursor, so the phone keeps
+    // a completion pointing at a game id that no longer exists — permanently.
+    //
+    // Doing the UPDATE explicitly bumps updated_at, so the next delta sync carries
+    // the unlinked row to the phone. The FK then has nothing left to do.
+    $unlink = $pdo->prepare("UPDATE game_completions SET `game_id` = NULL WHERE `game_id` = ?");
+    $unlink->execute([$id]);
+
     // Scoped in the statement rather than trusting the check above. An admin may
     // delete any row, which is why the owner predicate is conditional; everyone
     // else can only ever delete their own, whatever the id says.
