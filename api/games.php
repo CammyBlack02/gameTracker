@@ -1,4 +1,14 @@
 <?php
+
+require_once __DIR__ . '/../src/autoload.php';
+
+use GameTracker\Domain\AccessDeniedException;
+use GameTracker\Domain\BadRequestException;
+use GameTracker\Domain\NotFoundException;
+use GameTracker\Query\ArrayOptions;
+use GameTracker\Query\FilterCompiler;
+use GameTracker\Query\GamesFilters;
+use GameTracker\Services\GamesService;
 /**
  * Games CRUD API endpoints
  */
@@ -102,171 +112,64 @@ try {
 
 function listGames() {
     global $pdo;
-    
-    // Increase memory and execution time limits BEFORE loading data
-    ini_set('memory_limit', '1024M');
-    ini_set('max_execution_time', '300');
-    
+
+    if (!isset($pdo)) {
+        error_log('listGames: Database connection not available');
+        sendJsonResponse(['success' => false, 'message' => 'Database connection not available'], 500);
+        return;
+    }
+
+    // Always scope to the caller. A cross-user ?user_id= override was an IDOR
+    // (Fable §1); GamesService takes an explicit $userId so that scoping is
+    // structural rather than remembered.
+    $userId = $_SESSION['user_id'];
+
+    // v1 spells paging `per_page`; the shared FilterCompiler reads `per-page`.
+    // Translate rather than change the wire format — js/games.js sends the
+    // underscore, and silently ignoring it would drop the web app back to a
+    // fixed 100 rows a page with nothing to show for it.
+    $options = [
+        'page' => isset($_GET['page']) ? (string)max(1, (int)$_GET['page']) : '1',
+        'per-page' => isset($_GET['per_page'])
+            ? (string)max(1, min(1000, (int)$_GET['per_page']))
+            : '100',
+    ];
+
     try {
-        if (!isset($pdo)) {
-            error_log('listGames: Database connection not available');
-            sendJsonResponse(['success' => false, 'message' => 'Database connection not available'], 500);
-            return;
-        }
-        
-        // Get pagination parameters
-        $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-        $perPage = isset($_GET['per_page']) ? max(1, min(1000, (int)$_GET['per_page'])) : 100; // Reduced default from 500 to 100
-        $offset = ($page - 1) * $perPage;
-        
-        // Always scope to the caller. Cross-user ?user_id= override was
-        // an IDOR — Fable §1. If shared-shelf browsing is wanted later,
-        // add it as an explicit ACL feature.
-        $targetUserId = $_SESSION['user_id'];
-        
-        // Get total count - optimized: no need for DISTINCT since we're not joining yet
-        try {
-            $countStmt = $pdo->prepare("SELECT COUNT(*) as total FROM games WHERE user_id = ?");
-            $countStmt->execute([$targetUserId]);
-            $countResult = $countStmt->fetch(PDO::FETCH_ASSOC);
-            $totalGames = (int)($countResult['total'] ?? 0);
-            $totalPages = $totalGames > 0 ? ceil($totalGames / $perPage) : 1;
-        } catch (PDOException $e) {
-            error_log("listGames: COUNT query failed: " . $e->getMessage());
-            $totalGames = 0;
-            $totalPages = 1;
-        }
-        
-        error_log("listGames: Page $page of $totalPages (showing $perPage games, offset $offset) for user_id: $targetUserId");
-        
-        // Ensure LIMIT and OFFSET are integers (MySQL doesn't allow bound parameters for LIMIT/OFFSET)
-        $perPage = (int)$perPage;
-        $offset = (int)$offset;
-        
-        // Simplified query without subquery to avoid any potential issues
-        // Image count will be set to 0 for now (can be calculated separately if needed)
-        $query = "
-            SELECT g.id,
-                   g.title,
-                   g.platform,
-                   g.genre,
-                   g.series,
-                   g.special_edition,
-                   g.`condition`,
-                   g.star_rating,
-                   g.metacritic_rating,
-                   g.played,
-                   g.price_paid,
-                   g.pricecharting_price,
-                   g.is_physical,
-                   g.digital_store,
-                   g.front_cover_image,
-                   g.back_cover_image,
-                   g.created_at,
-                   g.updated_at,
-                   0 as extra_image_count
-            FROM games g
-            WHERE g.user_id = ?
-            ORDER BY g.created_at DESC
-            LIMIT $perPage OFFSET $offset
-        ";
-        
-        error_log("listGames: Executing query with perPage=$perPage, offset=$offset");
-        $stmt = $pdo->prepare($query);
-        $stmt->execute([$targetUserId]);
-        
-        // Collect games for this page
-        $games = [];
-        while ($game = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            // Convert boolean values
-            $game['played'] = (bool)$game['played'];
-            $game['is_physical'] = (bool)$game['is_physical'];
-            $game['star_rating'] = $game['star_rating'] !== null ? (int)$game['star_rating'] : null;
-            $game['metacritic_rating'] = $game['metacritic_rating'] !== null ? (int)$game['metacritic_rating'] : null;
-            if (empty($game['genre'])) $game['genre'] = null;
-            if (empty($game['series'])) $game['series'] = null;
-            if (empty($game['special_edition'])) $game['special_edition'] = null;
-            
-            $games[] = $game;
-        }
-        
-        error_log("listGames: Loaded " . count($games) . " games for page $page");
-        
-        // Send response with pagination info
-        sendJsonResponse([
-            'success' => true, 
-            'games' => $games,
-            'pagination' => [
-                'page' => $page,
-                'per_page' => $perPage,
-                'total' => $totalGames,
-                'total_pages' => $totalPages,
-                'has_more' => $page < $totalPages
-            ]
-        ]);
+        $filters = FilterCompiler::compile(GamesFilters::definition(), new ArrayOptions($options));
+
+        // ['games' => [...], 'pagination' => [...]] — already the exact shape
+        // js/games.js consumes, so the only thing v1 adds is `success`.
+        sendJsonResponse(['success' => true] + GamesService::list($pdo, $userId, $filters));
     } catch (Throwable $e) {
-        error_log('listGames Error: ' . $e->getMessage());
-        error_log('Stack trace: ' . $e->getTraceAsString());
-        error_log('File: ' . $e->getFile() . ' Line: ' . $e->getLine());
-        
-        // Clean any output and send error response with detailed error for debugging
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
-        
-        if (!headers_sent()) {
-            http_response_code(500);
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Failed to load games'], JSON_UNESCAPED_SLASHES);
-        }
-        exit;
+        error_log('listGames failed: ' . $e->getMessage());
+        sendJsonResponse(['success' => false, 'message' => 'Failed to load games'], 500);
     }
 }
 
 function getGame() {
     global $pdo;
-    
-    $id = $_GET['id'] ?? 0;
-    $currentUserId = $_SESSION['user_id'];
-    $isAdmin = isAdmin();
-    
-    if (!$id) {
-        sendJsonResponse(['success' => false, 'message' => 'Game ID is required'], 400);
+
+    $id = (int)($_GET['id'] ?? 0);
+
+    try {
+        // isAdmin() reproduces v1's admin override, passed explicitly so the
+        // escalation stays visible at the call site rather than being resolved
+        // from ambient state inside the service.
+        $game = GamesService::get($pdo, $_SESSION['user_id'], $id, isAdmin());
+
+        sendJsonResponse(['success' => true, 'game' => $game]);
+    } catch (BadRequestException $e) {
+        sendJsonResponse(['success' => false, 'message' => $e->getMessage()], 400);
+    } catch (NotFoundException $e) {
+        sendJsonResponse(['success' => false, 'message' => $e->getMessage()], 404);
+    } catch (AccessDeniedException $e) {
+        // v1 answered 403 here and the message is unchanged, so the frontend's
+        // handling is untouched.
+        sendJsonResponse(['success' => false, 'message' => $e->getMessage()], 403);
     }
-    
-    // Optimized: Get game and verify ownership in one query
-    $stmt = $pdo->prepare("SELECT * FROM games WHERE id = ?");
-    $stmt->execute([$id]);
-    $game = $stmt->fetch();
-    
-    if (!$game) {
-        sendJsonResponse(['success' => false, 'message' => 'Game not found'], 404);
-    }
-    
-    // Verify ownership (unless admin)
-    if (!$isAdmin && $game['user_id'] != $currentUserId) {
-        sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
-    }
-    
-    // Get extra images (indexed query should be fast)
-    $stmt = $pdo->prepare("SELECT * FROM game_images WHERE game_id = ? ORDER BY uploaded_at DESC");
-    $stmt->execute([$id]);
-    $game['extra_images'] = $stmt->fetchAll();
-    
-    // Convert boolean values
-    $game['played'] = (bool)$game['played'];
-    $game['is_physical'] = (bool)$game['is_physical'];
-    $game['star_rating'] = $game['star_rating'] !== null ? (int)$game['star_rating'] : null;
-    $game['metacritic_rating'] = $game['metacritic_rating'] !== null ? (int)$game['metacritic_rating'] : null;
-    
-    sendJsonResponse(['success' => true, 'game' => $game]);
 }
 
-/**
- * Find matching game with fuzzy title and exact platform match
- * Returns game data if found, null otherwise
- * Optimized: Uses database-level LIKE matching first to reduce dataset size
- */
 function findMatchingGame($title, $platform) {
     global $pdo;
     
@@ -867,38 +770,25 @@ function deleteGame() {
 
 function getPlatforms() {
     global $pdo;
-    
+
+    // Always scope to the caller, and ignore ?user_id= rather than rejecting
+    // it — the same contract as listGames.
+    //
+    // This NARROWS the response. v1 returned every user's platform names when
+    // no user_id was given, "for dropdown suggestions", and let ?user_id= pivot
+    // to any chosen user — the IDOR pattern Fable §1 removed from the list
+    // endpoint. The add-game datalist in js/games.js consequently suggests only
+    // platforms the caller already owns; the other three platform dropdowns
+    // build their lists client-side from allGames and are unaffected.
+    $userId = $_SESSION['user_id'];
+
     try {
-        // If user_id is provided, get platforms for that user
-        // Otherwise, get platforms from all users (for dropdown suggestions)
-        if (isset($_GET['user_id'])) {
-            $targetUserId = (int)$_GET['user_id'];
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT platform 
-                FROM games 
-                WHERE user_id = ? AND platform IS NOT NULL AND platform != '' 
-                ORDER BY platform
-            ");
-            $stmt->execute([$targetUserId]);
-        } else {
-            // Get platforms from all users
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT platform 
-                FROM games 
-                WHERE platform IS NOT NULL AND platform != '' 
-                ORDER BY platform
-            ");
-            $stmt->execute();
-        }
-        
-        $platforms = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        
         sendJsonResponse([
             'success' => true,
-            'platforms' => $platforms
+            'platforms' => GamesService::platforms($pdo, $userId),
         ]);
     } catch (Throwable $e) {
-        error_log('getPlatforms Error: ' . $e->getMessage());
+        error_log('getPlatforms failed: ' . $e->getMessage());
         sendJsonResponse(['success' => false, 'message' => 'Failed to get platforms'], 500);
     }
 }

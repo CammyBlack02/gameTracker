@@ -631,12 +631,14 @@ function setupDeleteGame() {
  * Update filter options based on available games
  */
 /**
- * Populate platform dropdowns with admin's existing platforms
+ * Populate the add/edit platform datalists with the signed-in user's platforms.
  */
 async function populatePlatformDropdowns() {
     try {
-        // Get platforms from all users (not just admin) to ensure all platforms are available
-        // Pass no user_id to get all platforms across all users
+        // Suggestions are the caller's own platforms. This endpoint used to
+        // return every user's, and to accept a ?user_id= override; both were
+        // removed with the GamesService conversion. A platform nobody in the
+        // account owns yet just gets typed in full once.
         const response = await fetch('api/games.php?action=platforms');
         
         if (!response.ok) {
