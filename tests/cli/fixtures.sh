@@ -85,6 +85,34 @@ seed_games() {
   "
 }
 
+# Give one fixture game a child row of each kind, so delete tests exercise both
+# cascade behaviours rather than only the parent row.
+#
+# game_images.game_id is ON DELETE CASCADE — the row is destroyed and a
+# tombstone is written for it. game_completions.game_id is ON DELETE SET NULL —
+# the row survives, its link is nulled, and NO tombstone fires because that is
+# an UPDATE. Undo has to handle both, and only a fixture with both can prove it.
+seed_game_children() {
+  local uid game_id
+  uid=$(fixture_user_id "$FIXTURE_USER")
+  game_id=$(fixture_id games 'FIXTURE Halo 3' mine)
+
+  fixture_mysql -e "DELETE FROM game_images WHERE user_id = $uid"
+  fixture_mysql -e "DELETE FROM game_completions WHERE user_id = $uid"
+
+  fixture_mysql -e "
+    INSERT INTO game_images (game_id, user_id, image_path)
+    VALUES ($game_id, $uid, 'fixture-extra-1.jpg'),
+           ($game_id, $uid, 'fixture-extra-2.jpg');
+  "
+
+  fixture_mysql -e "
+    INSERT INTO game_completions
+      (game_id, user_id, title, platform, date_completed, completion_year)
+    VALUES ($game_id, $uid, 'FIXTURE Halo 3', 'Xbox 360', '2026-01-20', 2026);
+  "
+}
+
 seed_items() {
   local uid other
   fixture_ensure_user

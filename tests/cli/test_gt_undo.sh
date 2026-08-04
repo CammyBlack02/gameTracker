@@ -161,4 +161,99 @@ assert_eq "1" "$GT_CODE" "an unknown resource is a domain error"
 assert_contains "widgets" "$GT_OUT" "names the resource it cannot revert"
 rm -f "$GT_JOURNAL_DIR/$BOGUS_ID.json"
 
+blue "Undoing a delete restores the row, its children and clears tombstones"
+
+seed_games
+seed_game_children
+UNDO_HALO=$(fixture_id games 'FIXTURE Halo 3' mine)
+
+run_gt_json games delete "$UNDO_HALO" "$USER_FLAG" --yes
+assert_eq "0" "$GT_CODE" "delete for the undo test exits 0"
+assert_eq "1" "$(fixture_mysql -N -e "
+  SELECT COUNT(*) FROM deletions WHERE table_name = 'games' AND server_id = $UNDO_HALO")" \
+  "the delete left a tombstone"
+
+run_gt undo "$USER_FLAG" --yes
+assert_eq "0" "$GT_CODE" "undo of a delete exits 0"
+
+# The row comes back with its original id, which is what makes iOS delta sync
+# and every foreign key line up again.
+assert_eq "1" "$(fixture_mysql -N -e "SELECT COUNT(*) FROM games WHERE id = $UNDO_HALO")" \
+  "the game is restored under its original id"
+assert_eq "FIXTURE Halo 3" \
+  "$(fixture_mysql -N -e "SELECT title FROM games WHERE id = $UNDO_HALO")" \
+  "the restored row keeps its values"
+
+# Tombstones must go, or the next iOS sync deletes the row again locally and
+# undo looks like it silently failed on the phone.
+assert_eq "0" "$(fixture_mysql -N -e "
+  SELECT COUNT(*) FROM deletions WHERE table_name = 'games' AND server_id = $UNDO_HALO")" \
+  "the game's tombstone was cleared"
+
+# Children restored too. Without this the undo returns a game whose extra
+# images were destroyed and whose completion history is silently unlinked.
+assert_eq "2" "$(fixture_mysql -N -e "SELECT COUNT(*) FROM game_images WHERE game_id = $UNDO_HALO")" \
+  "cascaded game_images rows were restored"
+# Split rather than nesting a subquery inside $( ): the extra parens make the
+# command substitution ambiguous to bash and it fails to parse the whole file.
+IMG_TOMBSTONES=$(fixture_mysql -N -e "
+  SELECT COUNT(*) FROM deletions d
+  JOIN game_images gi ON gi.id = d.server_id
+  WHERE d.table_name = 'game_images' AND gi.game_id = $UNDO_HALO")
+assert_eq "0" "$IMG_TOMBSTONES" "the images tombstones were cleared"
+assert_eq "1" "$(fixture_mysql -N -e "
+  SELECT COUNT(*) FROM game_completions WHERE game_id = $UNDO_HALO")" \
+  "the completion was relinked to the restored game"
+
+# The restore must carry a fresh updated_at. The phone has already deleted this
+# row in response to the tombstone and only re-fetches rows newer than its last
+# sync, so restoring the original timestamp would leave the row present on the
+# server and permanently missing on the device.
+assert_eq "1" "$(fixture_mysql -N -e "
+  SELECT COUNT(*) FROM games
+  WHERE id = $UNDO_HALO AND updated_at >= NOW() - INTERVAL 1 MINUTE")" \
+  "the restored row has a fresh updated_at for delta sync"
+
+blue "Undoing a delete refuses when the id was taken"
+
+seed_games
+seed_game_children
+TAKEN=$(fixture_id games 'FIXTURE Okami' mine)
+run_gt games delete "$TAKEN" "$USER_FLAG" --yes
+
+# Something else creates a row that lands on the same id. Undo must not
+# overwrite it.
+fixture_mysql -e "
+  INSERT INTO games (id, user_id, title, platform)
+  VALUES ($TAKEN, $(fixture_user_id "$FIXTURE_USER"), 'FIXTURE Squatter', 'PC');
+"
+
+run_gt undo "$USER_FLAG" --yes
+assert_eq "FIXTURE Squatter" \
+  "$(fixture_mysql -N -e "SELECT title FROM games WHERE id = $TAKEN")" \
+  "undo refused rather than overwriting a row that took the id"
+assert_contains "skipped" "$GT_OUT" "reports the skip"
+
+blue "A delete entry cannot be reverted twice"
+
+seed_games
+seed_game_children
+TWICE=$(fixture_id games 'FIXTURE Journey' mine)
+
+run_gt_json games delete "$TWICE" "$USER_FLAG" --yes
+TWICE_ENTRY=$(echo "$GT_JSON" | jq -r '.journal_id')
+
+# Target the entry explicitly rather than relying on "most recent", so this
+# asserts re-revert refusal and not merely that the stack moved on.
+run_gt undo "$TWICE_ENTRY" "$USER_FLAG" --yes
+assert_eq "0" "$GT_CODE" "the first undo of an entry succeeds"
+assert_eq "1" "$(fixture_mysql -N -e "SELECT COUNT(*) FROM games WHERE id = $TWICE")" \
+  "the row came back"
+
+run_gt undo "$TWICE_ENTRY" "$USER_FLAG" --yes
+assert_eq "1" "$GT_CODE" "re-undoing the same entry = 1"
+assert_contains "already reverted" "$GT_OUT" "says the entry was already reverted"
+assert_eq "1" "$(fixture_mysql -N -e "SELECT COUNT(*) FROM games WHERE id = $TWICE")" \
+  "the row is still there exactly once"
+
 summarize
