@@ -9,6 +9,9 @@ use GameTracker\Cli\Commands\Games\GetCommand as GamesGetCommand;
 use GameTracker\Cli\Commands\Games\ListCommand as GamesListCommand;
 use GameTracker\Cli\Commands\Games\PlatformsCommand as GamesPlatformsCommand;
 use GameTracker\Cli\Commands\Games\SetCommand as GamesSetCommand;
+use GameTracker\Cli\Commands\Import\CsvCommand as ImportCsvCommand;
+use GameTracker\Cli\Commands\Import\ProfilesCommand as ImportProfilesCommand;
+use GameTracker\Cli\Commands\Import\SteamCommand as ImportSteamCommand;
 use GameTracker\Cli\Commands\Items\CreateCommand as ItemsCreateCommand;
 use GameTracker\Cli\Commands\Items\DeleteCommand as ItemsDeleteCommand;
 use GameTracker\Cli\Commands\Items\GetCommand as ItemsGetCommand;
@@ -25,7 +28,7 @@ use Throwable;
  */
 final class Application
 {
-    public const VERSION = '0.3.0';
+    public const VERSION = '0.4.0';
 
     public const EXIT_OK = 0;
     public const EXIT_ERROR = 1;
@@ -53,6 +56,9 @@ final class Application
         'items set' => ItemsSetCommand::class,
         'items create' => ItemsCreateCommand::class,
         'items delete' => ItemsDeleteCommand::class,
+        'import csv' => ImportCsvCommand::class,
+        'import steam' => ImportSteamCommand::class,
+        'import profiles' => ImportProfilesCommand::class,
     ];
 
     /** Global flags consumed here, never forwarded to commands. */

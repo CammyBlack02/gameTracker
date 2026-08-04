@@ -169,6 +169,28 @@ Two mechanisms coexist, and this is a known wart:
 # cursor, so restoring the original timestamp would leave the row present on
 # the server and permanently missing on the phone.
 
+# Import (sub-project #4a). Always previews without --yes — an import is bulk
+# by nature. The whole import is ONE journal entry, so `gt undo` reverts every
+# row across both tables.
+./bin/gt import steam --yes                    # needs steam_api_key +
+                                               # steam_user_id in settings
+./bin/gt import csv <file> --profile=gameeye --yes
+./bin/gt import csv <file> --map=title:Name,platform:System --yes
+./bin/gt import profiles                       # list built-in profiles
+
+# Matching is on NORMALISED title + platform (src/Import/TitleKey): trademark
+# symbols, case and redundant whitespace are ignored, punctuation is not. A
+# match means SKIP — import only ever adds. Improving existing rows is
+# `gt games set`.
+#
+# Covers download AFTER the transaction commits, so network latency never holds
+# row locks, and a failed download is non-fatal: the row imports with a NULL
+# cover and the failure is counted.
+#
+# src/Import/ parses and must stay free of write SQL; src/Services/Write/ does
+# all writing. SteamSource takes an injectable HttpTransport so CI never calls
+# the live Steam API.
+
 # Filters are AND-only, per-resource, and allowlisted: an unknown flag or
 # column exits 2 rather than being ignored. Exit codes: 0 ok, 1 domain error,
 # 2 usage, 3 bootstrap/database.
@@ -177,8 +199,9 @@ Two mechanisms coexist, and this is a known wart:
 # Write SQL lives only in src/Services/Write/ — enforced by
 # tests/cli/test_readonly_guard.sh, which also asserts that directory is not
 # empty so the guard cannot pass vacuously.
-# See docs/superpowers/specs/2026-08-03-gt-cli-design.md and
-#     docs/superpowers/specs/2026-08-03-gt-cli-mutations-design.md
+# See docs/superpowers/specs/2026-08-03-gt-cli-design.md,
+#     docs/superpowers/specs/2026-08-03-gt-cli-mutations-design.md and
+#     docs/superpowers/specs/2026-08-04-gt-cli-import-design.md
 
 # Deploy (git pull --ff-only + npm ci + vite build, with a Node >= 18 preflight)
 ./scripts/deploy.sh
