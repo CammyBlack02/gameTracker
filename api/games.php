@@ -390,6 +390,21 @@ function createGame() {
         }
     }
     
+    // create localised nothing before this: a data: URI or an http URL supplied
+    // at creation time was stored verbatim, which is why 51 rows hold a URL and
+    // 42 hold an inlined image.
+    $createAutoDownload = $data['auto_download'] ?? $_POST['auto_download'] ?? $_GET['auto_download'] ?? true;
+
+    list($frontCover, $frontError) = normaliseImageValue($frontCover, null, 'front', (bool)$createAutoDownload);
+    if ($frontError !== null) {
+        sendJsonResponse(['success' => false, 'message' => $frontError], 400);
+    }
+
+    list($backCover, $backError) = normaliseImageValue($backCover, null, 'back', (bool)$createAutoDownload);
+    if ($backError !== null) {
+        sendJsonResponse(['success' => false, 'message' => $backError], 400);
+    }
+
     $stmt = $pdo->prepare("
         INSERT INTO games (
             user_id, title, platform, genre, description, series, special_edition,
@@ -435,6 +450,114 @@ function createGame() {
 /**
  * Download external image and return local filename
  */
+/**
+ * Decode a data: URI into a real file and return its bare filename.
+ *
+ * Mirrors downloadExternalImage's contract — bare filename on success, false on
+ * failure — so both localisation branches at the call sites stay symmetrical.
+ *
+ * This exists because an image column may hold a filename or a URL and never an
+ * image. Storing the URI verbatim had put ~113 MB of base64 into the games
+ * table by 2026-08-04, most of the database, and it ships in full to the phone
+ * on every delta sync because api/v2/sync/changes.php selects whole rows.
+ *
+ * @return string|false
+ */
+function storeDataUriImage($dataUri, $gameId = null, $type = 'front') {
+    if (!is_string($dataUri) || stripos($dataUri, 'data:') !== 0) {
+        return false;
+    }
+
+    $comma = strpos($dataUri, ',');
+    if ($comma === false) {
+        return false;
+    }
+
+    $header  = substr($dataUri, 5, $comma - 5);   // e.g. "image/png;base64"
+    $payload = substr($dataUri, $comma + 1);
+
+    if (stripos($header, 'base64') === false) {
+        return false;
+    }
+
+    // Strict decode: reject anything outside the base64 alphabet rather than
+    // silently turning a truncated payload into a corrupt file.
+    $binary = base64_decode($payload, true);
+    if ($binary === false || $binary === '') {
+        return false;
+    }
+
+    // Magic bytes, not the declared MIME — the header is client-supplied.
+    $info = @getimagesizefromstring($binary);
+    if ($info === false) {
+        return false;
+    }
+
+    $byType = [
+        IMAGETYPE_JPEG => 'jpg',
+        IMAGETYPE_PNG  => 'png',
+        IMAGETYPE_GIF  => 'gif',
+        IMAGETYPE_WEBP => 'webp',
+    ];
+    $extension = $byType[$info[2]] ?? null;
+    if ($extension === null) {
+        return false;
+    }
+
+    $filename   = generateUniqueFilename('cover.' . $extension, COVERS_DIR);
+    $targetPath = COVERS_DIR . $filename;
+
+    if (file_put_contents($targetPath, $binary) === false) {
+        error_log("storeDataUriImage: could not write $targetPath");
+        return false;
+    }
+
+    require_once __DIR__ . '/../includes/thumbnail.php';
+    gt_generate_thumbnail($targetPath, gt_thumbnail_path($targetPath), 512);
+
+    return $filename;
+}
+
+/**
+ * Normalise whatever the client sent for an image column into a stored value.
+ *
+ * One helper for create and update, which had drifted: update localised http(s)
+ * URLs while create localised nothing at all, which is why 51 rows hold a URL
+ * rather than a file.
+ *
+ * A data: URI is converted regardless of $autoDownload. That flag is a
+ * preference about fetching *remote* images; inlining an image into the
+ * database is not something it should be able to opt into.
+ *
+ * @return array{0: string|null, 1: string|null} [value to store, error or null]
+ */
+function normaliseImageValue($value, $gameId, $type, $autoDownload = true) {
+    if (!is_string($value) || $value === '') {
+        return [$value, null];
+    }
+
+    if (stripos($value, 'data:') === 0) {
+        $stored = storeDataUriImage($value, $gameId, $type);
+
+        // Deliberately an error rather than a fallback: storing the URI is the
+        // behaviour being removed, so failing loudly is the whole point.
+        return $stored === false
+            ? [null, 'Could not decode the supplied image data']
+            : [$stored, null];
+    }
+
+    if ($autoDownload
+        && (stripos($value, 'http://') === 0 || stripos($value, 'https://') === 0)) {
+        $downloaded = downloadExternalImage($value, $gameId, $type);
+
+        // A URL that will not fetch stays a URL — pre-existing behaviour, and
+        // the column legitimately holds URLs.
+        return [$downloaded === false ? $value : $downloaded, null];
+    }
+
+    return [$value, null];
+}
+
 function downloadExternalImage($imageUrl, $gameId = null, $type = 'front') {
     require_once __DIR__ . '/../includes/http-fetch.php';
     try {
@@ -588,32 +711,23 @@ function updateGame() {
     // Check JSON data first, then POST/GET, default to true
     $autoDownload = $data['auto_download'] ?? $_POST['auto_download'] ?? $_GET['auto_download'] ?? true;
     
-    if ($autoDownload) {
-        // Download front cover if it's an external URL
-        if (isset($data['front_cover_image']) && 
-            (strpos($data['front_cover_image'], 'http://') === 0 || strpos($data['front_cover_image'], 'https://') === 0)) {
-            $downloaded = downloadExternalImage($data['front_cover_image'], $id, 'front');
-            if ($downloaded) {
-                $data['front_cover_image'] = $downloaded;
-                error_log("Auto-downloaded front cover for game $id: $downloaded");
-            } else {
-                error_log("Failed to auto-download front cover for game $id, keeping URL");
-            }
+    // Normalise both image columns. A data: URI is always converted to a file;
+    // an http(s) URL is only fetched when auto-download is on. Note this runs
+    // regardless of $autoDownload — see normaliseImageValue().
+    foreach (['front_cover_image' => 'front', 'back_cover_image' => 'back'] as $column => $face) {
+        if (!isset($data[$column])) {
+            continue;
         }
-        
-        // Download back cover if it's an external URL
-        if (isset($data['back_cover_image']) && 
-            (strpos($data['back_cover_image'], 'http://') === 0 || strpos($data['back_cover_image'], 'https://') === 0)) {
-            $downloaded = downloadExternalImage($data['back_cover_image'], $id, 'back');
-            if ($downloaded) {
-                $data['back_cover_image'] = $downloaded;
-                error_log("Auto-downloaded back cover for game $id: $downloaded");
-            } else {
-                error_log("Failed to auto-download back cover for game $id, keeping URL");
-            }
+
+        list($stored, $error) = normaliseImageValue($data[$column], $id, $face, (bool)$autoDownload);
+
+        if ($error !== null) {
+            sendJsonResponse(['success' => false, 'message' => $error], 400);
         }
+
+        $data[$column] = $stored;
     }
-    
+
     $stmt = $pdo->prepare("
         UPDATE games SET
             title = ?,
