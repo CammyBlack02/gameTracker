@@ -191,6 +191,38 @@ Two mechanisms coexist, and this is a known wart:
 # all writing. SteamSource takes an injectable HttpTransport so CI never calls
 # the live Steam API.
 
+# Images (sub-project #4b).
+./bin/gt images audit                          # storage modes, orphans, broken
+./bin/gt images prune [--yes]                  # move orphans to trash
+./bin/gt images prune --restore=<trash-id>
+./bin/gt images prune --list                   # trash batches
+./bin/gt games list --broken-cover             # rows naming an absent file
+./bin/gt items list --broken-cover
+
+# An image column holds a FILENAME or a URL, never an image. api/games.php
+# converts a data: URI to a file on both create and update, regardless of
+# auto_download, and rejects an undecodable one with a 400. Before that fix,
+# 81 rows held ~113 MB of base64 — most of the database, shipped in full to
+# the phone on every delta sync.
+#
+# prune NEVER unlinks: files move to ~/.gt/trash/<id>/ (GT_TRASH_DIR overrides)
+# and --restore brings them back. There is no retention policy and no empty
+# command, deliberately — sweeping the safety net on a timer defeats it. A
+# mysqldump restores rows, not files.
+#
+# Thumbnails are derived and referenced by nothing, so they follow their
+# source: 1,089 of 1,187 have a referenced source and a naive "delete
+# unreferenced files" sweep would destroy every one.
+#
+# audit and prune derive the uploads directory from UPLOAD_DIR — the same
+# config.php that provides $pdo — so disk and database always describe one
+# install. If most referenced files look absent, audit warns and prune REFUSES:
+# that means the wrong directory far more often than a vanished collection.
+#
+# --broken-cover is a SCAN, not a filter: it stats the disk, so it cannot be a
+# WHERE clause, and it turns paging off to report a true total. It branches on
+# storage mode first — URLs and data URIs are not missing files.
+
 # Filters are AND-only, per-resource, and allowlisted: an unknown flag or
 # column exits 2 rather than being ignored. Exit codes: 0 ok, 1 domain error,
 # 2 usage, 3 bootstrap/database.
@@ -201,7 +233,8 @@ Two mechanisms coexist, and this is a known wart:
 # empty so the guard cannot pass vacuously.
 # See docs/superpowers/specs/2026-08-03-gt-cli-design.md,
 #     docs/superpowers/specs/2026-08-03-gt-cli-mutations-design.md and
-#     docs/superpowers/specs/2026-08-04-gt-cli-import-design.md
+#     docs/superpowers/specs/2026-08-04-gt-cli-import-design.md,
+#     docs/superpowers/specs/2026-08-04-gt-cli-images-design.md
 
 # Deploy (git pull --ff-only + npm ci + vite build, with a Node >= 18 preflight)
 ./scripts/deploy.sh
