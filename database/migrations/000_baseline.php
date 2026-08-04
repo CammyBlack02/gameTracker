@@ -7,8 +7,11 @@
  * longer runs on every request (Fable §6 latency win).
  *
  * All statements are idempotent by construction: CREATE TABLE IF NOT
- * EXISTS for tables, ALTER TABLE in a swallowed try/catch for columns
- * and indexes. Safe to re-run against the existing prod schema.
+ * EXISTS for tables, and $attempt() — one statement per call — for
+ * columns and indexes. Foreign keys go through $addForeignKeyIfMissing(),
+ * which checks information_schema first, because MySQL has no
+ * ADD FOREIGN KEY IF NOT EXISTS and a bare ADD would create a duplicate.
+ * Safe to re-run against the existing prod schema.
  *
  * Naming: `000_` prefix guarantees this sorts before 001_api_tokens,
  * which foreign-keys `users` — MySQL needs users to exist first.
@@ -16,6 +19,65 @@
 return function (PDO $pdo): void {
     // Enable foreign key checks (idempotent — MySQL default is 1 anyway).
     $pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
+
+    /**
+     * Run one idempotent ALTER, swallowing "already applied" errors.
+     *
+     * One statement per call, deliberately. These used to be grouped three to
+     * a try block — ADD COLUMN, ADD INDEX, ADD FOREIGN KEY — which meant that
+     * against any database where the column already existed (that is, every
+     * database this migration exists to upgrade) the first statement threw and
+     * the catch swallowed the other two. Production ran for months missing
+     * three user_id foreign keys because of it, so ON DELETE CASCADE silently
+     * did not exist there.
+     */
+    $attempt = static function (string $sql) use ($pdo): void {
+        try {
+            $pdo->exec($sql);
+        } catch (PDOException $e) {
+            // Already applied. Each call is one statement, so this cannot
+            // mask an unrelated failure the way the grouped blocks did.
+        }
+    };
+
+    /**
+     * Add a foreign key only if that column does not already have one.
+     *
+     * MySQL has no ADD FOREIGN KEY IF NOT EXISTS, and a bare ADD succeeds
+     * against a column that is already constrained — creating a second,
+     * auto-named duplicate. So the check has to happen in information_schema
+     * rather than by catching an error that never comes.
+     */
+    $addForeignKeyIfMissing = static function (
+        string $table,
+        string $column,
+        string $refTable,
+        string $onDelete = 'CASCADE'
+    ) use ($pdo): void {
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE
+             WHERE CONSTRAINT_SCHEMA = DATABASE()
+               AND TABLE_NAME = ?
+               AND COLUMN_NAME = ?
+               AND REFERENCED_TABLE_NAME = ?"
+        );
+        $stmt->execute([$table, $column, $refTable]);
+
+        if ((int)$stmt->fetchColumn() > 0) {
+            return;
+        }
+
+        try {
+            $pdo->exec(
+                "ALTER TABLE `{$table}` ADD FOREIGN KEY (`{$column}`) "
+                . "REFERENCES `{$refTable}`(`id`) ON DELETE {$onDelete}"
+            );
+        } catch (PDOException $e) {
+            // The table may not exist yet, or orphaned rows may block the
+            // constraint. Neither should abort the rest of the migration;
+            // `gt db info` reports which foreign keys are still missing.
+        }
+    };
 
     // Users table
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (
@@ -74,13 +136,9 @@ return function (PDO $pdo): void {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
     // Bring older databases up to schema — column adds + FK backfill.
-    try {
-        $pdo->exec("ALTER TABLE games ADD COLUMN user_id INT NOT NULL");
-        $pdo->exec("ALTER TABLE games ADD INDEX idx_user_id (user_id)");
-        $pdo->exec("ALTER TABLE games ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore.
-    }
+    $attempt("ALTER TABLE games ADD COLUMN user_id INT NOT NULL");
+    $attempt("ALTER TABLE games ADD INDEX idx_user_id (user_id)");
+    $addForeignKeyIfMissing('games', 'user_id', 'users');
     try {
         $pdo->exec("ALTER TABLE games ADD COLUMN digital_store VARCHAR(255)");
     } catch (PDOException $e) {
@@ -116,13 +174,9 @@ return function (PDO $pdo): void {
         INDEX idx_game_id (game_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
-    try {
-        $pdo->exec("ALTER TABLE game_images ADD COLUMN user_id INT NOT NULL");
-        $pdo->exec("ALTER TABLE game_images ADD INDEX idx_user_id (user_id)");
-        $pdo->exec("ALTER TABLE game_images ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore.
-    }
+    $attempt("ALTER TABLE game_images ADD COLUMN user_id INT NOT NULL");
+    $attempt("ALTER TABLE game_images ADD INDEX idx_user_id (user_id)");
+    $addForeignKeyIfMissing('game_images', 'user_id', 'users');
 
     // Performance indexes (previously in database/add-performance-indexes.php).
     try {
@@ -167,13 +221,9 @@ return function (PDO $pdo): void {
         INDEX idx_user_id (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
-    try {
-        $pdo->exec("ALTER TABLE items ADD COLUMN user_id INT NOT NULL");
-        $pdo->exec("ALTER TABLE items ADD INDEX idx_user_id (user_id)");
-        $pdo->exec("ALTER TABLE items ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore.
-    }
+    $attempt("ALTER TABLE items ADD COLUMN user_id INT NOT NULL");
+    $attempt("ALTER TABLE items ADD INDEX idx_user_id (user_id)");
+    $addForeignKeyIfMissing('items', 'user_id', 'users');
     try {
         $pdo->exec("ALTER TABLE items ADD COLUMN quantity INT DEFAULT 1");
     } catch (PDOException $e) {
@@ -192,13 +242,9 @@ return function (PDO $pdo): void {
         INDEX idx_user_id (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
-    try {
-        $pdo->exec("ALTER TABLE item_images ADD COLUMN user_id INT NOT NULL");
-        $pdo->exec("ALTER TABLE item_images ADD INDEX idx_user_id (user_id)");
-        $pdo->exec("ALTER TABLE item_images ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore.
-    }
+    $attempt("ALTER TABLE item_images ADD COLUMN user_id INT NOT NULL");
+    $attempt("ALTER TABLE item_images ADD INDEX idx_user_id (user_id)");
+    $addForeignKeyIfMissing('item_images', 'user_id', 'users');
 
     // Settings table (per-user).
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
@@ -212,20 +258,12 @@ return function (PDO $pdo): void {
         INDEX idx_user_id (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
-    try {
-        $pdo->exec("ALTER TABLE settings ADD COLUMN user_id INT NOT NULL");
-        // Drop the old unique index if it exists (pre-multi-user shape).
-        try {
-            $pdo->exec("ALTER TABLE settings DROP INDEX setting_key");
-        } catch (PDOException $e) {
-            // Index doesn't exist, ignore.
-        }
-        $pdo->exec("ALTER TABLE settings ADD INDEX idx_user_id (user_id)");
-        $pdo->exec("ALTER TABLE settings ADD UNIQUE KEY unique_user_setting (user_id, setting_key)");
-        $pdo->exec("ALTER TABLE settings ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore.
-    }
+    $attempt("ALTER TABLE settings ADD COLUMN user_id INT NOT NULL");
+    // Drop the old unique index if it exists (pre-multi-user shape).
+    $attempt("ALTER TABLE settings DROP INDEX setting_key");
+    $attempt("ALTER TABLE settings ADD INDEX idx_user_id (user_id)");
+    $attempt("ALTER TABLE settings ADD UNIQUE KEY unique_user_setting (user_id, setting_key)");
+    $addForeignKeyIfMissing('settings', 'user_id', 'users');
 
     // Game completions table.
     $pdo->exec("CREATE TABLE IF NOT EXISTS game_completions (
@@ -246,13 +284,9 @@ return function (PDO $pdo): void {
         INDEX idx_user_id (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
-    try {
-        $pdo->exec("ALTER TABLE game_completions ADD COLUMN user_id INT NOT NULL");
-        $pdo->exec("ALTER TABLE game_completions ADD INDEX idx_user_id (user_id)");
-        $pdo->exec("ALTER TABLE game_completions ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
-    } catch (PDOException $e) {
-        // Column already exists, ignore.
-    }
+    $attempt("ALTER TABLE game_completions ADD COLUMN user_id INT NOT NULL");
+    $attempt("ALTER TABLE game_completions ADD INDEX idx_user_id (user_id)");
+    $addForeignKeyIfMissing('game_completions', 'user_id', 'users');
 
     // Seed the default admin user if the users table is empty. Idempotent
     // by construction: only runs when count == 0.
