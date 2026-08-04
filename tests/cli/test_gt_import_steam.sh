@@ -86,4 +86,29 @@ UNREACHABLE=$(php -r '
 
 assert_contains "BadRequestException" "$UNREACHABLE" "an unreachable API throws a domain error"
 
+blue "CoverFetcher is non-fatal"
+
+# An unreachable URL must leave the row imported with a NULL cover and be
+# counted, not abort the run. A CDN blip cannot be allowed to lose an import.
+COVER=$(php -r '
+  require $argv[1] . "/src/autoload.php";
+  require $argv[1] . "/includes/config.php";
+  $uid = (int)$argv[2];
+  $pdo->prepare("INSERT INTO games (user_id, title, platform) VALUES (?, ?, ?)")
+      ->execute([$uid, "IMPORT Cover Probe", "PC"]);
+  $id = (int)$pdo->lastInsertId();
+  $r = GameTracker\Services\Write\CoverFetcher::fetchAll($pdo, $uid, [
+      ["table" => "games", "id" => $id, "coverUrl" => "https://invalid.invalid/none.jpg"],
+      ["table" => "games", "id" => $id, "coverUrl" => null],
+      ["table" => "items", "id" => $id, "coverUrl" => "https://invalid.invalid/x.jpg"],
+  ]);
+  $stmt = $pdo->prepare("SELECT front_cover_image FROM games WHERE id = ?");
+  $stmt->execute([$id]);
+  $cover = $stmt->fetchColumn();
+  $pdo->prepare("DELETE FROM games WHERE id = ?")->execute([$id]);
+  echo $r["fetched"], " ", $r["failed"], " ", ($cover === null || $cover === "" ? "null" : "set");
+' -- "$PROJECT_ROOT" "$FIXTURE_UID")
+
+assert_eq "0 1 null" "$COVER" "a failed fetch is counted, the row keeps a NULL cover, null URLs and items are not attempted"
+
 summarize
