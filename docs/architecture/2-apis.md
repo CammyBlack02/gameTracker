@@ -90,13 +90,17 @@ Row counts **as of 2026-08-04** — a dated snapshot, not a standing fact:
 
 | Table | Rows |
 |---|---|
-| `games` | 1,042 |
+| `games` | 1,261 |
 | `items` | 108 |
 | `game_completions` | 51 |
 | `api_tokens` | 17 |
 | `deletions` | 13 |
 | `game_images` | **0** |
 | `item_images` | **0** |
+
+Counted with `SELECT COUNT(*)`. Do not use `information_schema.tables.table_rows`
+here — for InnoDB it is an optimiser estimate, and it under-reported `games` by
+17% when these figures were first gathered.
 
 Both image tables being empty is worth noticing: the extra-images feature has
 produced no rows at all. The `uploads/` directory did not survive the December
