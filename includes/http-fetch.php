@@ -2,7 +2,22 @@
 /**
  * SSRF-safe HTTP fetch helper.
  *
- * Every external URL fetch in the app goes through gt_safe_http_fetch().
+ * Use this for every fetch of a CALLER-SUPPLIED URL. That is what it exists for
+ * and where the SSRF risk lives.
+ *
+ * It does NOT cover every outbound request in the app, and this docblock used to
+ * claim that it did. Calls to hardcoded third-party hosts use raw cURL and never
+ * touch this helper: api/steam-import.php, includes/external-apis.php,
+ * api/v2/cover-image.php and src/Import/CurlTransport.php — the first two contain
+ * no call into it at all. Say "caller-supplied URLs", not "all fetches"; the
+ * absolute reading is false and has already been copied into other documents as
+ * fact.
+ *
+ * Worth knowing while you are here: includes/external-apis.php scrapes a
+ * PriceCharting search page, extracts a product URL out of the returned HTML and
+ * fetches it with redirect-following on. That is an ungated fetch whose target is
+ * chosen by remote content.
+ *
  * It enforces:
  *   - HTTPS only
  *   - Host resolves entirely to public IPs (blocks private, loopback,
