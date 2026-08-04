@@ -3,6 +3,7 @@
 namespace GameTracker\Cli;
 
 use GameTracker\Cli\Commands\DbInfoCommand;
+use GameTracker\Cli\Commands\DoctorCommand;
 use GameTracker\Cli\Commands\Games\CreateCommand as GamesCreateCommand;
 use GameTracker\Cli\Commands\Games\DeleteCommand as GamesDeleteCommand;
 use GameTracker\Cli\Commands\Games\GetCommand as GamesGetCommand;
@@ -30,7 +31,7 @@ use Throwable;
  */
 final class Application
 {
-    public const VERSION = '0.7.0';
+    public const VERSION = '0.8.0';
 
     public const EXIT_OK = 0;
     public const EXIT_ERROR = 1;
@@ -46,6 +47,7 @@ final class Application
     private const COMMANDS = [
         'whoami' => WhoamiCommand::class,
         'db info' => DbInfoCommand::class,
+        'doctor' => DoctorCommand::class,
         'undo' => UndoCommand::class,
         'games list' => GamesListCommand::class,
         'games get' => GamesGetCommand::class,
