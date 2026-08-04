@@ -384,6 +384,36 @@ in feel (`delete`) is built on top of it.
   hits, so the orphans are unrelated duplicate saves rather than the lost
   originals.
 
+  **Cause, established 2026-08-04.** The 45 filenames behind those broken rows
+  (`docs/superpowers/findings/2026-08-04-lost-image-files.txt`) all carry an
+  embedded upload timestamp from a single day, **2025-11-10**. Nothing anywhere
+  in this checkout predates **2025-12-05** — not `uploads/`, not `router.php`,
+  not `php.ini` — so this server was built on 5 Dec 2025 and the database came
+  across while `uploads/` did not. The files were never deleted here; they never
+  arrived.
+
+  Game covers look healthy only because they had a **regeneration source**, and
+  the two runs that rebuilt them each miss this class by construction:
+
+  | Run | Date | Scope | Needs |
+  |---|---|---|---|
+  | `bulk-download-external-images.php` (commit `d9cb46d`) | 2025-12-05 | `FROM games` only | an `http(s)` URL to re-fetch |
+  | `scripts/migrate-base64-covers.php` | 2026-05-25 | games, items, game_images, item_images | a `data:` base64 value to decode |
+
+  The 45 dead rows hold a plain filename — neither an URL to re-fetch nor
+  base64 to decode — so no run could restore them, which is exactly why the
+  failure rate is 100% for `items.front_image`, `items.back_image` and
+  `game_images.image_path` and near zero for game covers. The 641 files dated
+  2025-12-05 are the first run's output, the 542 dated 2026-05-25 the second's.
+
+  **These files are unrecoverable from this box.** Neither the uploads tarballs
+  (all four contain `uploads/extras` as an empty directory; 0 of 45 present) nor
+  any database dump holds them — dumps carry rows, not files. The only remaining
+  source would be the pre-December-2025 host or the development Mac
+  (`cameron@MacBookPro.localdomain` authored the Dec 2025 commits), if either
+  still exists. **Do not clear the dead references until that is checked** — the
+  filenames are the only surviving record of what was lost.
+
   Three constraints for whoever builds it:
 
   - **Prune must move files to trash, not unlink them.** A mysqldump restore
