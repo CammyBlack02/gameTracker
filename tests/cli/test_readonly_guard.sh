@@ -67,4 +67,48 @@ MULTILINE=$(printf 'UPDATE games\n  SET title = ?\n')
 ML_HITS=$(echo "$MULTILINE" | grep -ciE "$WRITE_PATTERN" || true)
 assert_eq "1" "$ML_HITS" "the write pattern catches a line-split UPDATE"
 
+# Negative control: the guard must fail when write SQL appears outside the
+# permitted directory. Without this the two checks above could both pass
+# because the grep silently stopped matching, not because the tree is clean.
+PROBE_FILE="$PROJECT_ROOT/src/Query/__guard_probe.php"
+cat > "$PROBE_FILE" <<'PHP'
+<?php
+// Temporary probe written by test_readonly_guard.sh.
+$sql = 'DELETE FROM games WHERE id = ?';
+PHP
+
+PROBE_LEAK=$(grep -rniE "$WRITE_PATTERN" "$PROJECT_ROOT/src" \
+               --include='*.php' \
+               | grep -v '/src/Services/Write/' || true)
+rm -f "$PROBE_FILE"
+
+if [[ -n "$PROBE_LEAK" ]]; then
+  green "  PASS: the guard catches write SQL planted outside src/Services/Write/"
+  PASS_COUNT=$((PASS_COUNT+1))
+else
+  red "  FAIL: the guard did not catch a planted DELETE — it is vacuous"
+  FAIL_COUNT=$((FAIL_COUNT+1))
+fi
+
+# Every writer added by sub-project #2 must be inside the permitted directory.
+for writer in GamesWriter ItemsWriter Tombstones; do
+  if [[ -f "$PROJECT_ROOT/src/Services/Write/$writer.php" ]]; then
+    green "  PASS: $writer lives under src/Services/Write/"
+    PASS_COUNT=$((PASS_COUNT+1))
+  else
+    red "  FAIL: $writer.php is not under src/Services/Write/"
+    FAIL_COUNT=$((FAIL_COUNT+1))
+  fi
+done
+
+# AssignmentSet builds column lists but must never contain a write statement,
+# or the guard would have to permit src/Write/ too and lose its meaning.
+if grep -qiE 'INSERT[[:space:]]+INTO|DELETE[[:space:]]+FROM' "$PROJECT_ROOT/src/Write/AssignmentSet.php"; then
+  red "  FAIL: AssignmentSet contains write SQL — assemble statements in the writer"
+  FAIL_COUNT=$((FAIL_COUNT+1))
+else
+  green "  PASS: AssignmentSet builds fragments, not statements"
+  PASS_COUNT=$((PASS_COUNT+1))
+fi
+
 summarize
