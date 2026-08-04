@@ -737,31 +737,38 @@ function deleteGame() {
         sendJsonResponse(['success' => false, 'message' => 'Access denied'], 403);
     }
     
-    // Get extra images
-    $stmt = $pdo->prepare("SELECT image_path FROM game_images WHERE game_id = ?");
-    $stmt->execute([$id]);
-    $extraImages = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    
-    // Delete game (cascade will delete game_images)
-    $stmt = $pdo->prepare("DELETE FROM games WHERE id = ?");
-    $stmt->execute([$id]);
-    
-    // Delete image files
-    if ($game) {
-        if ($game['front_cover_image'] && file_exists(COVERS_DIR . basename($game['front_cover_image']))) {
-            unlink(COVERS_DIR . basename($game['front_cover_image']));
-        }
-        if ($game['back_cover_image'] && file_exists(COVERS_DIR . basename($game['back_cover_image']))) {
-            unlink(COVERS_DIR . basename($game['back_cover_image']));
-        }
+    // Delete the game. game_images cascades; game_completions is ON DELETE SET
+    // NULL, so completion rows survive with a null game_id — see the note below.
+    //
+    // Scoped in the statement rather than trusting the check above. An admin may
+    // delete any row, which is why the owner predicate is conditional; everyone
+    // else can only ever delete their own, whatever the id says.
+    if ($isAdmin) {
+        $stmt = $pdo->prepare("DELETE FROM games WHERE id = ?");
+        $stmt->execute([$id]);
+    } else {
+        $stmt = $pdo->prepare("DELETE FROM games WHERE id = ? AND user_id = ?");
+        $stmt->execute([$id, $currentUserId]);
     }
-    
-    foreach ($extraImages as $imagePath) {
-        if (file_exists(EXTRAS_DIR . basename($imagePath))) {
-            unlink(EXTRAS_DIR . basename($imagePath));
-        }
-    }
-    
+
+    // IMAGE FILES ARE DELIBERATELY NOT UNLINKED.
+    //
+    // This function used to unlink the front cover, the back cover and every
+    // extra image. That was data loss on rows the user never touched:
+    // createGame's findMatchingGame reuses another game's image PATH when title
+    // and platform match, so several rows can reference one file. Three
+    // production games share one path right now, and deleting any of them broke
+    // the other two's cover art while leaving their rows pointing at the
+    // now-missing file.
+    //
+    // A conditional "only unlink when nothing else references it" is not the fix:
+    // it needs a reference count on every delete and still races a concurrent
+    // create that reuses the path. The CLI settled this the same way — never
+    // unlink. An orphaned file costs disk; a broken cover on a surviving game is
+    // unrecoverable. `gt images prune` sweeps the orphans into trash.
+    //
+    // Regression test: tests/v2/test_v1_delete_contract.sh.
+
     sendJsonResponse([
         'success' => true,
         'message' => 'Game deleted successfully'
