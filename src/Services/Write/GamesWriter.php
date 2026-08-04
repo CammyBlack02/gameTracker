@@ -283,6 +283,30 @@ final class GamesWriter implements ResourceWriter
         $pdo->beginTransaction();
 
         try {
+            // Unlink the completions explicitly, before the delete.
+            //
+            // game_completions.game_id is ON DELETE SET NULL, so the FK would do
+            // this anyway — but silently. An FK-driven SET NULL does not fire
+            // `on update CURRENT_TIMESTAMP` (verified on MySQL 8.0.45), and being
+            // an UPDATE it writes no tombstone either, so sync/changes.php never
+            // returns the row and the phone keeps a completion pointing at a game
+            // that is gone.
+            //
+            // Doing it here bumps updated_at, so the unlink reaches the phone. The
+            // ids are already snapshotted above, so revertDelete still relinks them
+            // on undo exactly as before.
+            // Reuses the snapshot's ids rather than re-deriving them from the
+            // filter, so the rows unlinked are exactly the rows journalled.
+            $gameIds = array_map(static fn(array $r): int => (int)$r['id'], $rows);
+
+            if ($gameIds !== []) {
+                $placeholders = implode(',', array_fill(0, count($gameIds), '?'));
+                $unlinkStmt = $pdo->prepare(
+                    "UPDATE game_completions SET `game_id` = NULL WHERE `game_id` IN ({$placeholders})"
+                );
+                $unlinkStmt->execute($gameIds);
+            }
+
             $stmt = $pdo->prepare("DELETE FROM games WHERE {$where}");
             $stmt->execute($params);
             $deleted = $stmt->rowCount();
