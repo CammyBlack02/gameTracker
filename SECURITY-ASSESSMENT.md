@@ -19,10 +19,14 @@ what's actually mitigated, what's known-open, and what's accepted risk.
   30-minute idle timeout, `session_regenerate_id()` every 5 minutes.
 - **File upload**: MIME + magic-bytes + extension checks, 5 MB size cap,
   10000×10000 dimension cap, nginx blocks PHP execution in `/uploads/`.
-- **SSRF** (Phase 1): every external-URL fetch — `image-proxy`,
-  `download-cover`, `games.php`'s `downloadExternalImage()`, and
-  `v2/images/cover.php`'s external HTTPS branch — routes through
-  `includes/http-fetch.php`. It resolves the
+- **SSRF on caller-supplied URLs** (Phase 1): every fetch of a URL the
+  caller supplies — `image-proxy`, `download-cover`, `games.php`'s
+  `downloadExternalImage()`, `v2/images/cover.php`'s external HTTPS
+  branch, and `includes/external-image-service.php` — routes through
+  `includes/http-fetch.php`. **Scope clarified 2026-08-04:** this entry
+  used to open with "every external-URL fetch", which reads as covering
+  all outbound traffic. It does not — see the ungated third-party
+  surface under Known-open. It resolves the
   host and rejects any private/loopback/link-local/reserved IP
   (including `169.254.169.254` cloud metadata) via
   `FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE`. TLS
@@ -48,6 +52,16 @@ what's actually mitigated, what's known-open, and what's accepted risk.
 - **Method safety** (Phase 1): every mutating v1 action requires POST
   (returns 405 otherwise). Combined with `SameSite=Lax`, this closes
   the GET-triggered CSRF vector.
+- **CSRF token enforcement on v1** (Phase 4h/02-03): live, and covering
+  every *authenticated* mutating action. `includes/csrf.php` answers a
+  missing or invalid token with a 403 that ends the request, across
+  `games.php`, `items.php`, `settings.php`, `completions.php`,
+  `admin.php`, `upload.php`, `steam-import.php`, `stats.php` and
+  `import-gameeye.php`. POST-only and `SameSite=Lax` are additional
+  layers rather than substitutes. **Recorded 2026-08-04**, late: this
+  landed in 4h and the doc still listed it as known-open, which is the
+  failure mode this file exists to avoid. The one gap is `api/auth.php`
+  — see Known-open.
 - **v2 dual-auth** (Phase 5): `v2_require_auth()` accepts a Bearer token
   (iOS) *or* an active session (browser). The browser is deliberately
   never issued a Bearer token — an HttpOnly session cookie cannot be read
@@ -72,12 +86,28 @@ what's actually mitigated, what's known-open, and what's accepted risk.
 
 ## Known-open (accepted risk, tracked)
 
-- **Full CSRF token enforcement** — the API layer has a
-  `validateCsrfToken()` helper but it's only used on
-  `change-admin-credentials.php`. Threading the token through the current
-  3239-line `js/games.js` would be surgery on an unstable codebase; this
-  waits for Phase 4 (frontend modularisation). Meanwhile, mitigations:
-  SameSite=Lax + POST-only enforcement.
+- **CSRF on `api/auth.php`** — the only v1 endpoint with no token check.
+  Login and register are pre-session, so there is no session token to
+  bind to; a token there would need a separate pre-session mechanism.
+  Logout is POST-only but tokenless, so forced-logout is open at
+  nuisance level. Its remaining writes are `rate_limits` bookkeeping.
+  **This entry replaces a stale one** which claimed the CSRF helper was
+  "only used on `change-admin-credentials.php`" and that enforcement
+  waited on Phase 4. Both were false as of 2026-08-04 — see Mitigated.
+- **Ungated fetches to hardcoded third-party hosts** — the SSRF helper
+  covers caller-supplied URLs only. Requests to known third-party hosts
+  use raw cURL and bypass it: `api/steam-import.php` (Steam),
+  `includes/external-apis.php` (PriceCharting, Wikipedia),
+  `api/v2/cover-image.php` (TheGamesDB), `src/Import/CurlTransport.php`
+  (Steam, from the CLI). The first two contain no call into the helper.
+  A fixed hostname is a much smaller surface than an attacker-supplied
+  URL, which is why this is accepted rather than urgent — **but one case
+  is not fixed at all**: `includes/external-apis.php` scrapes a
+  PriceCharting search page, extracts a product URL out of the returned
+  HTML, and fetches it with `CURLOPT_FOLLOWLOCATION` on. The target is
+  chosen by remote content and no hop is revalidated. Routing that one
+  call through `includes/http-fetch.php` is the cheapest real win here.
+  Tracked 2026-08-04, found while documenting the architecture.
 - **XSS in attribute contexts** — most text is escaped via `escapeHtml`,
   but a handful of image-attribute paths remain (Fable §3). Addressed
   in Phase 4.
