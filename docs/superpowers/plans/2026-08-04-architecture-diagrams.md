@@ -12,7 +12,14 @@
 
 ## Global Constraints
 
-- **Navigation is an explicit non-goal.** No function names, no line numbers. File paths only where the path *is* the architectural fact (`src/Services`, `api/v2/`).
+- **Navigation is an explicit non-goal.** No function names, no line numbers.
+  File paths only where the path *is* the architectural fact (`src/Services`,
+  `api/v2/`), and class names only where the class *is* the unit the diagram is
+  about (`StorageMode`, `Reconciler`). Clarified 2026-08-04 after the Task 1+2
+  review found `requireUser()` in diagram 2, mandated by the plan's own text: a
+  bare function name is pure navigation detail and the most rot-prone content
+  here, so it is replaced by what it does. A class arriving as a
+  `src/Images/…` path is already covered by the path carve-out.
 - **Every factual claim must trace to code or the database**, not memory. Facts in this plan were read from `origin/main` at `3379fce` and the live database on 2026-08-04.
 - **No stated repo path may fail to exist.** Task 1's test enforces this.
 - **Diagram 6 must be marked aspirational** both visually (dashed borders) and in prose.
@@ -376,7 +383,7 @@ sequenceDiagram
     participant Phone as iPhone
 
     You->>Web: POST action=create
-    Web->>Web: requireUser() — session cookie
+    Web->>Web: authenticate — session cookie
     Web->>DB: INSERT games, updated_at = now
     DB-->>Web: new id
     Web-->>You: success
@@ -453,7 +460,7 @@ flowchart TB
     subgraph v1["v1 — api/*.php"]
         direction TB
         v1c["Browser, web frontend"]
-        v1a["includes/auth.php<br/>requireUser / requireAdmin"]
+        v1a["includes/auth.php<br/>session auth, user or admin"]
         v1r["{ success, message, ... }"]
         v1c --> v1a --> v1r
     end
@@ -461,7 +468,7 @@ flowchart TB
     subgraph v2["v2 — api/v2/"]
         direction TB
         v2c["iPhone app"]
-        v2a["api/v2/_auth.php<br/>v2_require_auth"]
+        v2a["api/v2/_auth.php<br/>bearer token auth"]
         v2r["ok: { data }<br/>error: { error, message }"]
         v2c --> v2a --> v2r
     end
