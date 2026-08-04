@@ -33,6 +33,15 @@ what's actually mitigated, what's known-open, and what's accepted risk.
     user-scoped.
   - `games.php` and `items.php` list endpoints ignore `?user_id=` override.
   - `admin.php?action=list` requires admin role.
+  - `games.php?action=platforms` is user-scoped (#6b). It was the last
+    v1 read left returning cross-user data — with no `user_id` it listed
+    every user's platform names "for dropdown suggestions," and a
+    `?user_id=` override pivoted to any chosen user outright. Now runs
+    through `GamesService::platforms()`, which takes an explicit
+    `$userId`; the override is ignored rather than rejected, matching
+    `list`. Platform names are low-sensitivity on their own, but the
+    override was a working cross-user read primitive and the
+    "suggestions" framing is exactly how such things survive review.
 - **Information disclosure** (Phase 1): v1 endpoints no longer return
   `$e->getFile()` / `getLine()` / `getMessage()` in JSON response
   bodies. Detail is logged server-side via `error_log()`.
@@ -117,5 +126,6 @@ lies about current posture is worse than no doc.
   `tests/v2/test_v2_cover_ssrf.sh`,
   `tests/v2/test_admin_scoping.sh`,
   `tests/v2/test_list_scoping.sh`,
+  `tests/v2/test_v1_read_contract.sh`,
   `tests/v2/test_error_disclosure.sh`,
   `tests/v2/test_method_guards.sh`.
