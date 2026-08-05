@@ -5,6 +5,7 @@ namespace GameTracker\Cli\Commands\Games;
 use GameTracker\Cli\Command;
 use GameTracker\Cli\Context;
 use GameTracker\Cli\Output;
+use GameTracker\Cli\UsageException;
 use GameTracker\Cli\UserResolver;
 use GameTracker\Query\FilterCompiler;
 use GameTracker\Query\FilterSet;
@@ -20,6 +21,21 @@ use GameTracker\Services\GamesService;
 final class PlatformsCommand implements Command
 {
     public const NAME = 'games platforms';
+
+    /**
+     * The sort vocabulary, as ready-to-splice ORDER BY bodies.
+     *
+     * A fixed map rather than a column allowlist because "games" is a COUNT(*)
+     * alias, and because the count needs a tiebreaker while the platform name —
+     * the GROUP BY key, so unique per row — cannot tie. Nothing here comes from
+     * input; the key is looked up, never interpolated.
+     */
+    private const SORTS = [
+        'platform' => '`platform` ASC',
+        '-platform' => '`platform` DESC',
+        'games' => '`games` ASC, `platform` ASC',
+        '-games' => '`games` DESC, `platform` ASC',
+    ];
 
     public static function name(): string
     {
@@ -50,7 +66,7 @@ final class PlatformsCommand implements Command
         $counts = GamesService::platformCounts(
             $ctx->pdo,
             (int)$user['id'],
-            FilterSet::forSummary($whereSql, $params, '`platform` ASC')
+            FilterSet::forSummary($whereSql, $params, self::orderSql($ctx))
         );
 
         if ($ctx->output->format() === Output::FORMAT_TABLE) {
@@ -62,5 +78,22 @@ final class PlatformsCommand implements Command
         $ctx->output->record(['platforms' => $counts]);
 
         return 0;
+    }
+
+    private static function orderSql(Context $ctx): string
+    {
+        // Alphabetical by default: this command's first job is finding the exact
+        // string to pass to --platform, and --sort=-games is for reading the
+        // collection rather than filtering it.
+        $sort = $ctx->option('sort') ?? 'platform';
+
+        if (!isset(self::SORTS[$sort])) {
+            throw new UsageException(
+                "--sort={$sort} is not sortable on a platform summary. "
+                . 'Available: ' . implode(', ', array_keys(self::SORTS))
+            );
+        }
+
+        return self::SORTS[$sort];
     }
 }

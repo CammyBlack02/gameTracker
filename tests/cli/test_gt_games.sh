@@ -177,4 +177,18 @@ assert_eq "PS2=1" "$(plat_counts --physical --unplayed)" "selectors compose"
 run_gt games platforms "$USER_FLAG" --limit=1
 assert_eq "2" "$GT_CODE" "--limit is a usage error on a summary"
 
+# PS2 and Xbox 360 both have 2, so this also pins the platform-ASC tiebreaker.
+assert_eq "PS2=2,Xbox 360=2,PS3=1" "$(plat_counts --sort=-games)" "--sort=-games ranks by count descending"
+assert_eq "PS3=1,PS2=2,Xbox 360=2" "$(plat_counts --sort=games)" "--sort=games ranks by count ascending"
+assert_eq "Xbox 360=2,PS3=1,PS2=2" "$(plat_counts --sort=-platform)" "--sort=-platform reverses the names"
+
+run_gt games platforms "$USER_FLAG" --sort=bogus
+assert_eq "2" "$GT_CODE" "an unsortable key is a usage error"
+# Matching "platform" alone would pass against the ordinary table output, which
+# has a platform column — the message itself has to be asserted. The needle also
+# must not start with a dash: assert_contains passes it straight to grep, which
+# would read "-games" as an option.
+assert_contains "not sortable" "$GT_OUT" "the sort error explains the refusal"
+assert_contains "platform, -platform, games, -games" "$GT_OUT" "the sort error names the valid keys"
+
 summarize
