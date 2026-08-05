@@ -146,8 +146,23 @@ assert_eq "2" "$GT_CODE" "non-numeric id = 2"
 
 blue "games platforms"
 
-assert_eq "PS2,PS3,Xbox 360" "$("$GT" games platforms "$USER_FLAG" 2>/dev/null | jq -r '.platforms[]' | sort | paste -sd, -)" "platforms are distinct, sorted, and scoped"
+# "platform=count" pairs in the order the command emitted them, so the same
+# helper serves both the count assertions and the --sort ones.
+plat_counts() {
+  set +e
+  "$GT" games platforms "$USER_FLAG" "$@" 2>/dev/null \
+    | jq -r '.platforms[] | "\(.platform)=\(.games)"' \
+    | paste -sd, -
+  set -e
+}
+
+# Fixtures: PS2 = Silent Hill + Okami, PS3 = Journey, Xbox 360 = Halo 3 + Reach.
+assert_eq "PS2=2,PS3=1,Xbox 360=2" "$(plat_counts)" "counts are per platform, alphabetical by default"
+
 # PC belongs only to the other user's fixture row.
-assert_eq "0" "$("$GT" games platforms "$USER_FLAG" 2>/dev/null | jq '[.platforms[] | select(. == "PC")] | length')" "platforms excludes other users"
+assert_eq "0" "$("$GT" games platforms "$USER_FLAG" 2>/dev/null | jq '[.platforms[] | select(.platform == "PC")] | length')" "platforms excludes other users"
+
+# A quoted count would make every consumer coerce it.
+assert_eq "number" "$("$GT" games platforms "$USER_FLAG" 2>/dev/null | jq -r '.platforms[0].games | type')" "games is a JSON number"
 
 summarize

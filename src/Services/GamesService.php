@@ -138,6 +138,48 @@ final class GamesService
     }
 
     /**
+     * Per-platform game counts for one user.
+     *
+     * A platform with no matching rows is absent rather than present with a
+     * zero: the question this answers is "what is in this filtered set", and a
+     * zero row would instead claim the platform is owned but empty.
+     *
+     * @return list<array{platform: string, games: int}>
+     */
+    public static function platformCounts(PDO $pdo, int $userId, FilterSet $filters): array
+    {
+        // Same shape as list(): the caller's id is bound first and
+        // unconditionally, so a filter can only ever narrow the result.
+        $where = "`user_id` = ? AND `platform` IS NOT NULL AND `platform` != ''";
+        $params = [$userId];
+
+        if ($filters->whereSql !== '') {
+            $where .= ' AND ' . $filters->whereSql;
+            $params = array_merge($params, $filters->params);
+        }
+
+        // orderSql arrives complete, tiebreaker included, and is spliced
+        // verbatim — it is built from a fixed map in the command, never input.
+        $stmt = $pdo->prepare(
+            "SELECT `platform`, COUNT(*) AS `games` FROM games
+             WHERE {$where}
+             GROUP BY `platform`
+             ORDER BY {$filters->orderSql}"
+        );
+        $stmt->execute($params);
+
+        $rows = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $rows[] = [
+                'platform' => (string)$row['platform'],
+                'games' => (int)$row['games'],
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
      * Distinct non-empty platform names for one user.
      *
      * Unlike the endpoint this has no global mode: the endpoint's unfiltered
@@ -145,18 +187,20 @@ final class GamesService
      * a web-form concern with no CLI equivalent. Scoped only, matching the
      * user-scoping invariant.
      *
+     * Derived from platformCounts() so the user scoping and the blank-platform
+     * exclusion have one definition instead of two queries that can drift.
+     * Still a list of strings: api/games.php builds the add/edit platform
+     * datalist in js/games.js from this, and tests/v2/test_v1_read_contract.sh
+     * pins that shape.
+     *
      * @return list<string>
      */
     public static function platforms(PDO $pdo, int $userId): array
     {
-        $stmt = $pdo->prepare(
-            "SELECT DISTINCT `platform` FROM games
-             WHERE `user_id` = ? AND `platform` IS NOT NULL AND `platform` != ''
-             ORDER BY `platform`"
+        return array_column(
+            self::platformCounts($pdo, $userId, FilterSet::forSummary('', [], '`platform` ASC')),
+            'platform'
         );
-        $stmt->execute([$userId]);
-
-        return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 
     private static function normaliseListRow(array $row): array
