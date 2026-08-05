@@ -6,12 +6,14 @@ use GameTracker\Cli\Command;
 use GameTracker\Cli\Context;
 use GameTracker\Cli\Output;
 use GameTracker\Cli\UserResolver;
+use GameTracker\Query\FilterSet;
 use GameTracker\Services\GamesService;
 
 /**
  * Platform names are matched exactly by --platform, and the stored values are
  * not always what you would guess ("PlayStation 2", not "PS2"), so this is how
- * you find the string to filter on.
+ * you find the string to filter on. The count makes it a collection summary as
+ * well, which is what stops the per-platform split needing a gt sql aggregate.
  */
 final class PlatformsCommand implements Command
 {
@@ -24,7 +26,7 @@ final class PlatformsCommand implements Command
 
     public static function description(): string
     {
-        return 'List the distinct platforms in your collection';
+        return 'List platforms with a game count, with filters';
     }
 
     public static function allowedOptions(): array
@@ -35,18 +37,20 @@ final class PlatformsCommand implements Command
     public function run(array $args, Context $ctx): int
     {
         $user = UserResolver::resolve($ctx->pdo, $ctx->userRef);
-        $platforms = GamesService::platforms($ctx->pdo, (int)$user['id']);
+
+        $counts = GamesService::platformCounts(
+            $ctx->pdo,
+            (int)$user['id'],
+            FilterSet::forSummary('', [], '`platform` ASC')
+        );
 
         if ($ctx->output->format() === Output::FORMAT_TABLE) {
-            $ctx->output->rows(array_map(
-                static fn(string $p): array => ['platform' => $p],
-                $platforms
-            ));
+            $ctx->output->rows($counts);
 
             return 0;
         }
 
-        $ctx->output->record(['platforms' => $platforms]);
+        $ctx->output->record(['platforms' => $counts]);
 
         return 0;
     }
