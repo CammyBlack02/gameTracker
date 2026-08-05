@@ -78,9 +78,10 @@ Four things this diagram is trying to tell you:
   WAN IP rotates and a cron job chases it.
 
 Metacritic is **not** a dependency, despite the field. Auto-fetch was abandoned
-after every free source broke or got paywalled; both `api/metacritic.php` and
-`api/v2/metacritic.php` now return a fixed "no longer supported" response without
-fetching anything, and scores are entered by hand.
+after every free source broke or got paywalled; `api/v2/metacritic.php` returns a
+fixed "no longer supported" response without fetching anything, and scores are
+entered by hand. The v1 stub that answered the same way was deleted in phase
+5/06 once nothing referenced it.
 
 **Goes stale when:** a new external service is called, the box's stack changes,
 or a fetch moves between the gated and ungated exits in either direction.
