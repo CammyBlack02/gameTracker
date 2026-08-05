@@ -6,7 +6,9 @@ use GameTracker\Cli\Command;
 use GameTracker\Cli\Context;
 use GameTracker\Cli\Output;
 use GameTracker\Cli\UserResolver;
+use GameTracker\Query\FilterCompiler;
 use GameTracker\Query\FilterSet;
+use GameTracker\Query\GamesFilters;
 use GameTracker\Services\GamesService;
 
 /**
@@ -31,17 +33,24 @@ final class PlatformsCommand implements Command
 
     public static function allowedOptions(): array
     {
-        return [];
+        // selectorNames() rather than flagNames(): it is already defined as the
+        // flags that narrow which rows match, excluding presentation flags. That
+        // makes --limit/--page/--per-page unknown options here, which is what we
+        // want — paging an aggregate is meaningless, and silently ignoring the
+        // flag would be worse than refusing it.
+        return array_merge(GamesFilters::definition()->selectorNames(), ['sort']);
     }
 
     public function run(array $args, Context $ctx): int
     {
         $user = UserResolver::resolve($ctx->pdo, $ctx->userRef);
 
+        [$whereSql, $params] = FilterCompiler::compileWhere(GamesFilters::definition(), $ctx);
+
         $counts = GamesService::platformCounts(
             $ctx->pdo,
             (int)$user['id'],
-            FilterSet::forSummary('', [], '`platform` ASC')
+            FilterSet::forSummary($whereSql, $params, '`platform` ASC')
         );
 
         if ($ctx->output->format() === Output::FORMAT_TABLE) {

@@ -165,4 +165,16 @@ assert_eq "0" "$("$GT" games platforms "$USER_FLAG" 2>/dev/null | jq '[.platform
 # A quoted count would make every consumer coerce it.
 assert_eq "number" "$("$GT" games platforms "$USER_FLAG" 2>/dev/null | jq -r '.platforms[0].games | type')" "games is a JSON number"
 
+# is_physical across the fixtures: Halo 3 = 1, Reach = NULL, Silent Hill = 1,
+# Okami = 0, Journey = 0. So --physical drops PS3 from the output entirely
+# rather than showing it as zero, and --digital has to match the NULL row.
+assert_eq "PS2=1,Xbox 360=1" "$(plat_counts --physical)" "--physical counts only physical rows and omits empty platforms"
+assert_eq "PS2=1,PS3=1,Xbox 360=1" "$(plat_counts --digital)" "--digital matches is_physical = 0 or NULL"
+
+# Silent Hill is the only physical row that is also unplayed.
+assert_eq "PS2=1" "$(plat_counts --physical --unplayed)" "selectors compose"
+
+run_gt games platforms "$USER_FLAG" --limit=1
+assert_eq "2" "$GT_CODE" "--limit is a usage error on a summary"
+
 summarize
