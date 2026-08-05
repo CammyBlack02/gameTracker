@@ -146,8 +146,49 @@ assert_eq "2" "$GT_CODE" "non-numeric id = 2"
 
 blue "games platforms"
 
-assert_eq "PS2,PS3,Xbox 360" "$("$GT" games platforms "$USER_FLAG" 2>/dev/null | jq -r '.platforms[]' | sort | paste -sd, -)" "platforms are distinct, sorted, and scoped"
+# "platform=count" pairs in the order the command emitted them, so the same
+# helper serves both the count assertions and the --sort ones.
+plat_counts() {
+  set +e
+  "$GT" games platforms "$USER_FLAG" "$@" 2>/dev/null \
+    | jq -r '.platforms[] | "\(.platform)=\(.games)"' \
+    | paste -sd, -
+  set -e
+}
+
+# Fixtures: PS2 = Silent Hill + Okami, PS3 = Journey, Xbox 360 = Halo 3 + Reach.
+assert_eq "PS2=2,PS3=1,Xbox 360=2" "$(plat_counts)" "counts are per platform, alphabetical by default"
+
 # PC belongs only to the other user's fixture row.
-assert_eq "0" "$("$GT" games platforms "$USER_FLAG" 2>/dev/null | jq '[.platforms[] | select(. == "PC")] | length')" "platforms excludes other users"
+assert_eq "0" "$("$GT" games platforms "$USER_FLAG" 2>/dev/null | jq '[.platforms[] | select(.platform == "PC")] | length')" "platforms excludes other users"
+
+# A quoted count would make every consumer coerce it.
+assert_eq "number" "$("$GT" games platforms "$USER_FLAG" 2>/dev/null | jq -r '.platforms[0].games | type')" "games is a JSON number"
+
+# is_physical across the fixtures: Halo 3 = 1, Reach = NULL, Silent Hill = 1,
+# Okami = 0, Journey = 0. So --physical drops PS3 from the output entirely
+# rather than showing it as zero, and --digital has to match the NULL row.
+assert_eq "PS2=1,Xbox 360=1" "$(plat_counts --physical)" "--physical counts only physical rows and omits empty platforms"
+assert_eq "PS2=1,PS3=1,Xbox 360=1" "$(plat_counts --digital)" "--digital matches is_physical = 0 or NULL"
+
+# Silent Hill is the only physical row that is also unplayed.
+assert_eq "PS2=1" "$(plat_counts --physical --unplayed)" "selectors compose"
+
+run_gt games platforms "$USER_FLAG" --limit=1
+assert_eq "2" "$GT_CODE" "--limit is a usage error on a summary"
+
+# PS2 and Xbox 360 both have 2, so this also pins the platform-ASC tiebreaker.
+assert_eq "PS2=2,Xbox 360=2,PS3=1" "$(plat_counts --sort=-games)" "--sort=-games ranks by count descending"
+assert_eq "PS3=1,PS2=2,Xbox 360=2" "$(plat_counts --sort=games)" "--sort=games ranks by count ascending"
+assert_eq "Xbox 360=2,PS3=1,PS2=2" "$(plat_counts --sort=-platform)" "--sort=-platform reverses the names"
+
+run_gt games platforms "$USER_FLAG" --sort=bogus
+assert_eq "2" "$GT_CODE" "an unsortable key is a usage error"
+# Matching "platform" alone would pass against the ordinary table output, which
+# has a platform column — the message itself has to be asserted. The needle also
+# must not start with a dash: assert_contains passes it straight to grep, which
+# would read "-games" as an option.
+assert_contains "not sortable" "$GT_OUT" "the sort error explains the refusal"
+assert_contains "platform, -platform, games, -games" "$GT_OUT" "the sort error names the valid keys"
 
 summarize

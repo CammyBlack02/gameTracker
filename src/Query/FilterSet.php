@@ -32,4 +32,18 @@ final class FilterSet
     {
         return new self('`id` = ?', [$id], '`id` ASC', 1, 1, 0);
     }
+
+    /**
+     * An aggregate selection: conditions and ordering, no paging.
+     *
+     * A GROUP BY summary returns one row per group and is meant to be read
+     * whole, so paging is fixed rather than exposed — the same reasoning that
+     * makes forId() fix paging at a single row. The paging fields still have to
+     * be valid, so they describe the first page of one row and callers ignore
+     * them.
+     */
+    public static function forSummary(string $whereSql, array $params, string $orderSql): self
+    {
+        return new self($whereSql, $params, $orderSql, 1, 1, 0);
+    }
 }

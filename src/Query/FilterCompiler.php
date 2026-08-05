@@ -19,6 +19,30 @@ final class FilterCompiler
 
     public static function compile(FilterDefinition $def, OptionSource $ctx): FilterSet
     {
+        [$whereSql, $params] = self::compileWhere($def, $ctx);
+        [$page, $perPage, $offset] = self::paging($ctx);
+
+        return new FilterSet(
+            $whereSql,
+            $params,
+            self::orderSql($def, $ctx),
+            $page,
+            $perPage,
+            $offset
+        );
+    }
+
+    /**
+     * The WHERE half of compile(), without sort or paging.
+     *
+     * An aggregate needs the conditions but must not have --sort validated
+     * against this resource's sortColumns: `gt games platforms --sort=games`
+     * orders by a COUNT(*) alias, which is not a column on games.
+     *
+     * @return array{0: string, 1: list<mixed>} whereSql, params
+     */
+    public static function compileWhere(FilterDefinition $def, OptionSource $ctx): array
+    {
         $conditions = [];
         $params = [];
 
@@ -70,16 +94,7 @@ final class FilterCompiler
             $conditions[] = '(' . self::quote($missing) . ' IS NULL OR ' . self::quote($missing) . " = '')";
         }
 
-        [$page, $perPage, $offset] = self::paging($ctx);
-
-        return new FilterSet(
-            implode(' AND ', $conditions),
-            $params,
-            self::orderSql($def, $ctx),
-            $page,
-            $perPage,
-            $offset
-        );
+        return [implode(' AND ', $conditions), $params];
     }
 
     private static function orderSql(FilterDefinition $def, OptionSource $ctx): string
