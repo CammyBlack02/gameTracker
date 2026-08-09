@@ -187,6 +187,46 @@ per platform (PlayStation 72px n=101, Saturn 37px, PS2/GameCube 55px, N64 97px,
 | `condition`, `star_rating`, `played`, `price_paid`, `game_completions` | — | Surfaced in-world, Section 6. |
 | `items` (Console, Controller, …) | — | New fixture, Section 5. |
 
+### Every title gets a box (decided 2026-08-09)
+
+In the shop, **everything renders as a physical box** — the shop is a shop, and
+a shop has boxes on shelves. Specifically:
+
+- PC physical titles get a **PC DVD case**.
+- Xbox and PlayStation titles get their respective platform cases (already
+  handled — the case geometry is per-platform, and our own `getCaseType()` in
+  `js/utils.js` carries the same idea in miniature).
+- **Digital titles also get a box**, with a **"DIGITAL" sticker** on it.
+
+This resolves the open question about `is_physical` / `digital_store` without
+inventing a separate digital rack. It keeps the floor plan uniform, and the
+sticker does the honest labelling. Digital games *are* part of the collection;
+they just never had a case, so the shop prints one.
+
+Note the sticker interaction with Section 6: condition and price are also
+proposed as a shop sticker. Two stickers on one case needs a placement rule
+(distinct corners, or a single combined label) so they don't collide or
+obscure cover art. Worth deciding before either is built.
+
+### Spine art (decided 2026-08-09)
+
+**Generated placeholder spines for now.** Real spine scans exist for some
+titles but are hard to source for every game, and the priority is front and
+back covers — which we have, and which are the faces that carry the collection.
+
+One risk to design around: **mixed availability looks worse than none.** A
+shelf where three cases have real scanned spines and the rest are generated
+reads as broken rather than as a work in progress. Two mitigations, either
+acceptable:
+
+- Style the generated spine so a real scan sitting beside it doesn't clash
+  (platform colour band, title, consistent typography).
+- Opt in per platform — use real spines only where we have them for *every*
+  title on that run.
+
+Face-out stocking (Section 7) also reduces how much the spine matters, since a
+faced-out case shows its front, not its edge.
+
 ### Same-origin is a real win
 
 Every RomM art URL gets wrapped as `/dev-proxy?art=<url>&auth=<header>` because
@@ -263,7 +303,69 @@ columns we have and Halcyon does not:
 
 ---
 
-## Section 7: Hosting
+## Section 7: Stock — filling the floor
+
+Goal: the collection should fill the shop. A big empty store reads as broken; a
+small full one reads as a real shop.
+
+**The shop already sizes itself to the catalog, not the other way round.** This
+was the main worry and it is largely handled upstream:
+
+- `baselineStorefrontWidth()` / `baselineStoreDepth()` in `src/store-layout.ts`
+  are explicitly the **"baseline (small-store)"** dimensions — the store grows
+  from a small floor plan rather than starting large and needing filling.
+- `TINY_LIBRARY_MOVIES = SECTION_CAPACITY * 2` = **60**. Below 60 titles, a
+  library keeps one un-sectioned run instead of sprawling across signposted
+  sections.
+- `MIN_CATEGORY_TITLES = 6` — categories thinner than six titles flex into
+  GENERAL shelves rather than getting their own half-empty sign.
+- Floor plans are **packed to fit the room** across three arrangements
+  (herringbone, straight, diagonal).
+
+**Games-only mode works in our favour here.** Each platform becomes its own
+synthetic library, so it gets its own contiguous shelf run, its own signboard
+and its own endcaps — regardless of how few titles it holds. A collection
+spread across a dozen platforms therefore occupies far more floor than the same
+number of titles packed densely into one library. For scale: one double-sided
+shelving unit is `UNIT_CAPACITY` = 120 cases, and one signboard section is
+`SECTION_CAPACITY` = 30.
+
+**Thin sections are already filled with face-out copies.** From
+`store-layout.ts`, on slots a category cannot fill on its own:
+
+> used to be bare `null`s. Instead we face-out extra copies of that category's
+> *most deserving* titles (real stores stack multiples of a hot title together).
+
+There is a sort comparator deciding which titles earn filler copies, a cap on
+how many adjacent copies of one title a fill run places, and separate backstock
+stacking (`extraCopiesCount()`) that puts copies *behind* the face copy. This is
+exactly what a real under-stocked shop does, and it plays to our strengths:
+face-out shows front covers, which are our best asset, and hides spines, which
+are our weakest.
+
+If more floor still needs filling after that, in rough order of authenticity:
+
+1. **Non-game stock we already have.** The hardware counter and pegboard
+   (Section 5) are floor and wall space that costs no games at all.
+2. **Period set dressing.** There is an `ambient-tvs.ts` module (917 lines) —
+   CRT TVs playing attract loops are the single most game-shop thing available,
+   and they consume wall and floor without needing stock.
+3. **A bargain bin.** Upstream already has one for the worst-rated titles. Our
+   equivalent could be low `star_rating`, or `condition` = loose/poor.
+4. **The completions wall.** `game_completions.completion_year` as plaques —
+   uses wall space, which shelving doesn't compete for.
+5. **Turn the deficit into the feature.** Empty shelf space labelled as
+   wishlist or series gaps (`games.series`). A shop with visible holes where
+   Final Fantasy VIII should go is more interesting than a shop padded with
+   duplicates.
+6. **The back room.** `back-room.ts` (1,313 lines) exists upstream. A stockroom
+   is a plausible home for digital titles or the unplayed backlog if we ever
+   want them off the shop floor.
+
+Realistically, Step 0 and Step 1 answer this better than any estimate here —
+walk the demo, then walk it with our own collection loaded.
+
+## Section 8: Hosting
 
 **Decision: browser, served as static files from our own nginx, alongside
 gameTracker.**
@@ -287,7 +389,7 @@ store on a phone at all.
 
 ---
 
-## Section 8: The ladder
+## Section 9: The ladder
 
 Each rung is cheap and kills a question.
 
@@ -318,7 +420,7 @@ signage is already close. Note that with games-only enabled, the floor is
 
 ---
 
-## Section 9: What survives independently
+## Section 10: What survives independently
 
 None of these depend on any of the above, and all remain worth doing:
 
@@ -346,20 +448,33 @@ None of these depend on any of the above, and all remain worth doing:
 
 ---
 
+## Decided
+
+- **Digital games get a box with a "DIGITAL" sticker** (Section 4). No separate
+  rack. PC physicals get a PC DVD case; Xbox and PlayStation get their platform
+  cases.
+- **Spine art is the generated placeholder for now** (Section 4). Front and back
+  covers are the priority; real spine scans are too hard to source for every
+  title.
+- **The fork lives in its own repo**, GPL-3.0, talking to gameTracker over HTTP
+  (Section 2).
+- **Browser-hosted, served from our own nginx**, not Tauri and not Remote Play
+  (Section 8).
+
 ## Open questions
 
-1. **Digital games.** `is_physical` / `digital_store` — they have no box. A
-   separate rack, a screen on the wall, or a "digital shelf" fixture? They
-   should not silently render as physical cases.
-2. **Spine art.** We have none. Generated fallback is fine to start, but
-   platform-coloured spines are nearly free on web since the CSS already carries
-   the platform → colour mapping. The iOS spec deliberately declined this to
-   avoid maintaining a mapping table; on our side that table already exists.
+1. **Sticker placement.** Digital and condition/price are both proposed as
+   stickers on the case. Distinct corners, or one combined label? Needs deciding
+   before either is built.
+2. **Mixed spine availability.** If real spine scans get added for some titles
+   later, a run of mixed real and generated spines looks worse than all
+   generated. Style-to-match, or opt in per platform. See Section 4.
 3. **Multi-user.** gameTracker is multi-user; the store assumes one catalog.
    Whose collection does it show, and is a shared household store meaningful?
-4. **Collection size vs floor plan.** Halcyon packs the floor to fit. Unknown
-   how a collection our size (hundreds, not thousands) looks — a sparse shop or
-   a well-stocked one. Step 0 and Step 1 should answer this.
+4. **Collection size vs floor plan.** Largely answered in Section 7 — the store
+   sizes from a small-store baseline, thin sections self-fill with face-out
+   copies, and games-only mode gives every platform its own run. Confirm
+   empirically at Step 0 and Step 1 rather than estimating further.
 5. **gameTracker's LICENSE file.** Independent of everything else. Needs doing.
 
 ---
