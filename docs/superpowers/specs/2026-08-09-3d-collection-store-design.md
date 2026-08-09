@@ -408,10 +408,64 @@ and hardware at the adapter boundary — fine, this rung is not the destination.
 It is the cheapest proof that the idea holds up with our own collection in it
 rather than a demo library.
 
+### Step 1 — as built (2026-08-09)
+
+| File | Role | Survives Step 2? |
+|---|---|---|
+| `src/Services/StoreService.php` | Slim stock projection, platform counts, stable numeric platform ids, image-path resolution | **Yes** |
+| `api/v2/games/store.php` | Native v2 endpoint, `{data: {platforms, games, total}}` | **Yes** |
+| `api/romm/_shape.php` | Pure gameTracker → RomM shape mapping, no config dependency | No |
+| `api/romm/_shim.php` | Bootstrap: auth, bare-JSON emitter | No |
+| `api/romm/platforms.php`, `api/romm/roms.php` | The two endpoints romm.ts calls | No |
+| `nginx-gameTracker.conf` | `/store-shim/api/{platforms,roms}` mount | No |
+| `tests/v2/test_store_and_romm_shim.sh` | Integration: auth, method guards, wire contract, paging | Partly |
+| `tests/cli/test_romm_shape.{php,sh}` | 41 unit checks on the wire contract, no DB needed | No |
+
+Design points worth not undoing:
+
+- **Platform ids are `crc32(name) & 0x7FFFFFFF`.** romm.ts rejects a platform
+  whose `id` is not a number, and cross-checks every rom's `platform_id`
+  against the one it requested. gameTracker keys platforms by string, so the
+  two need bridging. CRC32 is stateless and stable; an ordinal would renumber
+  every platform the moment a new one is added, silently moving shelves.
+- **Ratings double.** `star_rating` is 1–5; romm.ts derives `criticRating` as
+  `rating × 10`, so it wants 0–10.
+- **No spine key is emitted, at all.** romm.ts skips a face only when both the
+  `_path` and `_url` keys are *absent*. An empty string would be absolutised
+  into a real-looking URL and painted onto every case. This is the spine
+  decision from Section 4, pinned by test.
+- **Unrated games send `null`, not `0`,** so they sort with the unrated rather
+  than tying with a genuine zero.
+- **A missing or unknown `platform_ids` returns an empty page, not everything.**
+  Real RomM answers across all platforms there, which is exactly why romm.ts
+  carries a defensive per-rom platform check.
+- **Paging honours `offset`.** The games-only path loops until a short page
+  arrives; a shim that ignored offset would spin forever at boot.
+
+Correction to Section 4's same-origin claim: `rommRequest` routes **every**
+browser request through Vite's `/dev-proxy` unconditionally, so Step 1 gets no
+benefit from same-origin and must run under `npm run dev` or `npm run preview`.
+The same-origin win is real but only arrives with Step 2's native adapter,
+which can fetch directly.
+
+### Step 1 — pointing Halcyon at it
+
+1. Deploy, then install the nginx change (it adds a location block):
+   `sudo cp nginx-gameTracker.conf /etc/nginx/sites-available/gameTracker`,
+   substitute `YOUR_DOMAIN_OR_IP`, `sudo nginx -t && sudo systemctl reload nginx`.
+2. Mint a token: `POST /api/v2/auth/token.php` with `username`, `password`,
+   `device_name`.
+3. In Halcyon's settings: `romm_url` = `https://<host>/store-shim`,
+   `romm_apikey` = the raw token. **Not** a `user:password` pair — romm.ts
+   sends anything containing a colon as HTTP Basic, which the shim rejects.
+4. Enable **"Enable video game section"**, then games-only.
+
 **Step 2 — fork, native adapter.** Own repo, GPL-3.0. A `gametracker.ts` data
-source module mirroring `romm.ts`'s shape. Full fidelity: condition, ratings,
-completions, physical vs digital, plus the hardware counter from Section 5 and
-the metadata layering from Section 6.
+source module mirroring `romm.ts`'s shape, reading `/api/v2/games/store.php`
+directly. Full fidelity: condition, ratings, completions, physical vs digital,
+plus the hardware counter from Section 5 and the metadata layering from
+Section 6. Note that the **digital sticker cannot ship in Step 1** — Halcyon
+has no such concept and the shim cannot add one; it arrives here.
 
 **Step 3 — reskin to a retro game shop.** Mostly asset work in
 `public/user-assets/`: logo, sign art, colours. The 1990 era preset with board
