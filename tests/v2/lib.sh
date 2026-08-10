@@ -41,6 +41,21 @@ assert_contains() {
   fi
 }
 
+# assert_contains_fixed <needle> <haystack> <message>
+# Same as assert_contains but the needle is a FIXED string, not a regex. JSON
+# needles like '"items":[]' are an invalid bracket expression to grep, which
+# fails the assertion for the wrong reason with the correct body in hand.
+assert_contains_fixed() {
+  if printf '%s' "$2" | grep -qF -- "$1"; then
+    green "  PASS: $3"
+    PASS_COUNT=$((PASS_COUNT+1))
+  else
+    red   "  FAIL: $3 — did not contain '$1'"
+    red   "    haystack: $2"
+    FAIL_COUNT=$((FAIL_COUNT+1))
+  fi
+}
+
 # req <METHOD> <path> [data] [extra-curl-args...]
 # Sets globals: HTTP_STATUS, RESPONSE_BODY
 req() {

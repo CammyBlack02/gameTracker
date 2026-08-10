@@ -78,7 +78,9 @@ blue "romm platforms answers RomM's shape"
 req GET "/api/romm/platforms.php" "" "${AUTH[@]}"
 assert_eq "200" "$HTTP_STATUS" "romm platforms = 200"
 # Bare array, NOT a {"data": …} envelope — romm.ts parses the body as payload.
-assert_contains '[' "$RESPONSE_BODY" "bare array, no v2 envelope"
+# Assert on the FIRST character: a '[' anywhere in the body would also match a
+# wrapped response, so "contains a bracket" passes vacuously.
+assert_eq "[" "${RESPONSE_BODY:0:1}" "bare array, no v2 envelope"
 if printf '%s' "$RESPONSE_BODY" | grep -q '"data"'; then
   red "FAIL: romm shim must not use the v2 envelope"
   exit 1
@@ -130,11 +132,11 @@ blue "Unknown platform ids answer empty, not everything"
 
 req GET "/api/romm/roms.php?platform_ids=999999999" "" "${AUTH[@]}"
 assert_eq "200" "$HTTP_STATUS" "unknown platform = 200"
-assert_contains '"items":[]' "$RESPONSE_BODY" "unknown platform = empty items"
+assert_contains_fixed '"items":[]' "$RESPONSE_BODY" "unknown platform = empty items"
 
 req GET "/api/romm/roms.php" "" "${AUTH[@]}"
 assert_eq "200" "$HTTP_STATUS" "missing platform_ids = 200"
-assert_contains '"items":[]' "$RESPONSE_BODY" "missing platform_ids = empty items, never a full dump"
+assert_contains_fixed '"items":[]' "$RESPONSE_BODY" "missing platform_ids = empty items, never a full dump"
 
 # --- Paging terminates --------------------------------------------------------
 # romm.ts's games-only path loops on offset until a SHORT page comes back. A
@@ -144,7 +146,7 @@ blue "Paging honours offset so the client's loop terminates"
 req GET "/api/romm/roms.php?platform_ids=$PLATFORM_ID&limit=1&offset=0" "" "${AUTH[@]}"
 FIRST_PAGE="$RESPONSE_BODY"
 req GET "/api/romm/roms.php?platform_ids=$PLATFORM_ID&limit=1&offset=100000" "" "${AUTH[@]}"
-assert_contains '"items":[]' "$RESPONSE_BODY" "a far offset returns a short page"
+assert_contains_fixed '"items":[]' "$RESPONSE_BODY" "a far offset returns a short page"
 if [[ "$FIRST_PAGE" == "$RESPONSE_BODY" ]]; then
   red "FAIL: offset is ignored — the client's paging loop would never terminate"
   exit 1
