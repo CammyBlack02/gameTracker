@@ -261,6 +261,14 @@ Three surfaces, in priority order:
 
 ## Section 6: Surfacing collection metadata
 
+> **Superseded 2026-08-10 — do not build this.** After walking the store, the
+> call is that the case carries no collection metadata at all: no sticker, no
+> insert, no shelf-talker. A single clean case reads as more immersive, and the
+> coverage numbers back it up (condition on 131 of 898, rating on 164). Kept
+> below because the reasoning about *where* metadata could live is still the best
+> record of what was considered, and because the clerk and catalog-binder ideas
+> may return on their own merits. See **Decided**.
+
 Requirement: condition, rating and completion must be reachable, but **not
 printed on the back of the box** — the back is for real cover art.
 
@@ -460,6 +468,131 @@ which can fetch directly.
    sends anything containing a colon as HTTP Basic, which the shim rejects.
 4. Enable **"Enable video game section"**, then games-only.
 
+**Correction to step 3, found 2026-08-10: Halcyon will not boot without a
+Jellyfin server, so "point stock Halcyon at it" is only true of the adapter.**
+`checkCredentialsAndLoad()` in `src/boot-flow.ts` gates the store behind a
+Jellyfin login and carries no games-only bypass — RomM is a supplement, never a
+replacement. Worse, `VITE_ROMM_URL` / `VITE_ROMM_APIKEY` are copied into
+localStorage *inside* the Jellyfin auth-success block, so **`.env.local`
+configures RomM only if a Jellyfin login succeeds first**, and otherwise fails
+silently with no games and no explanation.
+
+The route that avoids standing up a Jellyfin, used for the 2026-08-10 walkthrough:
+
+1. Boot demo mode — `?demo=1` (or `VITE_DEMO=1`); `src/demo-mode.ts` is 9 lines.
+   It skips the credential gate entirely.
+2. Set `romm_url` and `romm_apikey` in localStorage by hand. The Settings UI
+   can't do it: demo hides the `Connection` group (`settings.ts:159`).
+3. Toggle **"Video games only"** in the manager terminal's Video Games group.
+   That is the trick — `main.ts:1481` marks `settingsPendingGameRefetch` for
+   `bb_games_only` as well as `bb_platform_*`, so closing the drawer runs
+   `rebuildStoreScene()` → `loadGameMovies()` → `fetchGames()` against the shim.
+
+Demo boot itself never queries RomM (it calls `setGames(buildDemoGames(60))`), so
+**a page reload drops back to demo games and the toggle must be flipped again.**
+On the Jellyfin route an empty library is fine, since `games-only.ts:72` replaces
+libraries wholesale once games load.
+
+### Step 1 — walkthrough findings (2026-08-10)
+
+Verified by reading upstream source, not by inference. All line references are
+`main` as of that date.
+
+**Aisles merge, and the count is 16 rather than 22.** `platformLabel()`
+(`romm.ts:149`) normalises `slug + name` through a regex table, and several of
+our platforms collapse onto one label: `playstation` swallows PS1/PS3/PS4/PS5
+*and* PS Vita (via `\bps\b`) into one 184-title `PLAYSTATION` aisle; `\bxbox\b`
+merges Xbox/360/One into one 227-title `XBOX`; Mega Drive is relabelled
+`GENESIS`. This is the likeliest cause of the barren floor space — four fewer
+aisles than the packer was sized for.
+
+**Case geometry is keyed on that same label.** `GAME_BOX_IN`
+(`video-case.ts:476`) is a per-platform dimension table; a label absent from it
+falls back to the generic clamshell. Missing: `WII`, `NINTENDO DS`, `PC` — which
+is exactly why Wii and DS get wrong boxes while 3DS is right. `NINTENDO DSI` is
+already present as the DS-family landscape keep case, so the shape DS wants
+exists and simply isn't wired up. Because the label drives sign text *and* case
+shape, Step 1 cannot fix one without moving the other; the fork can, by adding
+three rows to that table.
+
+Consequence not noticed in-store: PS3/PS4/PS5 are all rendering in the
+`PLAYSTATION` **CD jewel case** (`video-case.ts:492`).
+
+**Already off by default — no removal work needed.** `bb_carry_mode`
+("Carry & checkout") and `bb_rental_mode` (due-backs, lockout) are both toggles
+defaulting to false. The checkout *counter* must survive regardless: it is where
+Left opens the manager terminal.
+
+**Free with the Step 3 rebrand.** `clerk-art.ts` is a procedural sprite
+billboard whose uniform is derived from the house palette — `PAL.polo =
+tintHex(p.primary, 0.10)` plus highlight/shade/line. Changing the brand primary
+recolours the clerk with no code. Skin, hair and khakis are deliberately not
+brand-derived.
+
+**Navigation: no mouse, but full gamepad.** `input.ts`'s mouse listeners only
+reset the idle timer and wake a paused store. Gamepad is a first-class input —
+60 Hz polling, standard mapping, edge detection, press-and-hold gestures. Adding
+mouse navigation means editing `input.ts` plus `store-nav.ts`/`store-subnav.ts`.
+
+**Covers not visible from a distance** is the budgeted GPU upload queue in
+`poster-textures.ts`, whose own comment notes that at scale "the queue is
+thousands deep and a title can wait seconds." Selected titles use the priority
+lane, which is why picking one works. 898 titles is squarely in that regime.
+Open: whether standing still lets distant covers arrive (queue latency, a
+tunable budget) or they never do (distance LOD, a different fix).
+
+**Trailers on the in-store CRTs are feasible.** `ambient-tvs.ts` is a
+self-contained fixture owning its own `<video>`, HLS pipeline and VideoTexture,
+gated on `jellyfinUrl && jellyfinToken` with a test-card path when absent. Local
+MP4s off our own nginx need a contained edit, not a new pipeline. `bb_tvlib_*`
+under Settings → Playback → Overhead TVs selects the feeding library.
+
+**The band around the back wall** is most likely `bb_walldecor` ("Wall
+Displays": *featured-actor portraits + film-strip ribbon, right wall*), a toggle
+defaulting to false — movie branding we want gone anyway. Not confirmed.
+Separately, `glass-reflection.ts` does put real view-dependent reflections on the
+window glazing and side walls, so genuine mirror-like surfaces exist.
+
+**Branding is data further than expected.** `brand-pack.ts` plus the
+`bb_brand_pack` setting allow installable packs that ship wrap **scans**,
+replacing the `standard` variant — so the Halcyon-labelled tape prop is
+replaceable art. Removing it and centring the case is the code path
+(`store-inspect.ts` owns the flip cycle).
+
+**Not verified:** where the storefront window posters source their art.
+`poster-textures.ts` turned out to be the cover-upload pipeline;
+`storefront-facade.ts` / `logo-storefront.ts` are the likely owners.
+
+### Step 1 — what our own data says (2026-08-10, `CammyBlack02`, 898 games)
+
+| Field | Coverage | Consequence |
+|---|---|---|
+| `front_cover_image` | 897 / 898 | Our best asset, as assumed |
+| `back_cover_image` | 349 / 898 (39%) | PC 6% of 267, Xbox One 0% of 46, PS2 72% |
+| `release_date` | **0 / 898** | "New releases" has nothing to sort by |
+| `price_paid` | 72 / 898 | Bargain bin draws from 8% |
+| `condition` | 131 / 898 | — |
+| `star_rating` | 164 / 898 | — |
+
+Platform ids are collision-free (22 distinct CRC32 values) and `rom_count` sums
+to exactly 898, so no game is unreachable. Back covers are genuinely absent
+rather than dropped in transit: the 349 are 323 bare filenames and 26 URLs with
+**no data URIs**, and `game_images` holds zero rows, so there is no back art
+hiding elsewhere.
+
+**Section 4's claim that back covers need no work is true of the mechanism and
+false of the data.** The "mixed availability looks worse than none" warning
+written there about spines applies harder to backs, on the largest aisle.
+
+### Running it on more than one machine
+
+Assets belong in **their own private repository**, cloned into
+`public/user-assets/`. That path is already gitignored by the fork, so the two
+never conflict: one source of truth, `git pull` on each machine, version history
+on the art, and the fork stays clean enough to publish later — which committing
+the assets into it would permanently foreclose (see gameTracker issue #100 for
+the same mistake already made once, with an API key).
+
 **Step 2 — fork, native adapter.** Own repo, GPL-3.0. A `gametracker.ts` data
 source module mirroring `romm.ts`'s shape, reading `/api/v2/games/store.php`
 directly. Full fidelity: condition, ratings, completions, physical vs digital,
@@ -514,22 +647,39 @@ None of these depend on any of the above, and all remain worth doing:
   (Section 2).
 - **Browser-hosted, served from our own nginx**, not Tauri and not Remote Play
   (Section 8).
+- **No collection metadata on the case at all** (decided 2026-08-10, replacing
+  Section 6). No condition/price sticker, no insert or leaflet, no shelf-talkers.
+  A single clean case is more immersive, and the data agreed with the instinct:
+  only 131 of 898 games carry a condition and 164 a rating, so the panel would
+  have been empty for most titles. Step 2's adapter therefore does not need to
+  carry `condition`, `star_rating`, `review` or `game_completions`.
+- **The bargain bin is welcome sparse** (2026-08-10). 72 of 898 games have a
+  `price_paid`; a thinly-stocked bin is the intent, not a shortfall.
+- **Aisle signs, colours and store branding are asset work**, including console
+  logos. Never committed — they live in a separate private assets repo cloned
+  into the gitignored `public/user-assets/`.
+- **Assets sync via their own private repo**, not by copying folders between
+  machines and not by committing them to the fork.
 
 ## Open questions
 
-1. **Sticker placement.** Digital and condition/price are both proposed as
-   stickers on the case. Distinct corners, or one combined label? Needs deciding
-   before either is built.
-2. **Mixed spine availability.** If real spine scans get added for some titles
-   later, a run of mixed real and generated spines looks worse than all
-   generated. Style-to-match, or opt in per platform. See Section 4.
-3. **Multi-user.** gameTracker is multi-user; the store assumes one catalog.
+1. **Mixed spine availability.** Partly closed 2026-08-10: spines turn out to be
+   barely visible when flipping a case, so this matters much less than assumed.
+   Generated placeholders stand.
+2. **Multi-user.** gameTracker is multi-user; the store assumes one catalog.
    Whose collection does it show, and is a shared household store meaningful?
-4. **Collection size vs floor plan.** Largely answered in Section 7 — the store
-   sizes from a small-store baseline, thin sections self-fill with face-out
-   copies, and games-only mode gives every platform its own run. Confirm
-   empirically at Step 0 and Step 1 rather than estimating further.
+3. **Collection size vs floor plan.** Reopened by the walkthrough: the floor has
+   visible barren space, and the aisle count is 16 rather than the 22 platforms
+   we hold, because `platformLabel()` merges PlayStation and Xbox generations.
+   Whether to split them (and lose the canonical label's case geometry) or accept
+   merged generations is a Step 2 adapter decision. `bb_arrangement` offers three
+   floor plans and should be tried first.
+4. **Distant covers.** Queue latency or distance LOD — see the walkthrough
+   findings. One empirical test decides whether the fix is cheap.
 5. **gameTracker's LICENSE file.** Independent of everything else. Needs doing.
+6. **Where storefront window posters source their art.** Currently our covers;
+   we want a hand-picked set of period game adverts instead. Owner file not yet
+   identified.
 
 ---
 
